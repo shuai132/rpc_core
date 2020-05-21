@@ -4,3 +4,6 @@
 [submodule "modules/ArduinoJson"]
 	path = modules/ArduinoJson
 	url = https://gitee.com/shuai132/ArduinoJson.git
+[submodule "modules/MAKE_EVENT"]
+	path = modules/MAKE_EVENT
+	url = https://github.com/shuai132/MAKE_EVENT.git

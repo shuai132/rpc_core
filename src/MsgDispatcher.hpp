@@ -27,7 +27,7 @@ public:
 public:
     explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<coder::Coder> coder)
             : conn_(std::move(conn)), coder_(std::move(coder)) {
-        conn_->setOnPayloadHandle([this](const std::string& payload){
+        conn_->setRecvPayloadCb([this](const std::string& payload){
             bool success;
             auto msg = coder_->unserialize(payload, success);
             if (success) {
