@@ -27,7 +27,7 @@ public:
 public:
     explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<coder::Coder> coder)
             : conn_(std::move(conn)), coder_(std::move(coder)) {
-        conn_->setRecvPayloadCb([this](const std::string& payload){
+        conn_->setRecvPacketCb([this](const std::string& payload){
             bool success;
             auto msg = coder_->unserialize(payload, success);
             if (success) {
@@ -61,7 +61,7 @@ public:
                 }
                 const auto& fn = (*it).second;
                 auto resp = fn(msg);
-                conn_->sendPayload(coder_->serialize(resp));
+                conn_->sendPacket(coder_->serialize(resp));
             } break;
 
             case MsgWrapper::RESPONSE:
@@ -87,10 +87,10 @@ public:
         }
     }
 
-    inline void subscribeCmd(CmdType cmd, const CmdHandle& handle)
+    inline void subscribeCmd(CmdType cmd, CmdHandle handle)
     {
         LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
-        cmdHandleMap_[cmd] = handle;
+        cmdHandleMap_[std::move(cmd)] = std::move(handle);
     }
 
     void unsubscribeCmd(const CmdType& cmd)

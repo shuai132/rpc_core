@@ -203,7 +203,7 @@ private:
     inline void sendMessage(CmdType cmd, const Message& message = VOID, const RspHandle& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
         // 指定消息类型创建payload
-        conn_->sendPayload(CreateMessagePayload(cmd, message, cb, timeoutCb, timeoutMs));
+        conn_->sendPacket(CreateMessagePayload(cmd, message, cb, timeoutCb, timeoutMs));
     }
 
     /**
@@ -217,7 +217,7 @@ private:
      */
     inline std::string CreateMessagePayload(CmdType cmd, const Message& message = VOID, const RspHandle& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
-        auto msg = MsgWrapper::MakeCmd(cmd, seq_++, message);
+        auto msg = MsgWrapper::MakeCmd(std::move(cmd), seq_++, message);
         dispatcher_.subscribeRsp(msg.seq, cb, timeoutCb, timeoutMs);
         return coder_->serialize(msg);
     }
