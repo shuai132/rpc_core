@@ -33,7 +33,9 @@ const CmdType PONG = "RpcCore/pong";
 
 inline std::string CmdToStr(CmdType cmd) {
 #ifdef RpcCore_USE_INT_CMD_TYPE
-    return std::to_string(cmd).c_str();
+    char buf[32];
+    sprintf(buf, "%d", cmd);
+    return buf;
 #else
     return cmd;
 #endif

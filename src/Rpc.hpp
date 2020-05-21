@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <utility>
 
 #include "base/noncopyable.hpp"
@@ -225,7 +226,7 @@ private:
     std::shared_ptr<Connection> conn_;
     std::shared_ptr<coder::Coder> coder_;
     MsgDispatcher dispatcher_;
-    std::atomic<SeqType> seq_{0};
+    SeqType seq_{0};
 };
 
 }

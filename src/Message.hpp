@@ -42,6 +42,7 @@ const Void VOID{};
 
 struct String : Message, public std::string {
     using std::string::string;
+    String() = default;
     String(std::string str) {
         this->swap(str);
     }
