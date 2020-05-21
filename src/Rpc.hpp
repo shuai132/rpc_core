@@ -39,70 +39,66 @@ public:
     /**
      * 注册命令 接收消息 返回消息
      * @tparam T 接收消息的类型 这将决定解析行为 与发送时"发送参数类型"一致
-     * @tparam U 返回消息结果的类型 与发送时"回调参数类型"一致
+     * @tparam R 返回消息结果的类型 与发送时"回调参数类型"一致
      * @param cmd
-     * @param handle 接收T类型消息 返回RspType<T>类型消息作为回复 可使用R(Message, bool)构造 也可直接返回Message或bool
+     * @param handle 接收T类型消息 返回T类型消息作为回复 可使用R(Message, bool)构造 也可直接返回Message或bool
      */
-    template <typename T, typename U, ENSURE_TYPE_IS_MESSAGE(T), ENSURE_TYPE_IS_MESSAGE(U)>
-    void subscribe(CmdType cmd, const std::function<RspType<U>(T&&)>& handle) {
+    template <typename T, typename R, ENSURE_TYPE_IS_MESSAGE(T), ENSURE_TYPE_IS_MESSAGE(R)>
+    void subscribe(CmdType cmd, const std::function<R(T&&)>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
-            RspType<U> rsp = handle(msg.unpackAs<T>());
+            R rsp = handle(msg.unpackAs<T>());
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    rsp.message,
-                    rsp.success
+                    rsp
             );
         });
     }
 
     /**
-     * 注册命令 接收消息 返回bool
+     * 注册命令 接收 无回复
      * @tparam T 接收消息的类型
      * @param cmd
      * @param handle 接收数据 返回操作状态
      */
     template <typename T, ENSURE_TYPE_IS_MESSAGE(T)>
-    void subscribe(CmdType cmd, const std::function<bool(T&&)>& handle) {
+    void subscribe(CmdType cmd, const std::function<void(T&&)>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
-            bool success = handle(msg.unpackAs<T>());
+            handle(msg.unpackAs<T>());
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    VOID,
-                    success
+                    VOID
             );
         });
     }
 
     /**
-     * 注册命令 不接收消息 返回bool
+     * 注册命令 不接收 无回复
      * @param cmd
      * @param handle 不接收参数 返回操作状态
      */
-    inline void subscribe(CmdType cmd, const std::function<bool()>& handle) {
+    inline void subscribe(CmdType cmd, const std::function<void()>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
-            bool success = handle();
+            handle();
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    VOID,
-                    success
+                    VOID
             );
         });
     }
 
     /**
-     * 注册命令 不接收消息 返回消息
-     * @tparam T 返回给对方的数据类型
+     * 注册命令 不接收 有回复
+     * @tparam R 返回给对方的数据类型
      * @param cmd
      * @param handle 不接收参数 返回R(msg, true)形式
      */
-    template <typename T, ENSURE_TYPE_IS_MESSAGE(T)>
-    inline void subscribe(CmdType cmd, const std::function<RspType<T>()>& handle) {
+    template <typename R, ENSURE_TYPE_IS_MESSAGE(R)>
+    inline void subscribe(CmdType cmd, const std::function<R()>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
-            RspType<T> rsp = handle();
+            R rsp = handle();
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    rsp.message,
-                    rsp.success
+                    rsp
             );
         });
     }
@@ -116,18 +112,18 @@ public:
     }
 
     /**
-     * 发送命令和消息 获取回复消息
+     * 发送命令和消息 有回复
      * @tparam T 消息回复数据载体的类型
      * @param cmd 消息类型
      * @param message 消息数据
-     * @param cb 消息回调 参数类型RspType<T>
+     * @param cb 消息回调 参数类型T
      * @param timeoutCb 超时回调
      * @param timeoutMs 超时时间
      */
     template <typename T, ENSURE_TYPE_IS_MESSAGE(T)>
-    inline void send(CmdType cmd, const Message& message, const std::function<void(RspType<T>&&)>& cb, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
+    inline void send(CmdType cmd, const Message& message, const std::function<void(T&&)>& cb, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
         sendMessage(cmd, message, [cb](const MsgWrapper& msg) {
-            cb(RspType<T>(msg.success ? msg.unpackAs<T>() : T(), msg.success));
+            cb(T(msg.unpackAs<T>()));
         }, timeoutCb, timeoutMs);
     }
 
@@ -135,14 +131,14 @@ public:
      * 发送命令 获取回复消息
      * @tparam T 接收消息的类型
      * @param cmd
-     * @param cb 消息回调 参数类型RspType<T>
+     * @param cb 消息回调 参数类型T
      * @param timeoutCb 超时回调
      * @param timeoutMs 超时时间
      */
     template <typename T, ENSURE_TYPE_IS_MESSAGE(T)>
-    inline void send(CmdType cmd, const std::function<void(RspType<T>&&)>& cb, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
+    inline void send(CmdType cmd, const std::function<void(T&&)>& cb, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
         sendMessage(cmd, VOID, [cb](const MsgWrapper& msg) {
-            cb(RspType<T>(msg.success ? msg.unpackAs<T>() : T(), msg.success));
+            cb(T(msg.unpackAs<T>()));
         }, timeoutCb, timeoutMs);
     }
 
@@ -154,10 +150,10 @@ public:
      * @param timeoutCb 超时回调
      * @param timeoutMs 超时时间
      */
-    inline void send(CmdType cmd, const Message& message, const std::function<void(bool)>& cb = nullptr, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
+    inline void send(CmdType cmd, const Message& message, const std::function<void()>& cb = nullptr, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
         sendMessage(cmd, message, [cb](const MsgWrapper& msg) {
             if (cb != nullptr) {
-                cb(msg.success);
+                cb();
             }
         }, timeoutCb, timeoutMs);
     }
@@ -169,7 +165,7 @@ public:
      * @param timeoutCb 超时回调
      * @param timeoutMs 超时时间
      */
-    inline void send(CmdType cmd, const std::function<void(bool)>& cb = nullptr, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
+    inline void send(CmdType cmd, const std::function<void()>& cb = nullptr, const TimeoutCb& timeoutCb = nullptr, uint32_t timeoutMs = 3000) {
         send(cmd, VOID, cb, timeoutCb, timeoutMs);
     }
 

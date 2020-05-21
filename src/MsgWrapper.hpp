@@ -29,12 +29,11 @@ struct MsgWrapper : copyable {
     SeqType seq;
     CmdType cmd;
     MsgType type;
-    bool    success;
     std::string data;
 
     std::string dump() const {
         char tmp[100];
-        snprintf(tmp, 100, "seq:%u, type:%u, cmd:%u, success:%u", seq, type, cmd, success);
+        snprintf(tmp, 100, "seq:%u, type:%u, cmd:%u", seq, type, cmd);
         return tmp;
     }
 
@@ -76,10 +75,9 @@ struct MsgWrapper : copyable {
      * @param success 成功/失败
      * @return
      */
-    static MsgWrapper MakeRsp(SeqType seq, const Message& message = VOID, bool success = true) {
+    static MsgWrapper MakeRsp(SeqType seq, const Message& message = VOID) {
         MsgWrapper msg;
         msg.type = MsgWrapper::RESPONSE;
-        msg.success = success;
         msg.seq = seq;
         if ((intptr_t*) &message != (intptr_t*) &VOID) {
             msg.data = message.serialize();

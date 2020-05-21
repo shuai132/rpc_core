@@ -64,7 +64,7 @@ public:
 
             case MsgWrapper::RESPONSE:
             {
-                LOGD("dispatch rsp: seq=%d, success=%d, conn:%p", msg.seq, msg.success, conn_.get());
+                LOGD("dispatch rsp: seq=%d, conn:%p", msg.seq, conn_.get());
                 auto it = rspHandleMap_.find(msg.seq);
                 if (it == rspHandleMap_.cend()) {
                     LOGD("not register callback for response");

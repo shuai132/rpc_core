@@ -26,7 +26,6 @@ public:
                 doc["cmd"] = msg.cmd;
                 break;
             case MsgWrapper::RESPONSE:
-                doc["ok"] = (int)msg.success;   // for small size
                 break;
             default:
                 LOGE("unknown type:%d", msg.type);
@@ -55,7 +54,6 @@ public:
         msg.seq = doc["seq"];
         msg.cmd = doc["cmd"];
         msg.type = doc["type"];
-        msg.success = doc["ok"];
         msg.data = doc["data"].as<std::string>();   // todo: base64
         LOGD("unserialize: raw:%s, to:%s", payload.c_str(), msg.dump().c_str());
         ok = true;

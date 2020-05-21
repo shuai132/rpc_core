@@ -40,41 +40,36 @@ int main() {
         StringValue test_message;
         test_message.value = TEST_PAYLOAD;
 
-        LOG("1. sender发送命令 subscriber返回操作状态");
+        LOG("1. sender发送命令 subscriber无返回消息");
         {
             rpc.subscribe(AppMsg::CMD1, [] {
-                LOGI("get AppMsg::CMD1:");
-                return true;
+                LOGI("get AppMsg::CMD1");
             });
-            rpc.send(AppMsg::CMD1, [](bool success) {
-                LOGI("get rsp from AppMsg::CMD1: success=%s", success ? "true" : "false");
+            rpc.send(AppMsg::CMD1, [] {
+                LOGI("get rsp from AppMsg::CMD1");
             });
         }
 
-        LOG("2. sender发送数据 subscriber返回操作状态");
+        LOG("2. sender发送数据 subscriber无返回消息");
         {
             rpc.subscribe<StringValue>(AppMsg::CMD2, [&](const StringValue& msg) {
                 LOGI("get AppMsg::CMD2: %s", msg.value.c_str());
                 assert(msg.value == TEST_PAYLOAD);
-                return true;
             });
-            rpc.send(AppMsg::CMD2, test_message, [](bool success) {
-                LOGI("get rsp from AppMsg::CMD2: success=%s", success ? "true" : "false");
+            rpc.send(AppMsg::CMD2, test_message, []() {
+                LOGI("get rsp from AppMsg::CMD2");
             });
         }
 
-        LOG("3. sender请求数据 subscriber返回数据操作状态");
+        LOG("3. sender不发送数据 subscriber返回消息");
         {
             rpc.subscribe<StringValue>(AppMsg::CMD3, [&]() {
                 LOGI("get AppMsg::CMD3:");
-                return R(test_message, true);  // 也可以直接返回message或者bool
+                return test_message;
             });
-            rpc.send<StringValue>(AppMsg::CMD3, [&](const RspType<StringValue>& rsp) {
-                LOGI("get rsp from AppMsg::CMD3: success=%s", rsp.success ? "true" : "false");
-                if (rsp.success) {
-                    LOGI("msg=%s", rsp.message.value.c_str());
-                    assert(rsp.message.value == TEST_PAYLOAD);
-                }
+            rpc.send<StringValue>(AppMsg::CMD3, [&](const StringValue& rsp) {
+                LOGI("get rsp from AppMsg::CMD3: %s", rsp.value.c_str());
+                assert(rsp.value == TEST_PAYLOAD);
             });
         }
 
@@ -83,14 +78,11 @@ int main() {
             rpc.subscribe<StringValue, StringValue>(AppMsg::CMD4, [&](const StringValue& msg) {
                 LOGI("get AppMsg::CMD4: %s", msg.value.c_str());
                 assert(msg.value == TEST_PAYLOAD);
-                return R(test_message, true);    // 也可以直接返回msg或者bool
+                return test_message;
             });
-            rpc.send<StringValue>(AppMsg::CMD4, test_message, [&](const RspType<StringValue>& rsp) {
-                LOGI("get rsp from AppMsg::CMD4: success=%s", rsp.success ? "true" : "false");
-                if (rsp.success) {
-                    LOGI("msg=%s", rsp.message.value.c_str());
-                    assert(rsp.message.value == TEST_PAYLOAD);
-                }
+            rpc.send<StringValue>(AppMsg::CMD4, test_message, [&](const StringValue& rsp) {
+                LOGI("get rsp from AppMsg::CMD4: %s", rsp.value.c_str());
+                assert(rsp.value == TEST_PAYLOAD);
             });
         }
 
@@ -103,14 +95,11 @@ int main() {
             rpc.subscribe<MyInt, MyInt>(AppMsg::CMD5, [&](const MyInt& msg) {
                 LOGI("get AppMsg::CMD5: 0x%llx", msg.value);
                 assert(msg.value == TEST_VALUE);
-                return R(MyInt(TEST_VALUE), true);    // 也可以直接返回msg或者bool
+                return MyInt(TEST_VALUE);
             });
-            rpc.send<MyInt>(AppMsg::CMD5, MyInt(TEST_VALUE), [&](const RspType<MyInt>& rsp) {
-                LOGI("get rsp from AppMsg::CMD5: success=%s", rsp.success ? "true" : "false");
-                if (rsp.success) {
-                    LOGI("msg=0x%llx", rsp.message.value);
-                    assert(rsp.message.value == TEST_VALUE);
-                }
+            rpc.send<MyInt>(AppMsg::CMD5, MyInt(TEST_VALUE), [&](const MyInt& rsp) {
+                LOGI("get rsp from AppMsg::CMD5: 0x%llx", rsp.value);
+                assert(rsp.value == TEST_VALUE);
             });
         }
     }
