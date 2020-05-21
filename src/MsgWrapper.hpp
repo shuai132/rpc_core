@@ -41,7 +41,7 @@ struct MsgWrapper : copyable {
      * 将data解析为指定类型的数据
      * T为Message类型
      */
-    template<typename T, ENSURE_TYPE_IS_MESSAGE(T)>
+    template<typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
     T unpackAs() const {
         T message;
         bool ok = message.deSerialize(data);

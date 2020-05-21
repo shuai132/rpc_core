@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <utility>
 
 #include "base/noncopyable.hpp"
 #include "Connection.hpp"
@@ -17,10 +18,10 @@ namespace RpcCore {
 class MsgDispatcher : noncopyable {
 public:
     using CmdHandle = std::function<MsgWrapper(MsgWrapper)>;
-    using RspHandle = std::function<void(const MsgWrapper&)>;
+    using RspHandle = std::function<void(MsgWrapper)>;
 
     using TimeoutCb = std::function<void()>;
-    using SetTimeout = std::function<void(uint32_t ms, const TimeoutCb&)>;
+    using SetTimeout = std::function<void(uint32_t ms, TimeoutCb)>;
 
 public:
     explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<coder::Coder> coder)
@@ -102,17 +103,17 @@ public:
         }
     }
 
-    void subscribeRsp(SeqType seq, const RspHandle& handle, const TimeoutCb& timeoutCb, uint32_t timeoutMs)
+    void subscribeRsp(SeqType seq, RspHandle handle, const TimeoutCb& timeoutCb, uint32_t timeoutMs)
     {
         LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
         if (handle == nullptr) return;
-        rspHandleMap_[seq] = handle;
+        rspHandleMap_[seq] = std::move(handle);
 
         if(setTimeout_ == nullptr) {
             LOGW("no timeout will cause memory leak!");
         }
 
-        setTimeout_(timeoutMs, [=] {
+        setTimeout_(timeoutMs, [this, seq, timeoutCb] {
             auto it = rspHandleMap_.find(seq);
             if (it != rspHandleMap_.cend()) {
                 if (timeoutCb) {
@@ -129,9 +130,9 @@ public:
         return conn_;
     }
 
-    inline void setTimerFunc(const SetTimeout& timerFunc)
+    inline void setTimerFunc(SetTimeout timerFunc)
     {
-        setTimeout_ = timerFunc;
+        setTimeout_ = std::move(timerFunc);
     }
 
 private:
