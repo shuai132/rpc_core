@@ -8,22 +8,13 @@
 
 namespace RpcCore {
 
-const Void VOID{};
-
-using CmdType = uint32_t;
-using SeqType = uint32_t;
-
 /**
  * 包装数据 用于协议分析
  */
 struct MsgWrapper : copyable {
-    enum MsgType {
-        COMMAND,
-        RESPONSE,
-    };
-    enum InnerCmd {
-        PING,
-        PONG,
+    enum MsgType : uint8_t {
+        COMMAND = 0,
+        RESPONSE = 1,
     };
 
     SeqType seq;
@@ -33,7 +24,7 @@ struct MsgWrapper : copyable {
 
     std::string dump() const {
         char tmp[100];
-        snprintf(tmp, 100, "seq:%u, type:%u, cmd:%u", seq, type, cmd);
+        snprintf(tmp, 100, "seq:%u, type:%u, cmd:%s", seq, type, CmdToStr(cmd).c_str());
         return tmp;
     }
 

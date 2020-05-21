@@ -12,7 +12,7 @@ namespace coder {
 class JsonCoder : public Coder {
 public:
     explicit JsonCoder(size_t cap = 1024 * 4)
-    : cap_(std::max(cap, 256LU))
+    : cap_(std::max(cap, size_t{256}))
     {}
 
 public:
@@ -52,7 +52,11 @@ public:
             return msg;
         }
         msg.seq = doc["seq"];
+#ifdef RpcCore_USE_INT_CMD_TYPE
         msg.cmd = doc["cmd"];
+#else
+        msg.cmd = doc["cmd"].as<std::string>();
+#endif
         msg.type = doc["type"];
         msg.data = doc["data"].as<std::string>();   // todo: base64
         LOGD("unserialize: raw:%s, to:%s", payload.c_str(), msg.dump().c_str());

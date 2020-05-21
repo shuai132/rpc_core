@@ -112,7 +112,7 @@ public:
      * 取消注册的命令
      * @param cmd
      */
-    inline void unsubscribe(CmdType cmd) {
+    inline void unsubscribe(const CmdType& cmd) {
         dispatcher_.unsubscribeCmd(cmd);
     }
 
@@ -184,7 +184,7 @@ public:
     inline void sendPing(const std::string& payload = "", const PingCallback& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
         String message(payload);
-        sendMessage(MsgWrapper::PING, message, [cb](const MsgWrapper& msg) {
+        sendMessage(InnerCmd::PING, message, [cb](const MsgWrapper& msg) {
             if (cb == nullptr) return;
             cb(msg.unpackAs<String>());
         }, timeoutCb, timeoutMs);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <utility>
 
 #include "base/noncopyable.hpp"
@@ -37,8 +38,8 @@ public:
         });
 
         // 每一个连接要册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。
-        subscribeCmd(MsgWrapper::PING, [](MsgWrapper msg) {
-            msg.cmd = MsgWrapper::PONG;
+        subscribeCmd(InnerCmd::PING, [](MsgWrapper msg) {
+            msg.cmd = InnerCmd::PONG;
             return MsgWrapper::MakeRsp(msg.seq, msg.unpackAs<String>());
         });
     }
@@ -50,12 +51,12 @@ public:
             case MsgWrapper::COMMAND:
             {
                 // COMMAND
-                auto cmd = msg.cmd;
-                LOGD("dispatch cmd:%d, seq:%d, conn:%p", cmd, msg.seq, conn_.get());
+                const auto& cmd = msg.cmd;
+                LOGD("dispatch cmd:%s, seq:%d, conn:%p", CmdToStr(cmd).c_str(), msg.seq, conn_.get());
 
                 auto it = cmdHandleMap_.find(cmd);
                 if (it == cmdHandleMap_.cend()) {
-                    LOGD("not register cmd for: %d", cmd);
+                    LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
                     return;
                 }
                 const auto& fn = (*it).second;
@@ -88,18 +89,18 @@ public:
 
     inline void subscribeCmd(CmdType cmd, const CmdHandle& handle)
     {
-        LOGD("subscribeCmd conn:%p, cmd:%d, handle:%p", conn_.get(), cmd, &handle);
+        LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
         cmdHandleMap_[cmd] = handle;
     }
 
-    void unsubscribeCmd(CmdType cmd)
+    void unsubscribeCmd(const CmdType& cmd)
     {
         auto it = cmdHandleMap_.find(cmd);
         if (it != cmdHandleMap_.cend()) {
-            LOGD("erase cmd: %d", cmd);
+            LOGD("erase cmd: %s", CmdToStr(cmd).c_str());
             cmdHandleMap_.erase(it);
         } else {
-            LOGD("not register cmd for: %d", cmd);
+            LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
         }
     }
 

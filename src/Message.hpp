@@ -38,6 +38,7 @@ struct Value : Message {
 };
 
 using Void = Value<uint8_t>;
+const Void VOID{};
 
 struct String : Message, public std::string {
     using std::string::string;
