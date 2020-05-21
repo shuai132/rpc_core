@@ -1,0 +1,6 @@
+[submodule "modules/LOG"]
+	path = modules/LOG
+	url = https://github.com/shuai132/LOG.git
+[submodule "modules/ArduinoJson"]
+	path = modules/ArduinoJson
+	url = https://gitee.com/shuai132/ArduinoJson.git
