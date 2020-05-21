@@ -22,7 +22,7 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 比如`msgpack`，也可使用这个项目更简单：[https://github.com/shuai132/PacketProcessor.](https://github.com/shuai132/PacketProcessor)
 
 ## TestCase
-参考[FullTest.hpp](FullTest.hpp)
+详见[FullTest.hpp](FullTest.hpp)
 
 ### Clone
 因包含submodule，克隆仓库请添加`--recursive`参数，或clone后执行：
@@ -39,11 +39,17 @@ mkdir build && cd build && cmake .. && make
 
 ## Usage
 1. clone完整仓库
-2. 在自己的项目添加搜索路径 如cmake方式
+2. 在自己的项目添加搜索路径
+* 方式一：cmake
+```cmake
+add_subdirectory(RpcCore的目录)
+target_link_libraries(YOUR_TARGET RpcCore)
+```
+* 方式二：直接添加路径 cmake为例
 ```cmake
 include_directories(RpcCore)
 include_directories(RpcCore/modules/LOG)
 include_directories(RpcCore/modules/MAKE_EVENT)
 include_directories(RpcCore/modules/ArduinoJson/src)
 ```
-3. [参考TestCase](#TestCase)
+3. [具体用法参考TestCase](#TestCase)

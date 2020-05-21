@@ -6,7 +6,12 @@ project(RpcCore CXX)
 set(CMAKE_CXX_STANDARD 11)
 add_compile_options(-Wall)
 
-include_directories(modules/LOG)
-include_directories(modules/MAKE_EVENT)
-include_directories(modules/ArduinoJson/src)
+add_library(${PROJECT_NAME} INTERFACE)
+target_include_directories(${PROJECT_NAME} INTERFACE .
+        modules/LOG
+        modules/MAKE_EVENT
+        modules/ArduinoJson/src
+        )
+
 add_executable(${PROJECT_NAME}_example example.cpp)
+target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})
