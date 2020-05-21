@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstdint>
+#include <string.h>
 
 #include "base/copyable.hpp"
 
