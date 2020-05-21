@@ -1,10 +1,9 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
 #include "base/copyable.hpp"
-
-#define RpcCore_ENSURE_TYPE_IS_MESSAGE(T)   typename std::enable_if<std::is_base_of<Message, T>::value, int>::type = 0
 
 namespace RpcCore {
 
@@ -28,28 +27,28 @@ struct Value : Message {
     T value;
 
     Value() = default;
-    explicit Value(T v) : value(v) {}
+    Value(T v) : value(v) {}
 
     std::string serialize() const override {
-        // 因为有虚函数 要取value的地址
         return std::string((char*)&value, sizeof(T));
     };
-
     bool deSerialize(const std::string& data) override {
         return memcpy((void*)&value, data.data(), sizeof(T));
     };
 };
 
-using VoidValue = Value<char>;
+using Void = Value<uint8_t>;
 
-struct StringValue : public Message {
-    std::string value;
-
+struct String : Message, public std::string {
+    using std::string::string;
+    String(std::string str) {
+        this->swap(str);
+    }
     std::string serialize() const override {
-        return value;
+        return *this;
     }
     bool deSerialize(const std::string& data) override {
-        value = data;
+        *this = data;
         return true;
     }
 };

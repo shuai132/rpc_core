@@ -21,7 +21,7 @@ class Rpc : noncopyable {
     using RspHandle = MsgDispatcher::RspHandle;
     using TimeoutCb = MsgDispatcher::TimeoutCb;
 
-    using PingCallback = std::function<void(StringValue)>;
+    using PingCallback = std::function<void(String)>;
 
 public:
     explicit Rpc(
@@ -183,11 +183,10 @@ public:
      */
     inline void sendPing(const std::string& payload = "", const PingCallback& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
-        StringValue message;
-        message.value = payload;
+        String message(payload);
         sendMessage(MsgWrapper::PING, message, [cb](const MsgWrapper& msg) {
             if (cb == nullptr) return;
-            cb(msg.unpackAs<StringValue>());
+            cb(msg.unpackAs<String>());
         }, timeoutCb, timeoutMs);
     }
 

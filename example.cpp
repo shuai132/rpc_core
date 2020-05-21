@@ -29,16 +29,19 @@ int main() {
         // 此示例为回环的连接 不需要具体实现
     });
 
-    // 测试所用payload
-    const std::string TEST_PAYLOAD("Hello World");
-
-    // 注册和发送消息 根据使用场景不同 提供以下几种方式
-    // 此处收发类型均为StringValue 实际场景可为其他自定义的protobuf的Message类型
+    /**
+     * 注册和发送消息 根据使用场景不同 提供以下几种方式
+     * 注:
+     * 1. 收发类型为Message即可，可自定义序列化/反序列化。
+     * 2. 内部提供了常用的Message子类型。包括二进制数据 也可使用内部题二进制值类型。
+     * 3. send可附加超时回调和超时时间
+     */
     {
-        LOGI("start test...");
-        // 待测试消息
-        StringValue test_message;
-        test_message.value = TEST_PAYLOAD;
+        const std::string TEST("Hello World");
+        String test = TEST;
+        LOGI("测试开始...");
+        LOGI("TEST: %s, test: %s", TEST.c_str(), test.c_str());
+        assert(TEST == test);
 
         LOG("1. sender发送命令 subscriber无返回消息");
         {
@@ -52,63 +55,63 @@ int main() {
 
         LOG("2. sender发送数据 subscriber无返回消息");
         {
-            rpc.subscribe<StringValue>(AppMsg::CMD2, [&](const StringValue& msg) {
-                LOGI("get AppMsg::CMD2: %s", msg.value.c_str());
-                assert(msg.value == TEST_PAYLOAD);
+            rpc.subscribe<String>(AppMsg::CMD2, [&](const String& msg) {
+                LOGI("get AppMsg::CMD2: %s", msg.c_str());
+                assert(msg == TEST);
             });
-            rpc.send(AppMsg::CMD2, test_message, []() {
+            rpc.send(AppMsg::CMD2, test, []() {
                 LOGI("get rsp from AppMsg::CMD2");
             });
         }
 
         LOG("3. sender不发送数据 subscriber返回消息");
         {
-            rpc.subscribe<StringValue>(AppMsg::CMD3, [&]() {
+            rpc.subscribe<String>(AppMsg::CMD3, [&]() {
                 LOGI("get AppMsg::CMD3:");
-                return test_message;
+                return test;
             });
-            rpc.send<StringValue>(AppMsg::CMD3, [&](const StringValue& rsp) {
-                LOGI("get rsp from AppMsg::CMD3: %s", rsp.value.c_str());
-                assert(rsp.value == TEST_PAYLOAD);
+            rpc.send<String>(AppMsg::CMD3, [&](const String& rsp) {
+                LOGI("get rsp from AppMsg::CMD3: %s", rsp.c_str());
+                assert(rsp == TEST);
             });
         }
 
         LOG("4. 双端收发消息");
         {
-            rpc.subscribe<StringValue, StringValue>(AppMsg::CMD4, [&](const StringValue& msg) {
-                LOGI("get AppMsg::CMD4: %s", msg.value.c_str());
-                assert(msg.value == TEST_PAYLOAD);
-                return test_message;
+            rpc.subscribe<String, String>(AppMsg::CMD4, [&](const String& msg) {
+                LOGI("get AppMsg::CMD4: %s", msg.c_str());
+                assert(msg == TEST);
+                return test;
             });
-            rpc.send<StringValue>(AppMsg::CMD4, test_message, [&](const StringValue& rsp) {
-                LOGI("get rsp from AppMsg::CMD4: %s", rsp.value.c_str());
-                assert(rsp.value == TEST_PAYLOAD);
+            rpc.send<String>(AppMsg::CMD4, test, [&](const String& rsp) {
+                LOGI("get rsp from AppMsg::CMD4: %s", rsp.c_str());
+                assert(rsp == TEST);
             });
         }
 
         LOG("5. 值类型双端收发验证");
         {
-            const uint64_t TEST_VALUE = 0x1234567;
-            using MyInt = Value<uint64_t>;
+            const uint64_t VALUE = 0x1234567812345678;
+            using UInt64_t = Value<uint64_t>;
 
-            LOGI("TEST_VALUE: 0x%llx", TEST_VALUE);
-            rpc.subscribe<MyInt, MyInt>(AppMsg::CMD5, [&](const MyInt& msg) {
+            LOGI("TEST_VALUE: 0x%llx", VALUE);
+            rpc.subscribe<UInt64_t, UInt64_t>(AppMsg::CMD5, [&](const UInt64_t& msg) {
                 LOGI("get AppMsg::CMD5: 0x%llx", msg.value);
-                assert(msg.value == TEST_VALUE);
-                return MyInt(TEST_VALUE);
+                assert(msg.value == VALUE);
+                return VALUE;
             });
-            rpc.send<MyInt>(AppMsg::CMD5, MyInt(TEST_VALUE), [&](const MyInt& rsp) {
+            rpc.send<UInt64_t>(AppMsg::CMD5, UInt64_t(VALUE), [&](const UInt64_t& rsp) {
                 LOGI("get rsp from AppMsg::CMD5: 0x%llx", rsp.value);
-                assert(rsp.value == TEST_VALUE);
+                assert(rsp.value == VALUE);
             });
         }
     }
 
     LOG("PING PONG测试");
     {
-        rpc.sendPing(TEST_PAYLOAD, [&](const StringValue& payload) {
-            LOGI("get rsp from ping: %s", payload.value.c_str());
-            assert(payload.value == TEST_PAYLOAD);
+        rpc.sendPing("ping", [&](const String& payload) {
+            LOGI("get rsp from ping: %s", payload.c_str());
+            assert(payload == "ping");
         });
     }
 

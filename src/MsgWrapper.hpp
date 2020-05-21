@@ -8,7 +8,7 @@
 
 namespace RpcCore {
 
-const VoidValue VOID{};
+const Void VOID{};
 
 using CmdType = uint32_t;
 using SeqType = uint32_t;

@@ -39,7 +39,7 @@ public:
         // 每一个连接要册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。
         subscribeCmd(MsgWrapper::PING, [](MsgWrapper msg) {
             msg.cmd = MsgWrapper::PONG;
-            return MsgWrapper::MakeRsp(msg.seq, msg.unpackAs<StringValue>());
+            return MsgWrapper::MakeRsp(msg.seq, msg.unpackAs<String>());
         });
     }
 
