@@ -55,19 +55,27 @@ struct Raw : Message {
  */
 template <typename T, typename std::enable_if<std::is_class<T>::value, int>::type = 0>
 struct Struct : Message {
-    uint8_t align_size;
     T value;
+    uint8_t align_size;
 
     Struct() : align_size(alignof(T)) {}
-    Struct(T v) : align_size(alignof(T)), value(v) {}
+    Struct(T v) : value(v), align_size(alignof(T)) {}
 
     std::string serialize() const override {
-        return std::string((char*)&value, sizeof(T));
+        return std::string((char*)&value, sizeof(T) + 1);
     };
     bool deSerialize(const std::string& data) override {
-        memcpy((void*)&value, data.data(), sizeof(T));
-        return align_size == alignof(T);
-    };
+        if (data.size() != sizeof(T) + 1) {
+            LOGE("wrong data size");
+            return false;
+        }
+        memcpy(&value, data.data(), sizeof(T) + 1);
+        if (align_size != alignof(T)) {
+            LOGE("wrong align_size: alignof(T)=%d != %zu", align_size, alignof(T));
+            return false;
+        }
+        return true;
+    }
 };
 
 using Void = Raw<uint8_t>;
