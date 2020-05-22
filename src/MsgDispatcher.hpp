@@ -87,10 +87,10 @@ public:
         }
     }
 
-    inline void subscribeCmd(CmdType cmd, CmdHandle handle)
+    inline void subscribeCmd(const CmdType& cmd, CmdHandle handle)
     {
         LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
-        cmdHandleMap_[std::move(cmd)] = std::move(handle);
+        cmdHandleMap_[cmd] = std::move(handle);
     }
 
     void unsubscribeCmd(const CmdType& cmd)

@@ -8,7 +8,7 @@
  * 2. std::string 便于使用 系统占用"RpcCore/"开头的字符串
  */
 namespace AppMsg {
-using namespace RpcCore;
+    using namespace RpcCore;
 
 #ifdef RpcCore_USE_INT_CMD_TYPE
     const CmdType CMD1 = 1;

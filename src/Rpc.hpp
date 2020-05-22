@@ -22,8 +22,6 @@ class Rpc : noncopyable {
     using RspHandle = MsgDispatcher::RspHandle;
     using TimeoutCb = MsgDispatcher::TimeoutCb;
 
-    using PingCallback = std::function<void(String)>;
-
 public:
     explicit Rpc(
             std::shared_ptr<Connection> conn,
@@ -50,7 +48,7 @@ public:
      * @param handle 接收T类型消息 返回T类型消息作为回复 可使用R(Message, bool)构造 也可直接返回Message或bool
      */
     template <typename T, typename R, RpcCore_ENSURE_TYPE_IS_MESSAGE(T), RpcCore_ENSURE_TYPE_IS_MESSAGE(R)>
-    void subscribe(CmdType cmd, const std::function<R(T&&)>& handle) {
+    void subscribe(const CmdType& cmd, const std::function<R(T&&)>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
             R rsp = handle(msg.unpackAs<T>());
             return MsgWrapper::MakeRsp(
@@ -67,7 +65,7 @@ public:
      * @param handle 接收数据 返回操作状态
      */
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-    void subscribe(CmdType cmd, const std::function<void(T&&)>& handle) {
+    void subscribe(const CmdType& cmd, const std::function<void(T&&)>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
             handle(msg.unpackAs<T>());
             return MsgWrapper::MakeRsp(
@@ -83,7 +81,7 @@ public:
      * @param handle 不接收参数 返回操作状态
      */
     inline void subscribe(CmdType cmd, const std::function<void()>& handle) {
-        dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
+        dispatcher_.subscribeCmd(std::move(cmd), [handle](const MsgWrapper& msg) {
             handle();
             return MsgWrapper::MakeRsp(
                     msg.seq,
@@ -99,7 +97,7 @@ public:
      * @param handle 不接收参数 返回R(msg, true)形式
      */
     template <typename R, RpcCore_ENSURE_TYPE_IS_MESSAGE(R)>
-    inline void subscribe(CmdType cmd, const std::function<R()>& handle) {
+    inline void subscribe(const CmdType& cmd, const std::function<R()>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
             R rsp = handle();
             return MsgWrapper::MakeRsp(
@@ -127,7 +125,7 @@ public:
      * @param timeoutMs 超时时间
      */
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-    inline void send(CmdType cmd, const Message& message, const std::function<void(T&&)>& cb, RpcCore_TIMEOUT_PARAM) {
+    inline void send(const CmdType& cmd, const Message& message, const std::function<void(T&&)>& cb, RpcCore_TIMEOUT_PARAM) {
         sendMessage(cmd, message, [cb](const MsgWrapper& msg) {
             cb(T(msg.unpackAs<T>()));
         }, timeoutCb, timeoutMs);
@@ -142,7 +140,7 @@ public:
      * @param timeoutMs 超时时间
      */
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-    inline void send(CmdType cmd, const std::function<void(T&&)>& cb, RpcCore_TIMEOUT_PARAM) {
+    inline void send(const CmdType& cmd, const std::function<void(T&&)>& cb, RpcCore_TIMEOUT_PARAM) {
         sendMessage(cmd, VOID, [cb](const MsgWrapper& msg) {
             cb(T(msg.unpackAs<T>()));
         }, timeoutCb, timeoutMs);
@@ -157,7 +155,7 @@ public:
      * @param timeoutMs 超时时间
      */
     inline void send(CmdType cmd, const Message& message, const std::function<void()>& cb = nullptr, RpcCore_TIMEOUT_PARAM) {
-        sendMessage(cmd, message, [cb](const MsgWrapper& msg) {
+        sendMessage(std::move(cmd), message, [cb](const MsgWrapper& msg) {
             if (cb != nullptr) {
                 cb();
             }
@@ -172,7 +170,7 @@ public:
      * @param timeoutMs 超时时间
      */
     inline void send(CmdType cmd, const std::function<void()>& cb = nullptr, RpcCore_TIMEOUT_PARAM) {
-        send(cmd, VOID, cb, timeoutCb, timeoutMs);
+        send(std::move(cmd), VOID, cb, timeoutCb, timeoutMs);
     }
 
     /**
@@ -182,10 +180,9 @@ public:
      * @param timeoutCb 超时回调
      * @param timeoutMs 超时时间
      */
-    inline void sendPing(const std::string& payload = "", const PingCallback& cb = nullptr, RpcCore_TIMEOUT_PARAM)
+    inline void sendPing(const std::string& payload = "", const std::function<void(String)>& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
-        String message(payload);
-        sendMessage(InnerCmd::PING, message, [cb](const MsgWrapper& msg) {
+        sendMessage(InnerCmd::PING, String(payload), [cb](const MsgWrapper& msg) {
             if (cb == nullptr) return;
             cb(msg.unpackAs<String>());
         }, timeoutCb, timeoutMs);
@@ -203,7 +200,7 @@ private:
     inline void sendMessage(CmdType cmd, const Message& message = VOID, const RspHandle& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
         // 指定消息类型创建payload
-        conn_->sendPacket(CreateMessagePayload(cmd, message, cb, timeoutCb, timeoutMs));
+        conn_->sendPacket(CreateMessagePayload(std::move(cmd), message, cb, timeoutCb, timeoutMs));
     }
 
     /**
