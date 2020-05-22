@@ -108,10 +108,10 @@ inline void FullTest() {
 
         LOG("5. 值类型双端收发验证");
         {
-            const uint64_t VALUE = 0x1234567812345678;
+            const uint64_t VALUE = 0x00001234abcd0000;
             using UInt64_t = Value<uint64_t>;
 
-            LOGI("TEST_VALUE: 0x%llx", VALUE);
+            LOGI("TEST_VALUE: 0x%016llx", VALUE);
             rpc.subscribe<UInt64_t, UInt64_t>(AppMsg::CMD5, [&](const UInt64_t& msg) {
                 LOGI("get AppMsg::CMD5: 0x%llx", msg.value);
                 assert(msg.value == VALUE);

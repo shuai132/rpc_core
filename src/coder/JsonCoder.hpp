@@ -5,6 +5,7 @@
 
 #include "Coder.hpp"
 #include "ArduinoJson.h"
+#include "../../modules/cryptor/cryptor.hpp"
 
 namespace RpcCore {
 namespace coder {
@@ -32,7 +33,7 @@ public:
                 assert(false);
         }
         if (not msg.data.empty()) {
-            doc["data"] = msg.data; // todo: base64
+            doc["data"] = cryptor::encrypt(msg.data);
         }
 
         std::string payload;
@@ -58,7 +59,7 @@ public:
         msg.cmd = doc["cmd"].as<std::string>();
 #endif
         msg.type = doc["type"];
-        msg.data = doc["data"].as<std::string>();   // todo: base64
+        msg.data = cryptor::decrypt(doc["data"].as<std::string>());
         LOGD("unserialize: raw:%s, to:%s", payload.c_str(), msg.dump().c_str());
         ok = true;
         return msg;

@@ -7,3 +7,6 @@
 [submodule "modules/MAKE_EVENT"]
 	path = modules/MAKE_EVENT
 	url = https://github.com/shuai132/MAKE_EVENT.git
+[submodule "modules/cryptor"]
+	path = modules/cryptor
+	url = https://github.com/shuai132/cryptor.git
