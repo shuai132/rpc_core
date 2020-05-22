@@ -1,5 +1,9 @@
+#pragma once
+
 #include "RpcCore.hpp"
 #include "log.h"
+
+namespace RpcCoreTest {
 
 /**
  * 用户命令类型定义
@@ -32,7 +36,7 @@ namespace AppMsg {
  * 发送 =======CmdMessageType=====> 接收
  * 响应 <======RspMessageType====== 回复
  */
-inline void FullTest() {
+inline void RpcTest() {
     using namespace RpcCore;
     using String = RpcCore::String;
 
@@ -41,7 +45,7 @@ inline void FullTest() {
 
     // 创建Rpc 收发消息
     Rpc rpc(connection);
-    rpc.setTimerFunc([](uint32_t ms, const MsgDispatcher::TimeoutCb& cb){
+    rpc.setTimerFunc([](uint32_t ms, const MsgDispatcher::TimeoutCb& cb) {
         // 定时器实现 应当配合当前应用的事件循环 确保消息收发和超时在同一个线程
         // 此示例为回环的连接 不需要具体实现
     });
@@ -109,7 +113,24 @@ inline void FullTest() {
         LOG("5. 值类型双端收发验证");
         {
             const uint64_t VALUE = 0x00001234abcd0000;
-            using UInt64_t = Value<uint64_t>;
+            using UInt64_t = Raw<uint64_t>;
+
+            LOGI("TEST_VALUE: 0x%016llx", VALUE);
+            rpc.subscribe<UInt64_t, UInt64_t>(AppMsg::CMD5, [&](const UInt64_t& msg) {
+                LOGI("get AppMsg::CMD5: 0x%llx", msg.value);
+                assert(msg.value == VALUE);
+                return VALUE;
+            });
+            rpc.send<UInt64_t>(AppMsg::CMD5, UInt64_t(VALUE), [&](const UInt64_t& rsp) {
+                LOGI("get rsp from AppMsg::CMD5: 0x%llx", rsp.value);
+                assert(rsp.value == VALUE);
+            });
+        }
+
+        LOG("6. 自定义的结构体类型");
+        {
+            const uint64_t VALUE = 0x00001234abcd0000;
+            using UInt64_t = Raw<uint64_t>;
 
             LOGI("TEST_VALUE: 0x%016llx", VALUE);
             rpc.subscribe<UInt64_t, UInt64_t>(AppMsg::CMD5, [&](const UInt64_t& msg) {
@@ -131,4 +152,6 @@ inline void FullTest() {
             assert(payload == "ping");
         });
     }
+}
+
 }

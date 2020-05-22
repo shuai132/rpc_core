@@ -1,7 +1,16 @@
+#include "test/TypeTest.hpp"
+
 //#define RpcCore_USE_INT_CMD_TYPE
-#include "FullTest.hpp"
+#include "test/RpcTest.hpp"
+
+using namespace RpcCoreTest;
 
 int main() {
-    FullTest();
+    LOG("TypeTest...");
+    TypeTest();
+
+    LOG("RpcTest...");
+    RpcTest();
+
     return 0;
 }
