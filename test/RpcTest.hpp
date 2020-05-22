@@ -45,7 +45,7 @@ inline void RpcTest() {
 
     // 创建Rpc 收发消息
     Rpc rpc(connection);
-    rpc.setTimerFunc([](uint32_t ms, const MsgDispatcher::TimeoutCb& cb) {
+    rpc.setTimerImpl([](uint32_t ms, const MsgDispatcher::TimeoutCb& cb) {
         // 定时器实现 应当配合当前应用的事件循环 确保消息收发和超时在同一个线程
         // 此示例为回环的连接 不需要具体实现
     });

@@ -35,8 +35,8 @@ public:
         return conn_;
     }
 
-    inline void setTimerFunc(MsgDispatcher::SetTimeout timerFunc) {
-        dispatcher_.setTimerFunc(std::move(timerFunc));
+    inline void setTimerImpl(MsgDispatcher::TimerImpl timerImpl) {
+        dispatcher_.setTimerImpl(std::move(timerImpl));
     }
 
 public:
@@ -50,10 +50,14 @@ public:
     template <typename T, typename R, RpcCore_ENSURE_TYPE_IS_MESSAGE(T), RpcCore_ENSURE_TYPE_IS_MESSAGE(R)>
     void subscribe(const CmdType& cmd, const std::function<R(T&&)>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
-            R rsp = handle(msg.unpackAs<T>());
+            auto r = msg.unpackAs<T>();
+            if (r.first) {
+                handle(std::move(r.second));
+            }
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    rsp
+                    r.second,
+                    r.first
             );
         });
     }
@@ -67,10 +71,14 @@ public:
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
     void subscribe(const CmdType& cmd, const std::function<void(T&&)>& handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
-            handle(msg.unpackAs<T>());
+            auto r = msg.unpackAs<T>();
+            if (r.first) {
+                handle(std::move(r.second));
+            }
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    VOID
+                    r.second,
+                    r.first
             );
         });
     }
@@ -83,10 +91,7 @@ public:
     inline void subscribe(CmdType cmd, const std::function<void()>& handle) {
         dispatcher_.subscribeCmd(std::move(cmd), [handle](const MsgWrapper& msg) {
             handle();
-            return MsgWrapper::MakeRsp(
-                    msg.seq,
-                    VOID
-            );
+            return MsgWrapper::MakeRsp(msg.seq);
         });
     }
 
@@ -127,10 +132,13 @@ public:
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
     inline void send(const CmdType& cmd, const Message& message, const std::function<void(T&&)>& cb, RpcCore_TIMEOUT_PARAM) {
         sendMessage(cmd, message, [cb](const MsgWrapper& msg) {
-            cb(T(msg.unpackAs<T>()));
+            auto r = msg.unpackAs<T>();
+            if (r.first) {
+                cb(std::move(r.second));
+            }
+            return r.first;
         }, timeoutCb, timeoutMs);
     }
-
     /**
      * 发送命令 获取回复消息
      * @tparam T 接收消息的类型
@@ -142,7 +150,11 @@ public:
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
     inline void send(const CmdType& cmd, const std::function<void(T&&)>& cb, RpcCore_TIMEOUT_PARAM) {
         sendMessage(cmd, VOID, [cb](const MsgWrapper& msg) {
-            cb(T(msg.unpackAs<T>()));
+            auto r = msg.unpackAs<T>();
+            if (r.first) {
+                cb(std::move(r.second));
+            }
+            return r.first;
         }, timeoutCb, timeoutMs);
     }
 
@@ -159,6 +171,7 @@ public:
             if (cb != nullptr) {
                 cb();
             }
+            return true;
         }, timeoutCb, timeoutMs);
     }
 
@@ -180,11 +193,15 @@ public:
      * @param timeoutCb 超时回调
      * @param timeoutMs 超时时间
      */
-    inline void sendPing(const std::string& payload = "", const std::function<void(String)>& cb = nullptr, RpcCore_TIMEOUT_PARAM)
+    inline void sendPing(std::string payload = "", const std::function<void(String)>& cb = nullptr, RpcCore_TIMEOUT_PARAM)
     {
-        sendMessage(InnerCmd::PING, String(payload), [cb](const MsgWrapper& msg) {
-            if (cb == nullptr) return;
-            cb(msg.unpackAs<String>());
+        sendMessage(InnerCmd::PING, String(std::move(payload)), [cb](const MsgWrapper& msg) {
+            if (cb == nullptr) return true;
+            auto r = msg.unpackAs<String>();
+            if (r.first) {
+                cb(std::move(r.second));
+            }
+            return r.first;
         }, timeoutCb, timeoutMs);
     }
 

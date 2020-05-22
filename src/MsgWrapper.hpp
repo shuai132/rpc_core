@@ -33,13 +33,13 @@ struct MsgWrapper : copyable {
      * T为Message类型
      */
     template<typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-    T unpackAs() const {
+    std::pair<bool, T> unpackAs() const {
         T message;
         bool ok = message.deSerialize(data);
         if (not ok) {
             LOGE("serialize error, msg info:%s", dump().c_str());
         }
-        return message;
+        return std::make_pair(ok, message);
     }
 
     /**
@@ -62,18 +62,18 @@ struct MsgWrapper : copyable {
     /**
      * 创建Rsp消息
      * @param seq 对应Cmd的seq
-     * @param message 将保存在Msg.data
+     * @param message 将保存在MsgWrapper.data
      * @param success 成功/失败
      * @return
      */
-    static MsgWrapper MakeRsp(SeqType seq, const Message& message = VOID) {
+    static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, const Message& message = VOID, bool success = true) {
         MsgWrapper msg;
         msg.type = MsgWrapper::RESPONSE;
         msg.seq = seq;
         if ((intptr_t*) &message != (intptr_t*) &VOID) {
             msg.data = message.serialize();
         }
-        return msg;
+        return std::make_pair(success, msg);
     }
 };
 

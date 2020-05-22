@@ -32,9 +32,7 @@ public:
                 LOGE("unknown type:%d", msg.type);
                 assert(false);
         }
-        if (not msg.data.empty()) {
-            doc["data"] = cryptor::encrypt(msg.data);
-        }
+        doc["data"] = cryptor::encrypt(msg.data);
 
         std::string payload;
         serializeJson(doc, payload);

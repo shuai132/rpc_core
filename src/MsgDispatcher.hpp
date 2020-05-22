@@ -18,11 +18,15 @@ namespace RpcCore {
  */
 class MsgDispatcher : noncopyable {
 public:
-    using CmdHandle = std::function<MsgWrapper(MsgWrapper)>;
-    using RspHandle = std::function<void(MsgWrapper)>;
+    // 命令处理者 当接收到命令时回调：参数为命令携带的信息，返回值为序列化是否成功和返回的信息
+    using CmdHandle = std::function<std::pair<bool, MsgWrapper>(MsgWrapper)>;
+    // 回复处理者 当接收到响应时回调：参数为响应携带的信息，返回值为序列化是否成功
+    using RspHandle = std::function<bool(MsgWrapper)>;
 
+    // 超时回调 当期待时间内未收到正确响应时回调
     using TimeoutCb = std::function<void()>;
-    using SetTimeout = std::function<void(uint32_t ms, TimeoutCb)>;
+    // 定时器具体实现的接口
+    using TimerImpl = std::function<void(uint32_t ms, TimeoutCb)>;
 
 public:
     explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<coder::Coder> coder)
@@ -40,7 +44,8 @@ public:
         // 每一个连接要册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。
         subscribeCmd(InnerCmd::PING, [](MsgWrapper msg) {
             msg.cmd = InnerCmd::PONG;
-            return MsgWrapper::MakeRsp(msg.seq, msg.unpackAs<String>());
+            auto ret = msg.unpackAs<String>();
+            return MsgWrapper::MakeRsp(msg.seq, ret.second, ret.first);
         });
     }
 
@@ -61,7 +66,9 @@ public:
                 }
                 const auto& fn = (*it).second;
                 auto resp = fn(msg);
-                conn_->sendPacket(coder_->serialize(resp));
+                if (resp.first) {
+                    conn_->sendPacket(coder_->serialize(resp.second));
+                }
             } break;
 
             case MsgWrapper::RESPONSE:
@@ -77,9 +84,12 @@ public:
                     LOGE("rsp handle can not be null");
                     return;
                 }
-                cb(msg);
-                rspHandleMap_.erase(it);
-                LOGD("rspHandleMap_.size=%zu", rspHandleMap_.size());
+                if (cb(msg)) {
+                    rspHandleMap_.erase(it);
+                    LOGD("rspHandleMap_.size=%zu", rspHandleMap_.size());
+                } else {
+                    LOGE("may unserialize error");
+                }
             } break;
 
             default:
@@ -87,10 +97,10 @@ public:
         }
     }
 
-    inline void subscribeCmd(const CmdType& cmd, CmdHandle handle)
+    inline void subscribeCmd(CmdType cmd, CmdHandle handle)
     {
         LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
-        cmdHandleMap_[cmd] = std::move(handle);
+        cmdHandleMap_[std::move(cmd)] = std::move(handle);
     }
 
     void unsubscribeCmd(const CmdType& cmd)
@@ -110,11 +120,11 @@ public:
         if (handle == nullptr) return;
         rspHandleMap_[seq] = std::move(handle);
 
-        if(setTimeout_ == nullptr) {
+        if(timerImpl_ == nullptr) {
             LOGW("no timeout will cause memory leak!");
         }
 
-        setTimeout_(timeoutMs, [this, seq, timeoutCb] {
+        timerImpl_(timeoutMs, [this, seq, timeoutCb] {
             auto it = rspHandleMap_.find(seq);
             if (it != rspHandleMap_.cend()) {
                 if (timeoutCb) {
@@ -131,9 +141,9 @@ public:
         return conn_;
     }
 
-    inline void setTimerFunc(SetTimeout timerFunc)
+    inline void setTimerImpl(TimerImpl timerImpl)
     {
-        setTimeout_ = std::move(timerFunc);
+        timerImpl_ = std::move(timerImpl);
     }
 
 private:
@@ -141,7 +151,7 @@ private:
     std::shared_ptr<coder::Coder> coder_;
     std::map<CmdType, CmdHandle> cmdHandleMap_;
     std::map<SeqType, RspHandle> rspHandleMap_;
-    SetTimeout setTimeout_;
+    TimerImpl timerImpl_;
 };
 
 }
