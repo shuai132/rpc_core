@@ -41,6 +41,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     struct DisposeProto {
         virtual ~DisposeProto() = default;
         virtual SRequest addRequest(SRequest request) = 0;
+        virtual SRequest rmRequest(SRequest request) = 0;
     };
 
     enum class FinishType {
@@ -83,6 +84,9 @@ public:
 private:
     FinishType finishType_;
     void onFinish(FinishType type) {
+        if (not dispose_.expired()) {
+            dispose_.lock()->rmRequest(shared_from_this());
+        }
         finishType_ = type;
         if (finishCb_) {
             finishCb_(finishType_);
@@ -168,6 +172,7 @@ public:
     }
 
     SRequest addTo(const std::shared_ptr<DisposeProto>& dispose) {
+        dispose_ = dispose;
         auto self = shared_from_this();
         dispose->addRequest(self);
         return self;
@@ -175,6 +180,7 @@ public:
 
 private:
     bool inited_ = false;
+    std::weak_ptr<DisposeProto> dispose_;
 
 #ifdef RpcCore_THREAD_SUPPORT
 private:

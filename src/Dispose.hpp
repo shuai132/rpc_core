@@ -21,6 +21,20 @@ public:
         return request;
     }
 
+    SRequest rmRequest(SRequest request) override {
+        auto it = targetRequestMap.find(request->target());
+        if (it == targetRequestMap.cend()) return request;
+        auto& vector = it->second;
+        for (auto r = vector.cbegin(); r != vector.cend();) {
+            if (*r == request) {
+                vector.erase(r);
+            } else {
+                r++;
+            }
+        }
+        return request;
+    }
+
     void cancelTarget(void* target) {
         auto it = targetRequestMap.find(target);
         if (it == targetRequestMap.cend()) return;
