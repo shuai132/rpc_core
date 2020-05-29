@@ -12,7 +12,6 @@
 namespace RpcCore {
 
 #define RpcCore_Request_MAKE_PROP(type, name) \
-        struct {}; /* NOLINT */ \
         private: \
         type name##_; \
         public: \
@@ -74,8 +73,8 @@ public:
 
 private:
     FinishType finishType_;
-    void onFinish(FinishType type) {
-        if (not dispose_.expired()) {
+    void onFinish(FinishType type, bool byDispose = false) {
+        if (not dispose_.expired() && not byDispose) {
             dispose_.lock()->rmRequest(shared_from_this());
         }
         finishType_ = type;
@@ -118,10 +117,10 @@ public:
         return shared_from_this();
     }
 
-    SRequest cancel() {
+    SRequest cancel(bool byDispose = false) {
         assert(inited_);
         canceled(true);
-        onFinish(FinishType::CANCELED);
+        onFinish(FinishType::CANCELED, byDispose);
         return shared_from_this();
     }
 

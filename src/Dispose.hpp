@@ -1,5 +1,9 @@
 #pragma once
 
+#include <map>
+#include <set>
+#include <memory>
+
 #include "base/noncopyable.hpp"
 #include "Request.hpp"
 #include "MakeEvent.hpp"
@@ -7,7 +11,7 @@
 namespace RpcCore {
 
 class Dispose : noncopyable, public Request::DisposeProto {
-    std::map<void*, std::vector<SRequest>> targetRequestMap;
+    std::map<void*, std::set<SRequest>> targetRequestMap;
     MAKE_EVENT(Destroy);
 
 public:
@@ -17,21 +21,15 @@ public:
 
 public:
     SRequest addRequest(SRequest request) override {
-        targetRequestMap[request->target()].emplace_back(std::move(request));
+        targetRequestMap[request->target()].insert(std::move(request));
         return request;
     }
 
     SRequest rmRequest(SRequest request) override {
         auto it = targetRequestMap.find(request->target());
         if (it == targetRequestMap.cend()) return request;
-        auto& vector = it->second;
-        for (auto r = vector.begin(); r != vector.cend();) {
-            if (*r == request) {
-                vector.erase(r);
-            } else {
-                r++;
-            }
-        }
+        auto& rs = it->second;
+        it->second.erase(rs.find(request));
         return request;
     }
 
@@ -40,7 +38,7 @@ public:
         if (it == targetRequestMap.cend()) return;
         for (const auto& request : it->second) {
             if (request->target() == target) {
-                request->cancel();
+                request->cancel(true);
             }
         }
         targetRequestMap.erase(it);
@@ -49,7 +47,7 @@ public:
     void cancelAll() {
         for(auto& m : targetRequestMap) {
             for (const auto& request : m.second) {
-                request->cancel();
+                request->cancel(true);
             }
             m.second.clear();
         }
@@ -67,7 +65,7 @@ public:
     // RAII
     ~Dispose() override {
         LOGD("~Dispose: will cancel: %zu", getRequestSize());
-        // cancelAll(); // 自动就析构了
+        cancelAll();
         onDestroy();
     }
 };
