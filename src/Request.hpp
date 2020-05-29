@@ -167,6 +167,9 @@ public:
         return shared_from_this();
     }
 
+    /**
+     * 添加到dispose并且当执行完成后 自动从dispose删除
+     */
     SRequest addTo(const std::shared_ptr<DisposeProto>& dispose) {
         dispose_ = dispose;
         auto self = shared_from_this();

@@ -10,6 +10,9 @@
 
 namespace RpcCore {
 
+/**
+ * 用于管理取消Request
+ */
 class Dispose : noncopyable, public Request::DisposeProto {
     std::map<void*, std::set<SRequest>> targetRequestMap;
     MAKE_EVENT(Destroy);

@@ -152,18 +152,14 @@ public:
     }
 
     void sendRequest(const SRequest& request) override {
-        dispose->addRequest(request);
+        request->addTo(dispose);
         dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
         auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->payload());
         conn_->sendPacket(coder_->serialize(msg));
     }
 
 public:
-#if _LIBCPP_STD_VER >= 14
-    std::unique_ptr<Dispose> dispose = std::make_unique<Dispose>();
-#else
-    std::unique_ptr<Dispose> dispose = std::unique_ptr<Dispose>(new Dispose());
-#endif
+    std::shared_ptr<Dispose> dispose = std::make_shared<Dispose>();
 
 private:
     std::shared_ptr<Connection> conn_;
