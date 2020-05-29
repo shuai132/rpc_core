@@ -2,14 +2,13 @@
 
 #include <memory>
 #include <utility>
-#include <thread>
-#include <future>
 
 #include "base/noncopyable.hpp"
 #include "Connection.hpp"
 #include "MsgDispatcher.hpp"
 #include "coder/JsonCoder.hpp"
 #include "Request.hpp"
+#include "Dispose.hpp"
 
 namespace RpcCore {
 /**
@@ -35,7 +34,9 @@ public:
             return MsgWrapper::MakeRsp(msg.seq, ret.second, ret.first);
         });
     }
-    virtual ~Rpc() = default;
+    ~Rpc() override {
+        LOGD("~Rpc");
+    };
 
 public:
     inline std::shared_ptr<Connection> getConn() const {
@@ -130,10 +131,8 @@ public:
 
     /// 发送消息
 public:
-    inline SRequest makeRequest() {
-        auto request = Request::MakeRequest(shared_from_this());
-        request->init();
-        return request;
+    inline SRequest createRequest() {
+        return Request::create(shared_from_this());
     }
 
     /**
@@ -141,7 +140,7 @@ public:
      */
     inline SRequest ping(std::string payload = "")
     {
-        auto request = makeRequest();
+        auto request = createRequest();
         request->init();
         request->cmd(InnerCmd::PING);
         request->setMessage(String(std::move(payload)));
@@ -154,18 +153,14 @@ public:
     }
 
     void sendRequest(const SRequest& request) override {
-        conn_->sendPacket(CreateMessagePayload(request));
-    }
-
-    /**
-     * 创建消息并设置回调 返回Payload用于传输
-     */
-    inline std::string CreateMessagePayload(const SRequest& request)
-    {
+        dispose->addRequest(request);
         dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
         auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->payload());
-        return coder_->serialize(msg);
+        conn_->sendPacket(coder_->serialize(msg));
     }
+
+public:
+    std::unique_ptr<Dispose> dispose = std::unique_ptr<Dispose>(new Dispose());
 
 private:
     std::shared_ptr<Connection> conn_;

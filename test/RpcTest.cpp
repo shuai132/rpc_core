@@ -66,7 +66,7 @@ void RpcTest() {
             return test;
         });
         // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
-        auto request = rpc->makeRequest()
+        auto request = rpc->createRequest()
                 ->cmd(AppMsg::CMD1)
                 ->setMessage(test)
                 ->setCb<String>([&](const String& rsp) {
@@ -79,10 +79,10 @@ void RpcTest() {
                 ->finishCb([](FinishType type){
                     LOGI("完成: type:%d", type);
                 });
-
+        LOGI("执行请求");
+        request->call();
         // 其他功能测试
         LOGI("多次调用");
-        request->call();
         request->call();
         LOGI("可以取消");
         request->cancel();
@@ -97,6 +97,10 @@ void RpcTest() {
         dispose.addRequest(request);
         dispose.cancelTarget(target);
         request->call();
+        LOGI("先创建Request");
+        Request::create(rpc)
+                ->cmd("request2")
+                ->call();
     }
 
     LOG("2. 值类型双端收发验证");
@@ -111,7 +115,7 @@ void RpcTest() {
             return VALUE;
         });
 
-        rpc->makeRequest()
+        rpc->createRequest()
                 ->cmd(AppMsg::CMD2)
                 ->setMessage(UInt64_t(VALUE))
                 ->setCb<UInt64_t>([&](const UInt64_t& rsp) {
@@ -133,7 +137,7 @@ void RpcTest() {
             assert(msg.value.c == 3);
             return testStruct;
         });
-        rpc->makeRequest()
+        rpc->createRequest()
                 ->cmd(AppMsg::CMD3)
                 ->setMessage(RStruct(testStruct))
                 ->setCb<RStruct>([&](const RStruct& rsp) {
