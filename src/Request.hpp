@@ -63,21 +63,12 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 public:
     std::function<void()> timeoutCb_;
     std::shared_ptr<Request> timeoutCb(std::function<void()> timeoutCb) {
-#if _LIBCPP_STD_VER >= 14
-        timeoutCb_ = [this, timeoutCb = std::move(timeoutCb)]{
+        timeoutCb_ = [this, timeoutCb]{
             if (timeoutCb) {
                 timeoutCb();
             }
             onFinish(FinishType::TIMEOUT);
         };
-#else
-        timeoutCb_ = std::bind([this](const std::function<void()>& timeoutCb){
-            if (timeoutCb) {
-                timeoutCb();
-            }
-            onFinish(FinishType::TIMEOUT);
-        }, std::move(timeoutCb));
-#endif
         return shared_from_this();
     }
 
@@ -114,6 +105,7 @@ public:
         target(nullptr);
         canceled(false);
         timeoutCb(nullptr);
+        setCb(nullptr);
         inited_ = true;
     }
 
@@ -137,12 +129,13 @@ public:
     SRequest setCb(std::function<void(T&&)> cb) {
         this->rspHandle_ = [this, cb](MsgWrapper msg){
             if (canceled()) {
+                onFinish(FinishType::CANCELED);
                 return true;
             }
 
             auto rsp = msg.unpackAs<T>();
             if (rsp.first) {
-                cb(std::forward<T>(rsp.second));
+                if (cb) cb(std::forward<T>(rsp.second));
                 onFinish(FinishType::NORMAL);
                 return true;
             }
@@ -153,7 +146,11 @@ public:
 
     SRequest setCb(std::function<void()> cb) {
         this->rspHandle_ = [this, cb](const MsgWrapper&){
-            cb();
+            if (canceled()) {
+                onFinish(FinishType::CANCELED);
+                return true;
+            }
+            if (cb) cb();
             notify();
             return true;
         };
@@ -182,7 +179,7 @@ private:
     bool inited_ = false;
     std::weak_ptr<DisposeProto> dispose_;
 
-#ifdef RpcCore_THREAD_SUPPORT
+#ifdef RpcCore_THREAD_SUPPORT // todo: 待实现 当前只可以在其他线程中等待
 private:
     std::mutex mutex_;
     std::condition_variable cond_;

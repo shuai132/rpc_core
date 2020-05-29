@@ -25,7 +25,7 @@ public:
         auto it = targetRequestMap.find(request->target());
         if (it == targetRequestMap.cend()) return request;
         auto& vector = it->second;
-        for (auto r = vector.cbegin(); r != vector.cend();) {
+        for (auto r = vector.begin(); r != vector.cend();) {
             if (*r == request) {
                 vector.erase(r);
             } else {
@@ -56,9 +56,18 @@ public:
         targetRequestMap.clear();
     }
 
+    size_t getRequestSize() {
+        size_t sum = 0;
+        for(const auto& m : targetRequestMap) {
+            sum += m.second.size();
+        }
+        return sum;
+    }
+
     // RAII
     ~Dispose() override {
-        cancelAll();
+        LOGD("~Dispose: will cancel: %zu", getRequestSize());
+        // cancelAll(); // 自动就析构了
         onDestroy();
     }
 };

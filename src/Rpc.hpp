@@ -141,7 +141,6 @@ public:
     inline SRequest ping(std::string payload = "")
     {
         auto request = createRequest();
-        request->init();
         request->cmd(InnerCmd::PING);
         request->setMessage(String(std::move(payload)));
         return request;
@@ -160,7 +159,11 @@ public:
     }
 
 public:
+#if _LIBCPP_STD_VER >= 14
+    std::unique_ptr<Dispose> dispose = std::make_unique<Dispose>();
+#else
     std::unique_ptr<Dispose> dispose = std::unique_ptr<Dispose>(new Dispose());
+#endif
 
 private:
     std::shared_ptr<Connection> conn_;
