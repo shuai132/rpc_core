@@ -48,14 +48,12 @@ struct MsgWrapper : copyable {
      * @param data
      * @return
      */
-    static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, const Message& data = VOID) {
+    static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, const std::string& data = "") {
         MsgWrapper msg;
         msg.type = MsgWrapper::COMMAND;
         msg.cmd = std::move(cmd);
         msg.seq = seq;
-        if (&data != &VOID) {
-            msg.data = data.serialize();
-        }
+        msg.data = data;
         return msg;
     }
 

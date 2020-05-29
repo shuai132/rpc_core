@@ -15,6 +15,9 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 * 自定义连接 支持任何形式（串口、TCP等）
 * 支持自定义序列化反序列化方式 默认实现使用json
 * 提供基本数据类型、结构体、二进制类型的序列化实现
+* 支持取消请求 单个请求或指定target
+* 提供finally回调 获取、超时、取消都会调用
+* 提供阻塞方法 可以wait一个请求直到结果或超时
 
 ## Requirements
 * C++11编译器 （不需要特别完整 大部分支持C++11的MCU编译器均可）
@@ -22,7 +25,7 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 比如`msgpack`，也可使用这个项目更简单：[https://github.com/shuai132/PacketProcessor.](https://github.com/shuai132/PacketProcessor)
 
 ## TestCase
-详见[RpcTest.hpp](test/RpcTest.hpp)
+详见[RpcTest.cpp](test/RpcTest.cpp)
 
 ### Clone
 因包含submodule，克隆仓库请添加`--recursive`参数，或clone后执行：

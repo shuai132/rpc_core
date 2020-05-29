@@ -13,5 +13,5 @@ target_include_directories(${PROJECT_NAME} INTERFACE .
         modules/ArduinoJson/src
         )
 
-add_executable(${PROJECT_NAME}_example example.cpp)
+add_executable(${PROJECT_NAME}_example example.cpp test/RpcTest.cpp test/TypeTest.cpp)
 target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})

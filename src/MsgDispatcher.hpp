@@ -40,16 +40,9 @@ public:
                 LOGE("payload can not be parsed, msg info");
             }
         });
-
-        // 每一个连接要册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。
-        subscribeCmd(InnerCmd::PING, [](MsgWrapper msg) {
-            msg.cmd = InnerCmd::PONG;
-            auto ret = msg.unpackAs<String>();
-            return MsgWrapper::MakeRsp(msg.seq, ret.second, ret.first);
-        });
     }
 
-public:
+private:
     void dispatch(const MsgWrapper& msg)
     {
         switch (msg.type) {
@@ -97,6 +90,7 @@ public:
         }
     }
 
+public:
     inline void subscribeCmd(CmdType cmd, CmdHandle handle)
     {
         LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);

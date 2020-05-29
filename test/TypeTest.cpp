@@ -1,5 +1,4 @@
-#pragma once
-
+#include "Test.h"
 #include "RpcCore.hpp"
 
 namespace RpcCoreTest {
@@ -9,7 +8,7 @@ struct MyData {
     uint16_t b;
 };
 
-inline void TypeTest() {
+void TypeTest() {
     using namespace RpcCore;
     {
         LOGD("Raw<uint64_t>...");
