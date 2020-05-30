@@ -98,9 +98,9 @@ void RpcTest() {
         dispose.cancelTarget(target);
         request->call();
         LOGI("先创建Request");
-        Request::create(rpc)
+        Request::create()
                 ->cmd("request2")
-                ->call();
+                ->call(rpc);
     }
 
     LOG("2. 值类型双端收发验证");

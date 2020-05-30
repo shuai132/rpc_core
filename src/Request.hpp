@@ -25,6 +25,7 @@ namespace RpcCore {
 
 struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     using SRequest = std::shared_ptr<Request>;
+    using WRequest = std::weak_ptr<Request>;
 
     struct RpcProto {
         virtual ~RpcProto() = default;
@@ -36,20 +37,25 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
             assert(false);
         }
     };
+    using SRpcProto = std::shared_ptr<RpcProto>;
+    using WRpcProto = std::weak_ptr<RpcProto>;
 
     struct DisposeProto {
         virtual ~DisposeProto() = default;
         virtual SRequest addRequest(SRequest request) = 0;
         virtual SRequest rmRequest(SRequest request) = 0;
     };
+    using SDisposeProto = std::shared_ptr<DisposeProto>;
+    using WDisposeProto = std::weak_ptr<DisposeProto>;
 
     enum class FinishType {
         NORMAL,
         TIMEOUT,
         CANCELED,
+        RPC_EXPIRED,
     };
 
-    RpcCore_Request_MAKE_PROP(std::shared_ptr<RpcProto>, rpc);
+    RpcCore_Request_MAKE_PROP(WRpcProto, rpc);
     RpcCore_Request_MAKE_PROP(CmdType, cmd);
     RpcCore_Request_MAKE_PROP(void*, target);
     RpcCore_Request_MAKE_PROP(SeqType, seq);
@@ -91,9 +97,9 @@ private:
     }
 
 public:
-    explicit Request(std::shared_ptr<RpcProto> rpc = nullptr) : rpc_(std::move(rpc)) {}
+    explicit Request(const SRpcProto& rpc = nullptr) : rpc_(rpc) {}
 
-    static SRequest create(std::shared_ptr<Request::RpcProto> rpc = nullptr) {
+    static SRequest create(SRpcProto rpc = nullptr) {
         auto request = std::make_shared<Request>(rpc);
         request->init();
         return request;
@@ -109,12 +115,22 @@ public:
     }
 
 public:
-    SRequest call(std::shared_ptr<RpcProto> rpc = nullptr) {
+    SRequest call(const SRpcProto& rpc = nullptr) {
         assert(inited_);
-        if (rpc) rpc_ = std::move(rpc);
-        seq_ = rpc_->makeSeq();
-        rpc_->sendRequest(shared_from_this());
-        return shared_from_this();
+
+        if (canceled()) return shared_from_this();
+
+        auto self = shared_from_this();
+        if (rpc) {
+            rpc_ = rpc;
+        } else if (rpc_.expired()) {
+            onFinish(FinishType::RPC_EXPIRED);
+            return self;
+        }
+        auto r = rpc_.lock();
+        seq_ = r->makeSeq();
+        r->sendRequest(self);
+        return self;
     }
 
     SRequest cancel(bool byDispose = false) {
@@ -179,7 +195,7 @@ public:
 
 private:
     bool inited_ = false;
-    std::weak_ptr<DisposeProto> dispose_;
+    WDisposeProto dispose_;
 
 #ifdef RpcCore_THREAD_SUPPORT // todo: 待实现 当前只可以在其他线程中等待
 private:
@@ -192,6 +208,7 @@ public:
     }
 #endif
 };
+
 using SMessage = std::shared_ptr<Message>;
 using SRequest = std::shared_ptr<Request>;
 using FinishType = Request::FinishType;

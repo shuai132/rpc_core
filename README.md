@@ -56,3 +56,20 @@ include_directories(RpcCore/modules/MAKE_EVENT)
 include_directories(RpcCore/modules/ArduinoJson/src)
 ```
 3. [具体用法参考TestCase](#TestCase)
+
+## Design
+### 类说明
+* Connection    提供收发实现 不存在连接断开状态 但可以控制它是否收发
+* Message       用户消息接口 自定义序列化/反序列化规则
+* MsgWrapper    包装Message 用于封装一致的消息格式和传输
+* MsgDispatcher 解析MsgWrapper 分发消息
+* Coder         MsgWrapper序列化接口 
+* JsonCoder     Coder的Json实现
+* Request       消息请求 提供设置Message、接收/超时回调、取消等方法
+* Dispose       管理Request
+* Rpc           对外接口 提供注册消息和创建请求的方法
+### LifeCycle
+* Connection是全局的
+* Request不持有Rpc 发送到完成之间Rpc持有Request(为了接收响应)
+* Dispose持有Request 但Request完成时会自动从Dispose移除
+* Request持有Dispose的弱引用 完成时如果它存在就从它移除

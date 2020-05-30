@@ -152,14 +152,10 @@ public:
     }
 
     void sendRequest(const SRequest& request) override {
-        request->addTo(dispose);
         dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
         auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->payload());
         conn_->sendPacket(coder_->serialize(msg));
     }
-
-public:
-    std::shared_ptr<Dispose> dispose = std::make_shared<Dispose>();
 
 private:
     std::shared_ptr<Connection> conn_;
