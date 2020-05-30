@@ -80,6 +80,7 @@ public:
 private:
     FinishType finishType_;
     void onFinish(FinishType type, bool byDispose = false) {
+        LOGV("onFinish: cmd:%s, %p", cmd().c_str(), this);
         if (not dispose_.expired() && not byDispose) {
             dispose_.lock()->rmRequest(shared_from_this());
         }
@@ -98,6 +99,9 @@ private:
 
 public:
     explicit Request(const SRpcProto& rpc = nullptr) : rpc_(rpc) {}
+    ~Request() {
+        LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
+    }
 
     static SRequest create(SRpcProto rpc = nullptr) {
         auto request = std::make_shared<Request>(rpc);
@@ -142,7 +146,8 @@ public:
 
     template<typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
     SRequest setCb(std::function<void(T&&)> cb) {
-        this->rspHandle_ = [this, cb](MsgWrapper msg){
+        auto self = shared_from_this();
+        this->rspHandle_ = [this, cb, self](MsgWrapper msg){
             if (canceled()) {
                 onFinish(FinishType::CANCELED);
                 return true;
@@ -160,7 +165,8 @@ public:
     }
 
     SRequest setCb(std::function<void()> cb) {
-        this->rspHandle_ = [this, cb](const MsgWrapper&){
+        auto self = shared_from_this();
+        this->rspHandle_ = [this, cb, self](const MsgWrapper&){
             if (canceled()) {
                 onFinish(FinishType::CANCELED);
                 return true;
@@ -186,7 +192,7 @@ public:
     /**
      * 添加到dispose并且当执行完成后 自动从dispose删除
      */
-    SRequest addTo(const std::shared_ptr<DisposeProto>& dispose) {
+    SRequest addTo(const SDisposeProto& dispose) {
         dispose_ = dispose;
         auto self = shared_from_this();
         dispose->addRequest(self);
@@ -209,8 +215,7 @@ public:
 #endif
 };
 
-using SMessage = std::shared_ptr<Message>;
-using SRequest = std::shared_ptr<Request>;
+using SRequest = Request::SRequest;
 using FinishType = Request::FinishType;
 
 }

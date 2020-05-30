@@ -3,6 +3,8 @@
 #include <map>
 #include <set>
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "base/noncopyable.hpp"
 #include "Request.hpp"
@@ -16,19 +18,26 @@ namespace RpcCore {
 class Dispose : noncopyable, public Request::DisposeProto {
     std::map<void*, std::set<SRequest>> targetRequestMap;
     MAKE_EVENT(Destroy);
+public:
+    std::string name_;
 
 public:
-    static std::shared_ptr<Dispose> create() {
-        return std::make_shared<Dispose>();
+    explicit Dispose(std::string name = "") : name_(std::move(name)) {
+        LOGD("new Dispose: %p %s", this, name_.c_str());
+    }
+    static std::shared_ptr<Dispose> create(const std::string& name = "") {
+        return std::make_shared<Dispose>(name);
     }
 
 public:
     SRequest addRequest(SRequest request) override {
+        LOGV("addRequest: ptr:%p target:%p", request.get(), request->target());
         targetRequestMap[request->target()].insert(std::move(request));
         return request;
     }
 
     SRequest rmRequest(SRequest request) override {
+        LOGV("rmRequest: ptr:%p target:%p", request.get(), request->target());
         auto it = targetRequestMap.find(request->target());
         if (it == targetRequestMap.cend()) return request;
         auto& rs = it->second;
@@ -67,7 +76,7 @@ public:
 
     // RAII
     ~Dispose() override {
-        LOGD("~Dispose: will cancel: %zu", getRequestSize());
+        LOGD("~Dispose: size:%zu \t%s", getRequestSize(), name_.c_str());
         cancelAll();
         onDestroy();
     }
