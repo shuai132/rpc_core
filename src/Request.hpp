@@ -8,8 +8,11 @@
 #endif
 
 #include "base/noncopyable.hpp"
+#include "MsgWrapper.hpp"
 
 namespace RpcCore {
+
+using namespace internal;
 
 #define RpcCore_Request_MAKE_PROP(type, name) \
         private: \
@@ -59,7 +62,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     RpcCore_Request_MAKE_PROP(CmdType, cmd);
     RpcCore_Request_MAKE_PROP(void*, target);
     RpcCore_Request_MAKE_PROP(SeqType, seq);
-    RpcCore_Request_MAKE_PROP(MsgDispatcher::RspHandle, rspHandle);
+    RpcCore_Request_MAKE_PROP(std::function<bool(MsgWrapper)>, rspHandle);
     RpcCore_Request_MAKE_PROP(uint32_t, timeoutMs);
     RpcCore_Request_MAKE_PROP(bool, canceled);
     RpcCore_Request_MAKE_PROP(std::function<void(FinishType)>, finishCb);

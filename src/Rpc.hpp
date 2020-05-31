@@ -8,7 +8,6 @@
 #include "MsgDispatcher.hpp"
 #include "coder/JsonCoder.hpp"
 #include "Request.hpp"
-#include "Dispose.hpp"
 
 namespace RpcCore {
 /**
@@ -17,14 +16,10 @@ namespace RpcCore {
  * 为了方便使用，消息注册和发送重载了多种形式。
  */
 class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Request::RpcProto {
-    using CmdHandle = MsgDispatcher::CmdHandle;
-    using RspHandle = MsgDispatcher::RspHandle;
-    using TimeoutCb = MsgDispatcher::TimeoutCb;
-
 public:
     explicit Rpc(
             std::shared_ptr<Connection> conn,
-            std::shared_ptr<coder::Coder> coder = std::make_shared<coder::JsonCoder>())
+            std::shared_ptr<Coder> coder = std::make_shared<JsonCoder>())
             : conn_(conn), coder_(std::move(coder)), dispatcher_(std::move(conn), coder_)
     {
         // 注册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。
@@ -159,7 +154,7 @@ public:
 
 private:
     std::shared_ptr<Connection> conn_;
-    std::shared_ptr<coder::Coder> coder_;
+    std::shared_ptr<Coder> coder_;
     MsgDispatcher dispatcher_;
     SeqType seq_{0};
 };

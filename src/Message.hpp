@@ -2,7 +2,7 @@
 
 #include <string>
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 
 #include "base/copyable.hpp"
 #include "log.h"

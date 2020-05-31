@@ -5,7 +5,8 @@
 #include "../Type.hpp"
 
 namespace RpcCore {
-namespace coder {
+
+using namespace internal;
 
 class Coder : noncopyable {
 public:
@@ -17,5 +18,4 @@ public:
     virtual MsgWrapper unserialize(const std::string& payload, bool& ok) = 0;
 };
 
-}
 }

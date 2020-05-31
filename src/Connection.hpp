@@ -15,7 +15,7 @@ namespace RpcCore {
  * 用法
  * 1. 收发都要保证是一包完整的数据
  * 2. 当实际收到一包数据时 请调用onRecvPacket
- * 3. 提供发送数据的实现 重载sendPacket或者设置发送的实现回调setSendPacketCb
+ * 3. 提供发送数据的实现 重载sendPacket或者设置发送的实现回调setSendPacketImplCb
  */
 class Connection : noncopyable {
     MAKE_EVENT(SendPacketImpl, std::string);

@@ -8,7 +8,6 @@
 #include "../../modules/cryptor/cryptor.hpp"
 
 namespace RpcCore {
-namespace coder {
 
 class JsonCoder : public Coder {
 public:
@@ -66,5 +65,4 @@ public:
     size_t cap_;
 };
 
-}
 }

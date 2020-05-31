@@ -77,7 +77,7 @@ void RpcTest() {
                     LOGI("超时");
                 })
                 ->finishCb([](FinishType type){
-                    LOGI("完成: type:%d", type);
+                    LOGI("完成: type:%d", (int)type);
                 });
         LOGI("执行请求");
         request->call();

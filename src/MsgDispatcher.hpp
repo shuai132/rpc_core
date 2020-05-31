@@ -11,6 +11,7 @@
 #include "log.h"
 
 namespace RpcCore {
+namespace internal {
 
 /**
  * 消息分发器
@@ -29,7 +30,7 @@ public:
     using TimerImpl = std::function<void(uint32_t ms, TimeoutCb)>;
 
 public:
-    explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<coder::Coder> coder)
+    explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<Coder> coder)
             : conn_(std::move(conn)), coder_(std::move(coder)) {
         conn_->setRecvPacketCb([this](const std::string& payload){
             bool success;
@@ -142,10 +143,11 @@ public:
 
 private:
     std::shared_ptr<Connection> conn_;
-    std::shared_ptr<coder::Coder> coder_;
+    std::shared_ptr<Coder> coder_;
     std::map<CmdType, CmdHandle> cmdHandleMap_;
     std::map<SeqType, RspHandle> rspHandleMap_;
     TimerImpl timerImpl_;
 };
 
+}
 }
