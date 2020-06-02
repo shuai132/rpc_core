@@ -39,7 +39,7 @@ void RpcTest() {
 
     // 创建Rpc 收发消息 注意只能使用智能指针 不要在栈上创建
     auto rpc = std::make_shared<Rpc>(connection);
-    rpc->setTimerImpl([](uint32_t ms, const MsgDispatcher::TimeoutCb& cb) {
+    rpc->setTimerImpl([](uint32_t ms, const Rpc::TimeoutCb& cb) {
         // 定时器实现 应当配合当前应用的事件循环 确保消息收发和超时在同一个线程
         // 此示例为回环的连接 不需要具体实现
     });

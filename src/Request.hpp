@@ -12,8 +12,6 @@
 
 namespace RpcCore {
 
-using namespace internal;
-
 #define RpcCore_Request_MAKE_PROP(type, name) \
         private: \
         type name##_; \

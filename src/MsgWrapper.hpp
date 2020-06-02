@@ -7,7 +7,6 @@
 #include "log.h"
 
 namespace RpcCore {
-namespace internal {
 
 /**
  * 包装数据 用于协议分析
@@ -76,5 +75,4 @@ struct MsgWrapper : copyable {
     }
 };
 
-}
 }

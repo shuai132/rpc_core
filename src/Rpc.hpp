@@ -17,6 +17,9 @@ namespace RpcCore {
  */
 class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Request::RpcProto {
 public:
+    using TimeoutCb = internal::MsgDispatcher::TimeoutCb;
+
+public:
     explicit Rpc(
             std::shared_ptr<Connection> conn,
             std::shared_ptr<Coder> coder = std::make_shared<JsonCoder>())
@@ -38,7 +41,7 @@ public:
         return conn_;
     }
 
-    inline void setTimerImpl(MsgDispatcher::TimerImpl timerImpl) {
+    inline void setTimerImpl(internal::MsgDispatcher::TimerImpl timerImpl) {
         dispatcher_.setTimerImpl(std::move(timerImpl));
     }
 
@@ -155,7 +158,7 @@ public:
 private:
     std::shared_ptr<Connection> conn_;
     std::shared_ptr<Coder> coder_;
-    MsgDispatcher dispatcher_;
+    internal::MsgDispatcher dispatcher_;
     SeqType seq_{0};
 };
 

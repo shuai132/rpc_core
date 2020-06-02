@@ -6,8 +6,6 @@
 
 namespace RpcCore {
 
-using namespace internal;
-
 class Coder : noncopyable {
 public:
     virtual ~Coder() = default;

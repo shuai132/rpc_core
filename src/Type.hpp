@@ -5,6 +5,8 @@
 
 #include "Message.hpp"
 
+namespace RpcCore {
+
 #define RpcCore_ENSURE_TYPE_IS_MESSAGE(T) \
         typename std::enable_if<std::is_base_of<Message, T>::value, int>::type = 0
 
@@ -30,8 +32,6 @@ const CmdType PING = "RpcCore/ping";
 const CmdType PONG = "RpcCore/pong";
 #endif
 }
-
-namespace RpcCore {
 
 inline std::string CmdToStr(CmdType cmd) {
 #ifdef RpcCore_USE_INT_CMD_TYPE
