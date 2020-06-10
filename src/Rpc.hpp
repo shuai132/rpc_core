@@ -55,7 +55,7 @@ public:
      * @param handle 接收T类型消息 返回T类型消息作为回复 可使用R(Message, bool)构造 也可直接返回Message或bool
      */
     template <typename T, typename R, RpcCore_ENSURE_TYPE_IS_MESSAGE(T), RpcCore_ENSURE_TYPE_IS_MESSAGE(R)>
-    void subscribe(const CmdType& cmd, const std::function<R(T&&)>& handle) {
+    void subscribe(const CmdType& cmd, std::function<R(T&&)> handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
             auto r = msg.unpackAs<T>();
             if (r.first) {
@@ -76,8 +76,8 @@ public:
      * @param handle 接收数据 返回操作状态
      */
     template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-    void subscribe(const CmdType& cmd, const std::function<void(T&&)>& handle) {
-        dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
+    void subscribe(const CmdType& cmd, std::function<void(T&&)> handle) {
+        dispatcher_.subscribeCmd(cmd, [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
             auto r = msg.unpackAs<T>();
             if (r.first) {
                 handle(std::move(r.second));
@@ -95,8 +95,8 @@ public:
      * @param cmd
      * @param handle 不接收参数 返回操作状态
      */
-    inline void subscribe(CmdType cmd, const std::function<void()>& handle) {
-        dispatcher_.subscribeCmd(std::move(cmd), [handle](const MsgWrapper& msg) {
+    inline void subscribe(CmdType cmd, std::function<void()> handle) {
+        dispatcher_.subscribeCmd(std::move(cmd), [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
             handle();
             return MsgWrapper::MakeRsp(msg.seq);
         });
@@ -109,8 +109,8 @@ public:
      * @param handle 不接收参数 返回R(msg, true)形式
      */
     template <typename R, RpcCore_ENSURE_TYPE_IS_MESSAGE(R)>
-    inline void subscribe(const CmdType& cmd, const std::function<R()>& handle) {
-        dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
+    inline void subscribe(const CmdType& cmd, std::function<R()> handle) {
+        dispatcher_.subscribeCmd(cmd, [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
             R rsp = handle();
             return MsgWrapper::MakeRsp(
                     msg.seq,

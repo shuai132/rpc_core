@@ -109,7 +109,7 @@ public:
         }
     }
 
-    void subscribeRsp(SeqType seq, RspHandle handle, const TimeoutCb& timeoutCb, uint32_t timeoutMs)
+    void subscribeRsp(SeqType seq, RspHandle handle, TimeoutCb timeoutCb, uint32_t timeoutMs)
     {
         LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
         if (handle == nullptr) return;
@@ -119,7 +119,7 @@ public:
             LOGW("no timeout will cause memory leak!");
         }
 
-        timerImpl_(timeoutMs, [this, seq, timeoutCb] {
+        timerImpl_(timeoutMs, [this, seq, RpcCore_MOVE(timeoutCb)] {
             auto it = rspHandleMap_.find(seq);
             if (it != rspHandleMap_.cend()) {
                 if (timeoutCb) {

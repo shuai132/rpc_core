@@ -10,6 +10,12 @@ namespace RpcCore {
 #define RpcCore_ENSURE_TYPE_IS_MESSAGE(T) \
         typename std::enable_if<std::is_base_of<Message, T>::value, int>::type = 0
 
+#if _LIBCPP_STD_VER >= 14
+#define RpcCore_MOVE(arg) arg=std::move(arg)
+#else
+#define RpcCore_MOVE(arg) arg
+#endif
+
 // 默认使用string作为cmd类型
 #ifndef RpcCore_USE_INT_CMD_TYPE
 #define RpcCore_USE_STR_CMD_TYPE

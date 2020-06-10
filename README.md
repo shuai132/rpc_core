@@ -22,7 +22,7 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 ## Requirements
 * C++11编译器 （不需要特别完整 大部分支持C++11的MCU编译器均可）
 * 数据收发需要完整的数据包，例如WebSocket。如果用Socket/串口等需要自己实现消息打包解包
-比如`msgpack`，也可使用这个项目更简单：[https://github.com/shuai132/PacketProcessor.](https://github.com/shuai132/PacketProcessor)
+比如`msgpack`，也可使用这个项目更简单：[https://github.com/shuai132/PacketProcessor](https://github.com/shuai132/PacketProcessor)
 
 ## TestCase
 详见[RpcTest.cpp](test/RpcTest.cpp)

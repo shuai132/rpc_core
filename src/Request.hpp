@@ -30,16 +30,11 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
     struct RpcProto {
         virtual ~RpcProto() = default;
-        virtual SeqType makeSeq() {
-            assert(false);
-            return SeqType{};
-        };
-        virtual void sendRequest(const SRequest&) {
-            assert(false);
-        }
+        virtual SeqType makeSeq() = 0;
+        virtual void sendRequest(const SRequest&) = 0;
     };
-    using SRpcProto = std::shared_ptr<RpcProto>;
-    using WRpcProto = std::weak_ptr<RpcProto>;
+    using SSendProto = std::shared_ptr<RpcProto>;
+    using WSendProto = std::weak_ptr<RpcProto>;
 
     struct DisposeProto {
         virtual ~DisposeProto() = default;
@@ -56,7 +51,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
         RPC_EXPIRED,
     };
 
-    RpcCore_Request_MAKE_PROP(WRpcProto, rpc);
+    RpcCore_Request_MAKE_PROP(WSendProto, rpc);
     RpcCore_Request_MAKE_PROP(CmdType, cmd);
     RpcCore_Request_MAKE_PROP(void*, target);
     RpcCore_Request_MAKE_PROP(SeqType, seq);
@@ -69,7 +64,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 public:
     std::function<void()> timeoutCb_;
     std::shared_ptr<Request> timeoutCb(std::function<void()> timeoutCb) {
-        timeoutCb_ = [this, timeoutCb]{
+        timeoutCb_ = [this, RpcCore_MOVE(timeoutCb)]{
             if (timeoutCb) {
                 timeoutCb();
             }
@@ -99,12 +94,12 @@ private:
     }
 
 public:
-    explicit Request(const SRpcProto& rpc = nullptr) : rpc_(rpc) {}
+    explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {}
     ~Request() {
         LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
     }
 
-    static SRequest create(SRpcProto rpc = nullptr) {
+    static SRequest create(SSendProto rpc = nullptr) {
         auto request = std::make_shared<Request>(rpc);
         request->init();
         return request;
@@ -120,7 +115,7 @@ public:
     }
 
 public:
-    SRequest call(const SRpcProto& rpc = nullptr) {
+    SRequest call(const SSendProto& rpc = nullptr) {
         assert(inited_);
 
         if (canceled()) return shared_from_this();
@@ -148,7 +143,7 @@ public:
     template<typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
     SRequest setCb(std::function<void(T&&)> cb) {
         auto self = shared_from_this();
-        this->rspHandle_ = [this, cb, self](MsgWrapper msg){
+        this->rspHandle_ = [this, RpcCore_MOVE(cb), self](MsgWrapper msg){
             if (canceled()) {
                 onFinish(FinishType::CANCELED);
                 return true;
@@ -162,12 +157,12 @@ public:
             }
             return false;
         };
-        return shared_from_this();
+        return self;
     }
 
     SRequest setCb(std::function<void()> cb) {
         auto self = shared_from_this();
-        this->rspHandle_ = [this, cb, self](const MsgWrapper&){
+        this->rspHandle_ = [this, RpcCore_MOVE(cb), self](const MsgWrapper&){
             if (canceled()) {
                 onFinish(FinishType::CANCELED);
                 return true;
@@ -176,7 +171,7 @@ public:
             notify();
             return true;
         };
-        return shared_from_this();
+        return self;
     }
 
     SRequest setMessage(const Message& message) {
