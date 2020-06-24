@@ -69,6 +69,13 @@ public:
                 timeoutCb();
             }
             onFinish(FinishType::TIMEOUT);
+
+            if (retryCount_ == -1) {
+                call();
+            } else if (retryCount_ > 0) {
+                retryCount_--;
+                call();
+            }
         };
         return shared_from_this();
     }
@@ -78,7 +85,10 @@ private:
     void onFinish(FinishType type, bool byDispose = false) {
         LOGV("onFinish: cmd:%s, %p", cmd().c_str(), this);
         if (not dispose_.expired() && not byDispose) {
-            dispose_.lock()->rmRequest(shared_from_this());
+            if (type == FinishType::TIMEOUT && retryCount_ != 0) { // will retry
+            } else {
+                dispose_.lock()->rmRequest(shared_from_this());
+            }
         }
         finishType_ = type;
         if (finishCb_) {
@@ -195,9 +205,18 @@ public:
         return self;
     }
 
+    /**
+     * 超时后自动重试次数 -1为一直尝试 0为停止 >0为尝试次数
+     */
+    SRequest retryCount(int count) {
+        retryCount_ = count;
+        return shared_from_this();
+    }
+
 private:
     bool inited_ = false;
     WDisposeProto dispose_;
+    int retryCount_ = 0;
 
 #ifdef RpcCore_THREAD_SUPPORT // todo: 待实现 当前只可以在其他线程中等待
 private:

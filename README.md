@@ -18,6 +18,7 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 * 提供Finish回调 获取、超时、取消都会调用
 * 支持取消请求 单个请求或指定target
 * 提供Dispose可利用RAII自动取消一组请求 方便UI相关应用
+* 支持设置超时重试次数
 
 ## Requirements
 * C++11编译器 （不需要特别完整 大部分支持C++11的MCU编译器均可）
