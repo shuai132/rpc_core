@@ -68,16 +68,16 @@ void RpcTest() {
         // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
         auto request = rpc->createRequest()
                 ->cmd(AppMsg::CMD1)
-                ->setMessage(test)
-                ->setCb<String>([&](const String& rsp) {
+                ->msg(test)
+                ->rsp<String>([&](const String& rsp){
                     LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
                     assert(rsp == TEST);
                 })
-                ->timeoutCb([]{
+                ->timeout([]{
                     LOGI("超时");
                 })
-                ->finishCb([](FinishType type){
-                    LOGI("完成: type:%d", (int)type);
+                ->finally([](FinishType type) {
+                    LOGI("完成: type:%d", (int) type);
                 });
         LOGI("执行请求");
         request->call();
@@ -117,8 +117,8 @@ void RpcTest() {
 
         rpc->createRequest()
                 ->cmd(AppMsg::CMD2)
-                ->setMessage(UInt64_t(VALUE))
-                ->setCb<UInt64_t>([&](const UInt64_t& rsp) {
+                ->msg(UInt64_t(VALUE))
+                ->rsp<UInt64_t>([&](const UInt64_t& rsp) {
                     LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
                     assert(rsp.value == VALUE);
                 })
@@ -139,8 +139,8 @@ void RpcTest() {
         });
         rpc->createRequest()
                 ->cmd(AppMsg::CMD3)
-                ->setMessage(RStruct(testStruct))
-                ->setCb<RStruct>([&](const RStruct& rsp) {
+                ->msg(RStruct(testStruct))
+                ->rsp<RStruct>([&](const RStruct& rsp) {
                     LOGI("get rsp from AppMsg::CMD3");
                     assert(rsp.value.a == 1);
                     assert(rsp.value.b == 2);
@@ -152,7 +152,7 @@ void RpcTest() {
     LOG("PING PONG测试");
     {
         rpc->ping("ping")
-                ->setCb<String>([&](const String& payload) {
+                ->rsp<String>([&](const String& payload) {
                     LOGI("get rsp from ping: %s", payload.c_str());
                     assert(payload == "ping");
                 })

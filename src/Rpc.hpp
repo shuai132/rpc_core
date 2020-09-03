@@ -140,7 +140,7 @@ public:
     {
         auto request = createRequest();
         request->cmd(InnerCmd::PING);
-        request->setMessage(String(std::move(payload)));
+        request->msg(String(std::move(payload)));
         return request;
     }
 

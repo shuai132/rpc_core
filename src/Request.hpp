@@ -44,7 +44,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     using SDisposeProto = std::shared_ptr<DisposeProto>;
     using WDisposeProto = std::weak_ptr<DisposeProto>;
 
-    enum class FinishType {
+    enum class FinallyType {
         NORMAL,
         TIMEOUT,
         CANCELED,
@@ -58,17 +58,17 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     RpcCore_Request_MAKE_PROP(std::function<bool(MsgWrapper)>, rspHandle);
     RpcCore_Request_MAKE_PROP(uint32_t, timeoutMs);
     RpcCore_Request_MAKE_PROP(bool, canceled);
-    RpcCore_Request_MAKE_PROP(std::function<void(FinishType)>, finishCb);
+    RpcCore_Request_MAKE_PROP(std::function<void(FinallyType)>, finally);
     RpcCore_Request_MAKE_PROP(std::string, payload);
 
 public:
     std::function<void()> timeoutCb_;
-    std::shared_ptr<Request> timeoutCb(std::function<void()> timeoutCb) {
+    std::shared_ptr<Request> timeout(std::function<void()> timeoutCb) {
         timeoutCb_ = [this, RpcCore_MOVE(timeoutCb)]{
             if (timeoutCb) {
                 timeoutCb();
             }
-            onFinish(FinishType::TIMEOUT);
+            onFinish(FinallyType::TIMEOUT);
 
             if (retryCount_ == -1) {
                 call();
@@ -81,18 +81,18 @@ public:
     }
 
 private:
-    FinishType finishType_;
-    void onFinish(FinishType type, bool byDispose = false) {
+    FinallyType finallyType_;
+    void onFinish(FinallyType type, bool byDispose = false) {
         LOGV("onFinish: cmd:%s, %p", cmd().c_str(), this);
         if (not dispose_.expired() && not byDispose) {
-            if (type == FinishType::TIMEOUT && retryCount_ != 0) { // will retry
+            if (type == FinallyType::TIMEOUT && retryCount_ != 0) { // will retry
             } else {
                 dispose_.lock()->rmRequest(shared_from_this());
             }
         }
-        finishType_ = type;
-        if (finishCb_) {
-            finishCb_(finishType_);
+        finallyType_ = type;
+        if (finally_) {
+            finally_(finallyType_);
         }
         notify();
     }
@@ -119,7 +119,7 @@ public:
         timeoutMs(3000);
         target(nullptr);
         canceled(false);
-        timeoutCb(nullptr);
+        timeout(nullptr);
         setCb(nullptr);
         inited_ = true;
     }
@@ -134,7 +134,7 @@ public:
         if (rpc) {
             rpc_ = rpc;
         } else if (rpc_.expired()) {
-            onFinish(FinishType::RPC_EXPIRED);
+            onFinish(FinallyType::RPC_EXPIRED);
             return self;
         }
         auto r = rpc_.lock();
@@ -146,23 +146,23 @@ public:
     SRequest cancel(bool byDispose = false) {
         assert(inited_);
         canceled(true);
-        onFinish(FinishType::CANCELED, byDispose);
+        onFinish(FinallyType::CANCELED, byDispose);
         return shared_from_this();
     }
 
     template<typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-    SRequest setCb(std::function<void(T&&)> cb) {
+    SRequest rsp(std::function<void(T&&)> cb) {
         auto self = shared_from_this();
         this->rspHandle_ = [this, RpcCore_MOVE(cb), self](MsgWrapper msg){
             if (canceled()) {
-                onFinish(FinishType::CANCELED);
+                onFinish(FinallyType::CANCELED);
                 return true;
             }
 
             auto rsp = msg.unpackAs<T>();
             if (rsp.first) {
                 if (cb) cb(std::forward<T>(rsp.second));
-                onFinish(FinishType::NORMAL);
+                onFinish(FinallyType::NORMAL);
                 return true;
             }
             return false;
@@ -174,7 +174,7 @@ public:
         auto self = shared_from_this();
         this->rspHandle_ = [this, RpcCore_MOVE(cb), self](const MsgWrapper&){
             if (canceled()) {
-                onFinish(FinishType::CANCELED);
+                onFinish(FinallyType::CANCELED);
                 return true;
             }
             if (cb) cb();
@@ -184,7 +184,7 @@ public:
         return self;
     }
 
-    SRequest setMessage(const Message& message) {
+    SRequest msg(const Message& message) {
         this->payload(message.serialize());
         return shared_from_this();
     }
@@ -231,6 +231,6 @@ public:
 };
 
 using SRequest = Request::SRequest;
-using FinishType = Request::FinishType;
+using FinishType = Request::FinallyType;
 
 }
