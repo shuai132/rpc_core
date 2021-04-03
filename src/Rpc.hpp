@@ -20,6 +20,13 @@ public:
     using TimeoutCb = internal::MsgDispatcher::TimeoutCb;
 
 public:
+    template<typename... Args>
+    static std::shared_ptr<Rpc> create(Args&& ...args) {
+        return std::shared_ptr<Rpc>(new Rpc(std::forward<Args>(args)...)
+        , [](Rpc* p){ delete p; });
+    }
+
+private:
     explicit Rpc(
             std::shared_ptr<Connection> conn,
             std::shared_ptr<Coder> coder = std::make_shared<JsonCoder>())

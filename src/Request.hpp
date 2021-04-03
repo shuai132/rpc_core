@@ -103,14 +103,19 @@ private:
 #endif
     }
 
-public:
+private:
     explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {}
     ~Request() {
         LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
     }
 
-    static SRequest create(SSendProto rpc = nullptr) {
-        auto request = std::make_shared<Request>(rpc);
+public:
+    template<typename... Args>
+    static SRequest create(Args&& ...args) {
+        auto request = std::shared_ptr<Request>(
+                new Request(std::forward<Args>(args)...)
+                , [](Request* p){ delete p; }
+                );
         request->init();
         return request;
     }
