@@ -39,7 +39,7 @@ void RpcTest() {
 
     // 创建Rpc 收发消息
     auto rpc = Rpc::create(connection);
-    rpc->setTimerImpl([](uint32_t ms, const Rpc::TimeoutCb& cb) {
+    rpc->setTimer([](uint32_t ms, const Rpc::TimeoutCb &cb) {
         // 定时器实现 应当配合当前应用的事件循环 确保消息收发和超时在同一个线程
         // 此示例为回环的连接 不需要具体实现
     });
@@ -63,7 +63,7 @@ void RpcTest() {
         rpc->subscribe<String, String>(AppMsg::CMD1, [&](const String& msg) {
             LOGI("get AppMsg::CMD1: %s", msg.c_str());
             assert(msg == TEST);
-            return test;
+            return test+"test";
         });
         // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
         auto request = rpc->createRequest()
@@ -71,7 +71,7 @@ void RpcTest() {
                 ->msg(test)
                 ->rsp<String>([&](const String& rsp){
                     LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
-                    assert(rsp == TEST);
+                    assert(rsp == TEST+"test");
                 })
                 ->timeout([]{
                     LOGI("超时");

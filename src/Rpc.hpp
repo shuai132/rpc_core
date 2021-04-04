@@ -48,7 +48,7 @@ public:
         return conn_;
     }
 
-    inline void setTimerImpl(internal::MsgDispatcher::TimerImpl timerImpl) {
+    inline void setTimer(internal::MsgDispatcher::TimerImpl timerImpl) {
         dispatcher_.setTimerImpl(std::move(timerImpl));
     }
 
@@ -65,12 +65,13 @@ public:
     void subscribe(const CmdType& cmd, std::function<R(T&&)> handle) {
         dispatcher_.subscribeCmd(cmd, [handle](const MsgWrapper& msg) {
             auto r = msg.unpackAs<T>();
+            R ret;
             if (r.first) {
-                handle(std::move(r.second));
+                ret = handle(std::move(r.second));
             }
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    r.second,
+                    ret,
                     r.first
             );
         });
@@ -91,7 +92,7 @@ public:
             }
             return MsgWrapper::MakeRsp(
                     msg.seq,
-                    r.second,
+                    VOID,
                     r.first
             );
         });
@@ -106,23 +107,6 @@ public:
         dispatcher_.subscribeCmd(std::move(cmd), [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
             handle();
             return MsgWrapper::MakeRsp(msg.seq);
-        });
-    }
-
-    /**
-     * 注册命令 不接收 有回复
-     * @tparam R 返回给对方的数据类型
-     * @param cmd
-     * @param handle 不接收参数 返回R(msg, true)形式
-     */
-    template <typename R, RpcCore_ENSURE_TYPE_IS_MESSAGE(R)>
-    inline void subscribe(const CmdType& cmd, std::function<R()> handle) {
-        dispatcher_.subscribeCmd(cmd, [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
-            R rsp = handle();
-            return MsgWrapper::MakeRsp(
-                    msg.seq,
-                    rsp
-            );
         });
     }
 
