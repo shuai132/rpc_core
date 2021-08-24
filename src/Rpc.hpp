@@ -28,7 +28,7 @@ public:
 
 private:
     explicit Rpc(
-            std::shared_ptr<Connection> conn,
+            std::shared_ptr<Connection> conn = std::make_shared<Connection>(),
             std::shared_ptr<Coder> coder = std::make_shared<JsonCoder>())
             : conn_(conn), coder_(std::move(coder)), dispatcher_(std::move(conn), coder_)
     {
