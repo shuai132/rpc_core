@@ -6,7 +6,7 @@
 #include "base/noncopyable.hpp"
 #include "Connection.hpp"
 #include "MsgDispatcher.hpp"
-#include "coder/JsonCoder.hpp"
+#include "coder/BinCoder.hpp"
 #include "Request.hpp"
 
 namespace RpcCore {
@@ -29,7 +29,7 @@ public:
 private:
     explicit Rpc(
             std::shared_ptr<Connection> conn = std::make_shared<Connection>(),
-            std::shared_ptr<Coder> coder = std::make_shared<JsonCoder>())
+            std::shared_ptr<Coder> coder = std::make_shared<BinCoder>())
             : conn_(conn), coder_(std::move(coder)), dispatcher_(std::move(conn), coder_)
     {
         // 注册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。

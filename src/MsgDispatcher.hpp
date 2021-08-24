@@ -87,7 +87,7 @@ private:
             } break;
 
             default:
-                LOGE("unknown message type, conn:%p", conn_.get());
+                LOGE("unknown message type:%d, conn:%p", msg.type, conn_.get());
         }
     }
 

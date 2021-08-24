@@ -98,7 +98,8 @@ void RpcTest() {
         request->call();
         LOGI("先创建Request");
         Request::create()
-                ->cmd("request2")
+                ->cmd(AppMsg::CMD1)
+                ->msg(test)
                 ->call(rpc);
     }
 

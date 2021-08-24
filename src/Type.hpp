@@ -22,7 +22,7 @@ namespace RpcCore {
 #endif
 
 #ifdef RpcCore_USE_INT_CMD_TYPE
-using CmdType = int32_t;
+using CmdType = int16_t;
 #else
 using CmdType = std::string;
 #endif
@@ -34,8 +34,8 @@ namespace InnerCmd {
 const CmdType PING = -1;
 const CmdType PONG = -2;
 #else
-const CmdType PING = "RpcCore/ping";
-const CmdType PONG = "RpcCore/pong";
+const CmdType PING = "_1";
+const CmdType PONG = "_2";
 #endif
 }
 
