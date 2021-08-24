@@ -13,8 +13,9 @@ namespace RpcCore {
  */
 struct MsgWrapper : copyable {
     enum MsgType : uint8_t {
-        COMMAND = 0,
-        RESPONSE = 1,
+        COMMAND = 1,
+        RESPONSE = 2,
+        NEED_RSP = 4,
     };
 
     SeqType seq;
@@ -48,9 +49,9 @@ struct MsgWrapper : copyable {
      * @param data
      * @return
      */
-    static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, const std::string& data = "") {
+    static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool needRsp, const std::string& data = "") {
         MsgWrapper msg;
-        msg.type = MsgWrapper::COMMAND;
+        msg.type = static_cast<MsgType>(MsgWrapper::COMMAND | (needRsp ? MsgWrapper::NEED_RSP : 0));
         msg.cmd = std::move(cmd);
         msg.seq = seq;
         msg.data = data;

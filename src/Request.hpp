@@ -49,6 +49,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
         TIMEOUT,
         CANCELED,
         RPC_EXPIRED,
+        NO_NEED_RSP,
     };
 
     RpcCore_Request_MAKE_PROP(WSendProto, rpc);
@@ -60,6 +61,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     RpcCore_Request_MAKE_PROP(bool, canceled);
     RpcCore_Request_MAKE_PROP(std::function<void(FinallyType)>, finally);
     RpcCore_Request_MAKE_PROP(std::string, payload);
+    RpcCore_Request_MAKE_PROP(bool, needRsp);
 
 public:
     std::function<void()> timeoutCb_;
@@ -127,6 +129,7 @@ public:
         timeout(nullptr);
         setCb(nullptr);
         inited_ = true;
+        needRsp_ = true;
     }
 
 public:
@@ -145,6 +148,9 @@ public:
         auto r = rpc_.lock();
         seq_ = r->makeSeq();
         r->sendRequest(self);
+        if (!needRsp_) {
+            onFinish(FinallyType::NO_NEED_RSP);
+        }
         return self;
     }
 
@@ -215,6 +221,11 @@ public:
      */
     SRequest retryCount(int count) {
         retryCount_ = count;
+        return shared_from_this();
+    }
+
+    SRequest noRsp() {
+        needRsp_ = false;
         return shared_from_this();
     }
 

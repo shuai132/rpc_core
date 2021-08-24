@@ -141,8 +141,11 @@ public:
     }
 
     void sendRequest(const SRequest& request) override {
-        dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
-        auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->payload());
+        const bool needRsp = request->needRsp();
+        if (needRsp) {
+            dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
+        }
+        auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), needRsp, request->payload());
         conn_->sendPackage(coder_->serialize(msg));
     }
 

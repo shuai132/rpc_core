@@ -46,7 +46,7 @@ public:
 private:
     void dispatch(const MsgWrapper& msg)
     {
-        switch (msg.type) {
+        switch (msg.type & (MsgWrapper::COMMAND | MsgWrapper::RESPONSE)) {
             case MsgWrapper::COMMAND:
             {
                 // COMMAND
@@ -60,7 +60,8 @@ private:
                 }
                 const auto& fn = (*it).second;
                 auto resp = fn(msg);
-                if (resp.first) {
+                const bool needRsp = msg.type & MsgWrapper::NEED_RSP;
+                if (needRsp && resp.first) {
                     conn_->sendPackage(coder_->serialize(resp.second));
                 }
             } break;
