@@ -3,9 +3,9 @@
 #include <string>
 #include <functional>
 #include <cassert>
+#include <utility>
 
 #include "base/noncopyable.hpp"
-#include "MakeEvent.hpp"
 
 namespace RpcCore {
 
@@ -14,20 +14,30 @@ namespace RpcCore {
  * 约定消息发送和接收的接口
  * 用法
  * 1. 收发都要保证是一包完整的数据
- * 2. 当实际收到一包数据时 请调用onRecvPacket
- * 3. 提供发送数据的实现 重载sendPacket或者设置发送的实现回调setSendPacketImplCb
+ * 2. 当实际收到一包数据时 请调用onRecvPackage
+ * 3. 提供发送数据的实现 重载sendPackage或者设置发送的实现回调setSendPackageHandle
  */
 class Connection : noncopyable {
-    MAKE_EVENT(SendPacketImpl, std::string);
-    MAKE_EVENT(RecvPacket, std::string);
+private:
+    using SendPackageHandle = std::function<void(std::string)>;
+    using RecvPackageHandle = std::function<void(std::string)>;
+    SendPackageHandle sendPackageHandle_;
+    RecvPackageHandle recvPackageHandle_;
 
 public:
-    explicit Connection(SendPacketImplCb_t sendImpl = nullptr) : _cbSendPacketImpl(std::move(sendImpl)) {}
+    explicit Connection(SendPackageHandle handle = nullptr) : sendPackageHandle_(std::move(handle)) {}
     virtual ~Connection() = default;
 
 public:
-    virtual void sendPacket(const std::string& payload) {
-        onSendPacketImpl(payload);
+    virtual void sendPackage(std::string payload) {
+        if (sendPackageHandle_) sendPackageHandle_(std::move(payload));
+    }
+
+public:
+    inline void setSendPackageHandle(SendPackageHandle cb) { sendPackageHandle_ = std::move(cb); }
+    inline void setRecvPackageHandle(RecvPackageHandle cb) { recvPackageHandle_ = std::move(cb); }
+    inline void onRecvPackage(std::string package) {
+        if (recvPackageHandle_) recvPackageHandle_(std::move(package));
     }
 };
 
@@ -37,8 +47,8 @@ public:
  */
 class LoopbackConnection : public Connection {
 public:
-    void sendPacket(const std::string& payload) override {
-        onRecvPacket(payload);
+    void sendPackage(std::string payload) override {
+        onRecvPackage(std::move(payload));
     }
 };
 

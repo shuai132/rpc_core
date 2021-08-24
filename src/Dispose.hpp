@@ -8,7 +8,6 @@
 
 #include "base/noncopyable.hpp"
 #include "Request.hpp"
-#include "MakeEvent.hpp"
 
 namespace RpcCore {
 
@@ -17,7 +16,6 @@ namespace RpcCore {
  */
 class Dispose : noncopyable, public Request::DisposeProto {
     std::map<void*, std::set<SRequest>> targetRequestMap;
-    MAKE_EVENT(Destroy);
 public:
     std::string name_;
 
@@ -78,7 +76,6 @@ public:
     ~Dispose() override {
         LOGD("~Dispose: size:%zu \t%s", getRequestSize(), name_.c_str());
         cancelAll();
-        onDestroy();
     }
 };
 

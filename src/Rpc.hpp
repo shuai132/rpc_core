@@ -143,7 +143,7 @@ public:
     void sendRequest(const SRequest& request) override {
         dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
         auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->payload());
-        conn_->sendPacket(coder_->serialize(msg));
+        conn_->sendPackage(coder_->serialize(msg));
     }
 
 private:

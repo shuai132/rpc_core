@@ -1,6 +1,6 @@
 //#define RpcCore_USE_INT_CMD_TYPE
 #include "test/Test.h"
-#include "log.h"
+#include "src/log.h"
 
 using namespace RpcCoreTest;
 

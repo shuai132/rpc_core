@@ -1,6 +1,5 @@
 #include "RpcCore.hpp"
 #include "Test.h"
-#include "log.h"
 
 namespace RpcCoreTest {
 

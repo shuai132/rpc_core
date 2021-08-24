@@ -52,9 +52,6 @@ target_link_libraries(YOUR_TARGET RpcCore)
 * 方式二：直接添加路径 cmake为例
 ```cmake
 include_directories(RpcCore)
-include_directories(RpcCore/modules/LOG)
-include_directories(RpcCore/modules/MAKE_EVENT)
-include_directories(RpcCore/modules/ArduinoJson/src)
 ```
 3. [具体用法参考TestCase](#TestCase)
 
@@ -65,7 +62,7 @@ include_directories(RpcCore/modules/ArduinoJson/src)
 * MsgWrapper    包装Message 用于封装一致的消息格式和传输
 * MsgDispatcher 解析MsgWrapper 分发消息
 * Coder         MsgWrapper序列化接口 
-* JsonCoder     Coder的Json实现
+* BinCoder      Coder的二进制实现
 * Request       消息请求 提供设置Message、接收/超时回调、取消等方法
 * Dispose       管理Request
 * Rpc           对外接口 提供注册消息和创建请求的方法
