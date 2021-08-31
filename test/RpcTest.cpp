@@ -1,5 +1,6 @@
 #include "RpcCore.hpp"
 #include "Test.h"
+#include "ASSERT.h"
 
 namespace RpcCoreTest {
 
@@ -55,13 +56,14 @@ void RpcTest() {
         String test = TEST;
         RpcCore_LOGI("测试开始...");
         RpcCore_LOGI("TEST: %s, test: %s", TEST.c_str(), test.c_str());
-        assert(TEST == test);
+        ASSERT(TEST == test);
 
         RpcCore_LOG("1. 收发消息完整测试");
+        bool pass = false;
         // 在机器A上注册监听
         rpc->subscribe<String, String>(AppMsg::CMD1, [&](const String& msg) {
             RpcCore_LOGI("get AppMsg::CMD1: %s", msg.c_str());
-            assert(msg == TEST);
+            ASSERT(msg == TEST);
             return test+"test";
         });
         // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
@@ -70,7 +72,8 @@ void RpcTest() {
                 ->msg(test)
                 ->rsp<String>([&](const String& rsp){
                     RpcCore_LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
-                    assert(rsp == TEST+"test");
+                    ASSERT(rsp == TEST+"test");
+                    pass = true;
                 })
                 ->timeout([]{
                     RpcCore_LOGI("超时");
@@ -79,7 +82,9 @@ void RpcTest() {
                     RpcCore_LOGI("完成: type:%d", (int) type);
                 });
         RpcCore_LOGI("执行请求");
+        ASSERT(!pass);
         request->call();
+        ASSERT(pass);
         // 其他功能测试
         RpcCore_LOGI("多次调用");
         request->call();
@@ -105,13 +110,15 @@ void RpcTest() {
 
     RpcCore_LOG("2. 值类型双端收发验证");
     {
+        bool pass = false;
+
         const uint64_t VALUE = 0x00001234abcd0000;
         using UInt64_t = Raw<uint64_t>;
 
         RpcCore_LOGI("TEST_VALUE: 0x%016llx", VALUE);
         rpc->subscribe<UInt64_t, UInt64_t>(AppMsg::CMD2, [&](const UInt64_t& msg) {
             RpcCore_LOGI("get AppMsg::CMD2: 0x%llx", msg.value);
-            assert(msg.value == VALUE);
+            ASSERT(msg.value == VALUE);
             return VALUE;
         });
 
@@ -120,21 +127,24 @@ void RpcTest() {
                 ->msg(UInt64_t(VALUE))
                 ->rsp<UInt64_t>([&](const UInt64_t& rsp) {
                     RpcCore_LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
-                    assert(rsp.value == VALUE);
+                    ASSERT(rsp.value == VALUE);
+                    pass = true;
                 })
                 ->call();
+        ASSERT(pass);
     }
 
     RpcCore_LOG("3. 自定义的结构体类型");
     {
+        bool pass = false;
         TestStruct testStruct{1, 2, 3};
         using RStruct = RpcCore::Struct<TestStruct>;
 
         rpc->subscribe<RStruct, RStruct>(AppMsg::CMD3, [&](const RStruct& msg) {
             RpcCore_LOGI("get AppMsg::CMD3");
-            assert(msg.value.a == 1);
-            assert(msg.value.b == 2);
-            assert(msg.value.c == 3);
+            ASSERT(msg.value.a == 1);
+            ASSERT(msg.value.b == 2);
+            ASSERT(msg.value.c == 3);
             return testStruct;
         });
         rpc->createRequest()
@@ -142,21 +152,26 @@ void RpcTest() {
                 ->msg(RStruct(testStruct))
                 ->rsp<RStruct>([&](const RStruct& rsp) {
                     RpcCore_LOGI("get rsp from AppMsg::CMD3");
-                    assert(rsp.value.a == 1);
-                    assert(rsp.value.b == 2);
-                    assert(rsp.value.c == 3);
+                    ASSERT(rsp.value.a == 1);
+                    ASSERT(rsp.value.b == 2);
+                    ASSERT(rsp.value.c == 3);
+                    pass = true;
                 })
                 ->call();
+        ASSERT(pass);
     }
 
     RpcCore_LOG("PING PONG测试");
     {
+        bool pass = false;
         rpc->ping("ping")
                 ->rsp<String>([&](const String& payload) {
                     RpcCore_LOGI("get rsp from ping: %s", payload.c_str());
-                    assert(payload == "ping");
+                    ASSERT(payload == "ping");
+                    pass = true;
                 })
                 ->call();
+        ASSERT(pass);
     }
 }
 

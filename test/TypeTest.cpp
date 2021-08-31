@@ -1,5 +1,6 @@
 #include "Test.h"
 #include "RpcCore.hpp"
+#include "ASSERT.h"
 
 namespace RpcCoreTest {
 
@@ -14,22 +15,22 @@ void TypeTest() {
         RpcCore_LOGD("Raw<uint64_t>...");
         const uint64_t value = 0x12345678abcd;
         Raw<uint64_t> a(value);
-        assert(a == a.value);
+        ASSERT(a == a.value);
         Raw<uint64_t> b;
         b.deSerialize(a.serialize());
-        assert(b == a);
+        ASSERT(b == a);
     }
     {
         RpcCore_LOGD("Struct...");
         MyData data{1, 2};
         Struct<MyData> a;
-        assert(a.align_size == alignof(MyData));
+        ASSERT(a.align_size == alignof(MyData));
         a.value = data;
         Struct<MyData> b;
         b.deSerialize(a.serialize());
-        assert(b.value.a == 1);
-        assert(b.value.b == 2);
-        assert(0 == memcmp(&a.value, &b.value, sizeof(MyData)));
+        ASSERT(b.value.a == 1);
+        ASSERT(b.value.b == 2);
+        ASSERT(0 == memcmp(&a.value, &b.value, sizeof(MyData)));
     }
     {
         RpcCore_LOGD("String/Binary...");
@@ -37,8 +38,8 @@ void TypeTest() {
         Binary a((char*)data, sizeof(data));
         Binary b;
         b.deSerialize(a.serialize());
-        assert(b.size() == sizeof(data));
-        assert(b == a);
+        ASSERT(b.size() == sizeof(data));
+        ASSERT(b == a);
     }
 }
 
