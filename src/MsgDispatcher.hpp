@@ -51,11 +51,11 @@ private:
             {
                 // COMMAND
                 const auto& cmd = msg.cmd;
-                RpcCore_LOGD("dispatch cmd:%s, seq:%d, conn:%p", CmdToStr(cmd).c_str(), msg.seq, conn_.get());
+                RpcCore_LOGD("dispatch cmd:%s, seq:%d, conn:%p", cmd.c_str(), msg.seq, conn_.get());
 
                 auto it = cmdHandleMap_.find(cmd);
                 if (it == cmdHandleMap_.cend()) {
-                    RpcCore_LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
+                    RpcCore_LOGD("not register cmd for: %s", cmd.c_str());
                     return;
                 }
                 const auto& fn = (*it).second;
@@ -95,7 +95,7 @@ private:
 public:
     inline void subscribeCmd(CmdType cmd, CmdHandle handle)
     {
-        RpcCore_LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
+        RpcCore_LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", cmd.c_str(), conn_.get(), &handle);
         cmdHandleMap_[std::move(cmd)] = std::move(handle);
     }
 
@@ -103,10 +103,10 @@ public:
     {
         auto it = cmdHandleMap_.find(cmd);
         if (it != cmdHandleMap_.cend()) {
-            RpcCore_LOGD("erase cmd: %s", CmdToStr(cmd).c_str());
+            RpcCore_LOGD("erase cmd: %s", cmd.c_str());
             cmdHandleMap_.erase(it);
         } else {
-            RpcCore_LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
+            RpcCore_LOGD("not register cmd for: %s", cmd.c_str());
         }
     }
 

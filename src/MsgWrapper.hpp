@@ -25,7 +25,7 @@ struct MsgWrapper : copyable {
 
     std::string dump() const {
         char tmp[100];
-        snprintf(tmp, 100, "seq:%u, type:%u, cmd:%s", seq, type, CmdToStr(cmd).c_str());
+        snprintf(tmp, 100, "seq:%u, type:%u, cmd:%s", seq, type, cmd.c_str());
         return tmp;
     }
 

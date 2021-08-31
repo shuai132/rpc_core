@@ -13,15 +13,9 @@ namespace RpcCoreTest {
 namespace AppMsg {
 using namespace RpcCore;
 
-#ifdef RpcCore_USE_INT_CMD_TYPE
-const CmdType CMD1 = 1;
-const CmdType CMD2 = 2;
-const CmdType CMD3 = 3;
-#else
 const CmdType CMD1 = "CMD1";
 const CmdType CMD2 = "CMD2";
 const CmdType CMD3 = "CMD3";
-#endif
 }
 
 struct TestStruct {

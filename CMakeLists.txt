@@ -18,7 +18,3 @@ set(EXAMPLE_COMPILE_DEFINE
 add_executable(${PROJECT_NAME}_example example.cpp test/RpcTest.cpp test/TypeTest.cpp)
 target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})
 target_compile_definitions(${PROJECT_NAME}_example PRIVATE ${EXAMPLE_COMPILE_DEFINE})
-
-add_executable(${PROJECT_NAME}_example_int_cmd example.cpp test/RpcTest.cpp test/TypeTest.cpp)
-target_link_libraries(${PROJECT_NAME}_example_int_cmd ${PROJECT_NAME})
-target_compile_definitions(${PROJECT_NAME}_example_int_cmd PRIVATE -DRpcCore_USE_INT_CMD_TYPE ${EXAMPLE_COMPILE_DEFINE})

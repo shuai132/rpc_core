@@ -97,7 +97,7 @@ private:
 private:
     explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {} // NOLINT(cppcoreguidelines-pro-type-member-init)
     ~Request() {
-        RpcCore_LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
+        RpcCore_LOGD("~Request: cmd:%s, %p", cmd_.c_str(), this);
     }
 
 public:
