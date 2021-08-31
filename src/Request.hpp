@@ -3,10 +3,6 @@
 #include <memory>
 #include <utility>
 
-#ifdef RpcCore_THREAD_SUPPORT
-#include <mutex>
-#endif
-
 #include "base/noncopyable.hpp"
 #include "MsgWrapper.hpp"
 
@@ -96,17 +92,10 @@ private:
         if (finally_) {
             finally_(finallyType_);
         }
-        notify();
-    }
-
-    inline void notify() {
-#ifdef RpcCore_THREAD_SUPPORT
-        cond_.notify_one();
-#endif
     }
 
 private:
-    explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {}
+    explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {} // NOLINT(cppcoreguidelines-pro-type-member-init)
     ~Request() {
         LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
     }
@@ -189,7 +178,6 @@ public:
                 return true;
             }
             if (cb) cb();
-            notify();
             return true;
         };
         return self;
@@ -233,17 +221,6 @@ private:
     bool inited_ = false;
     WDisposeProto dispose_;
     int retryCount_ = 0;
-
-#ifdef RpcCore_THREAD_SUPPORT // todo: 待实现 当前只可以在其他线程中等待
-private:
-    std::mutex mutex_;
-    std::condition_variable cond_;
-public:
-    void wait() {
-        std::unique_lock<std::mutex> guard(mutex_);
-        cond_.wait(guard);
-    }
-#endif
 };
 
 using SRequest = Request::SRequest;

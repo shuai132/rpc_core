@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Coder.hpp"
+#include "Message.hpp"
 
 namespace RpcCore {
 
-class BinCoder : public Coder {
+class Coder {
 public:
-    std::string serialize(const MsgWrapper& msg) override
+    static std::string serialize(const MsgWrapper& msg)
     {
         std::string payload;
 #ifdef RpcCore_USE_INT_CMD_TYPE
@@ -27,7 +27,7 @@ public:
         return payload;
     }
 
-    MsgWrapper unserialize(const std::string& payload, bool& ok) override
+    static MsgWrapper unserialize(const std::string& payload, bool& ok)
     {
         MsgWrapper msg;
         char* p = (char*)payload.data();

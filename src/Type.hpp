@@ -22,7 +22,7 @@ namespace RpcCore {
 #endif
 
 #ifdef RpcCore_USE_INT_CMD_TYPE
-using CmdType = int16_t;
+using CmdType = uint16_t;
 #else
 using CmdType = std::string;
 #endif
@@ -31,19 +31,17 @@ using SeqType = uint32_t;
 
 namespace InnerCmd {
 #ifdef RpcCore_USE_INT_CMD_TYPE
-const CmdType PING = -1;
-const CmdType PONG = -2;
+const CmdType PING = UINT16_MAX;
+const CmdType PONG = UINT16_MAX - 1;
 #else
-const CmdType PING = "_1";
-const CmdType PONG = "_2";
+const CmdType PING = "-1";
+const CmdType PONG = "-2";
 #endif
 }
 
 inline std::string CmdToStr(CmdType cmd) {
 #ifdef RpcCore_USE_INT_CMD_TYPE
-    char buf[32];
-    sprintf(buf, "%d", cmd);
-    return buf;
+    return std::to_string(cmd);
 #else
     return cmd;
 #endif

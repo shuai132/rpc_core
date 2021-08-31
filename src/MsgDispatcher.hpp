@@ -6,7 +6,7 @@
 
 #include "base/noncopyable.hpp"
 #include "Connection.hpp"
-#include "coder/Coder.hpp"
+#include "Coder.hpp"
 #include "Message.hpp"
 #include "log.h"
 
@@ -30,11 +30,11 @@ public:
     using TimerImpl = std::function<void(uint32_t ms, TimeoutCb)>;
 
 public:
-    explicit MsgDispatcher(std::shared_ptr<Connection> conn, std::shared_ptr<Coder> coder)
-            : conn_(std::move(conn)), coder_(std::move(coder)) {
+    explicit MsgDispatcher(std::shared_ptr<Connection> conn)
+            : conn_(std::move(conn)) {
         conn_->setRecvPackageHandle([this](const std::string& payload) {
             bool success;
-            auto msg = coder_->unserialize(payload, success);
+            auto msg = Coder::unserialize(payload, success);
             if (success) {
                 this->dispatch(msg);
             } else {
@@ -62,7 +62,7 @@ private:
                 auto resp = fn(msg);
                 const bool needRsp = msg.type & MsgWrapper::NEED_RSP;
                 if (needRsp && resp.first) {
-                    conn_->sendPackage(coder_->serialize(resp.second));
+                    conn_->sendPackage(Coder::serialize(resp.second));
                 }
             } break;
 
@@ -144,7 +144,6 @@ public:
 
 private:
     std::shared_ptr<Connection> conn_;
-    std::shared_ptr<Coder> coder_;
     std::map<CmdType, CmdHandle> cmdHandleMap_;
     std::map<SeqType, RspHandle> rspHandleMap_;
     TimerImpl timerImpl_;

@@ -15,10 +15,6 @@ namespace RpcCore {
  * 用于管理取消Request
  */
 class Dispose : noncopyable, public Request::DisposeProto {
-    std::map<void*, std::set<SRequest>> targetRequestMap;
-public:
-    std::string name_;
-
 public:
     explicit Dispose(std::string name = "") : name_(std::move(name)) {
         LOGD("new Dispose: %p %s", this, name_.c_str());
@@ -30,43 +26,43 @@ public:
 public:
     SRequest addRequest(SRequest request) override {
         LOGV("addRequest: ptr:%p target:%p", request.get(), request->target());
-        targetRequestMap[request->target()].insert(std::move(request));
+        targetRequestMap_[request->target()].insert(std::move(request));
         return request;
     }
 
     SRequest rmRequest(SRequest request) override {
         LOGV("rmRequest: ptr:%p target:%p", request.get(), request->target());
-        auto it = targetRequestMap.find(request->target());
-        if (it == targetRequestMap.cend()) return request;
+        auto it = targetRequestMap_.find(request->target());
+        if (it == targetRequestMap_.cend()) return request;
         auto& rs = it->second;
         it->second.erase(rs.find(request));
         return request;
     }
 
     void cancelTarget(void* target) {
-        auto it = targetRequestMap.find(target);
-        if (it == targetRequestMap.cend()) return;
+        auto it = targetRequestMap_.find(target);
+        if (it == targetRequestMap_.cend()) return;
         for (const auto& request : it->second) {
             if (request->target() == target) {
                 request->cancel(true);
             }
         }
-        targetRequestMap.erase(it);
+        targetRequestMap_.erase(it);
     }
 
     void cancelAll() {
-        for(auto& m : targetRequestMap) {
+        for(auto& m : targetRequestMap_) {
             for (const auto& request : m.second) {
                 request->cancel(true);
             }
             m.second.clear();
         }
-        targetRequestMap.clear();
+        targetRequestMap_.clear();
     }
 
     size_t getRequestSize() {
         size_t sum = 0;
-        for(const auto& m : targetRequestMap) {
+        for(const auto& m : targetRequestMap_) {
             sum += m.second.size();
         }
         return sum;
@@ -77,6 +73,10 @@ public:
         LOGD("~Dispose: size:%zu \t%s", getRequestSize(), name_.c_str());
         cancelAll();
     }
+
+private:
+  std::map<void*, std::set<SRequest>> targetRequestMap_;
+  std::string name_;
 };
 
 using SDispose = std::shared_ptr<Dispose>;

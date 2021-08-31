@@ -61,8 +61,7 @@ include_directories(RpcCore)
 * Message       用户消息接口 自定义序列化/反序列化规则
 * MsgWrapper    包装Message 用于封装一致的消息格式和传输
 * MsgDispatcher 解析MsgWrapper 分发消息
-* Coder         MsgWrapper序列化接口 
-* BinCoder      Coder的二进制实现
+* Coder         MsgWrapper序列化实现
 * Request       消息请求 提供设置Message、接收/超时回调、取消等方法
 * Dispose       管理Request
 * Rpc           对外接口 提供注册消息和创建请求的方法

@@ -32,10 +32,10 @@ void TypeTest() {
         assert(0 == memcmp(&a.value, &b.value, sizeof(MyData)));
     }
     {
-        LOGD("String/Bianry...");
+        LOGD("String/Binary...");
         uint8_t data[] = {0, 2, 4, 255, 0/*important*/, 1, 3, 5};
-        Bianry a((char*)data, sizeof(data));
-        Bianry b;
+        Binary a((char*)data, sizeof(data));
+        Binary b;
         b.deSerialize(a.serialize());
         assert(b.size() == sizeof(data));
         assert(b == a);

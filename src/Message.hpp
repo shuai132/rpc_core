@@ -102,6 +102,6 @@ struct String : Message, public std::string {
 /**
  * 二进制数据
  */
-using Bianry = String;
+using Binary = String;
 
 }
