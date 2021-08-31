@@ -38,7 +38,7 @@ public:
             if (success) {
                 this->dispatch(msg);
             } else {
-                LOGE("payload can not be parsed, msg info");
+                RpcCore_LOGE("payload can not be parsed, msg info");
             }
         });
     }
@@ -51,11 +51,11 @@ private:
             {
                 // COMMAND
                 const auto& cmd = msg.cmd;
-                LOGD("dispatch cmd:%s, seq:%d, conn:%p", CmdToStr(cmd).c_str(), msg.seq, conn_.get());
+                RpcCore_LOGD("dispatch cmd:%s, seq:%d, conn:%p", CmdToStr(cmd).c_str(), msg.seq, conn_.get());
 
                 auto it = cmdHandleMap_.find(cmd);
                 if (it == cmdHandleMap_.cend()) {
-                    LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
+                    RpcCore_LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
                     return;
                 }
                 const auto& fn = (*it).second;
@@ -68,34 +68,34 @@ private:
 
             case MsgWrapper::RESPONSE:
             {
-                LOGD("dispatch rsp: seq=%d, conn:%p", msg.seq, conn_.get());
+                RpcCore_LOGD("dispatch rsp: seq=%d, conn:%p", msg.seq, conn_.get());
                 auto it = rspHandleMap_.find(msg.seq);
                 if (it == rspHandleMap_.cend()) {
-                    LOGD("not register callback for response");
+                    RpcCore_LOGD("not register callback for response");
                     break;
                 }
                 const auto& cb = (*it).second;
                 if(not cb) {
-                    LOGE("rsp handle can not be null");
+                    RpcCore_LOGE("rsp handle can not be null");
                     return;
                 }
                 if (cb(msg)) {
                     rspHandleMap_.erase(it);
-                    LOGD("rspHandleMap_.size=%zu", rspHandleMap_.size());
+                    RpcCore_LOGD("rspHandleMap_.size=%zu", rspHandleMap_.size());
                 } else {
-                    LOGE("may unserialize error");
+                    RpcCore_LOGE("may unserialize error");
                 }
             } break;
 
             default:
-                LOGE("unknown message type:%d, conn:%p", msg.type, conn_.get());
+                RpcCore_LOGE("unknown message type:%d, conn:%p", msg.type, conn_.get());
         }
     }
 
 public:
     inline void subscribeCmd(CmdType cmd, CmdHandle handle)
     {
-        LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
+        RpcCore_LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", CmdToStr(cmd).c_str(), conn_.get(), &handle);
         cmdHandleMap_[std::move(cmd)] = std::move(handle);
     }
 
@@ -103,21 +103,21 @@ public:
     {
         auto it = cmdHandleMap_.find(cmd);
         if (it != cmdHandleMap_.cend()) {
-            LOGD("erase cmd: %s", CmdToStr(cmd).c_str());
+            RpcCore_LOGD("erase cmd: %s", CmdToStr(cmd).c_str());
             cmdHandleMap_.erase(it);
         } else {
-            LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
+            RpcCore_LOGD("not register cmd for: %s", CmdToStr(cmd).c_str());
         }
     }
 
     void subscribeRsp(SeqType seq, RspHandle handle, TimeoutCb timeoutCb, uint32_t timeoutMs)
     {
-        LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
+        RpcCore_LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
         if (handle == nullptr) return;
         rspHandleMap_[seq] = std::move(handle);
 
         if(timerImpl_ == nullptr) {
-            LOGW("no timeout will cause memory leak!");
+            RpcCore_LOGW("no timeout will cause memory leak!");
         }
 
         timerImpl_(timeoutMs, [this, seq, RpcCore_MOVE(timeoutCb)] {
@@ -127,7 +127,7 @@ public:
                     timeoutCb();
                 }
                 rspHandleMap_.erase(seq);
-                LOGD("Timeout seq=%d, rspHandleMap_.size=%zu", seq, rspHandleMap_.size());
+                RpcCore_LOGD("Timeout seq=%d, rspHandleMap_.size=%zu", seq, rspHandleMap_.size());
             }
         });
     }

@@ -38,7 +38,7 @@ struct MsgWrapper : copyable {
         T message;
         bool ok = message.deSerialize(data);
         if (not ok) {
-            LOGE("serialize error, msg info:%s", dump().c_str());
+            RpcCore_LOGE("serialize error, msg info:%s", dump().c_str());
         }
         return std::make_pair(ok, message);
     }

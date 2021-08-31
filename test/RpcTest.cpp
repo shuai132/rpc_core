@@ -53,14 +53,14 @@ void RpcTest() {
     {
         const std::string TEST("Hello World");
         String test = TEST;
-        LOGI("测试开始...");
-        LOGI("TEST: %s, test: %s", TEST.c_str(), test.c_str());
+        RpcCore_LOGI("测试开始...");
+        RpcCore_LOGI("TEST: %s, test: %s", TEST.c_str(), test.c_str());
         assert(TEST == test);
 
-        LOG("1. 收发消息完整测试");
+        RpcCore_LOG("1. 收发消息完整测试");
         // 在机器A上注册监听
         rpc->subscribe<String, String>(AppMsg::CMD1, [&](const String& msg) {
-            LOGI("get AppMsg::CMD1: %s", msg.c_str());
+            RpcCore_LOGI("get AppMsg::CMD1: %s", msg.c_str());
             assert(msg == TEST);
             return test+"test";
         });
@@ -69,48 +69,48 @@ void RpcTest() {
                 ->cmd(AppMsg::CMD1)
                 ->msg(test)
                 ->rsp<String>([&](const String& rsp){
-                    LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
+                    RpcCore_LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
                     assert(rsp == TEST+"test");
                 })
                 ->timeout([]{
-                    LOGI("超时");
+                    RpcCore_LOGI("超时");
                 })
                 ->finally([](FinishType type) {
-                    LOGI("完成: type:%d", (int) type);
+                    RpcCore_LOGI("完成: type:%d", (int) type);
                 });
-        LOGI("执行请求");
+        RpcCore_LOGI("执行请求");
         request->call();
         // 其他功能测试
-        LOGI("多次调用");
+        RpcCore_LOGI("多次调用");
         request->call();
-        LOGI("可以取消");
+        RpcCore_LOGI("可以取消");
         request->cancel();
         request->call();
-        LOGI("恢复取消");
+        RpcCore_LOGI("恢复取消");
         request->canceled(false);
         request->call();
-        LOGI("设置target 配合Dispose");
+        RpcCore_LOGI("设置target 配合Dispose");
         Dispose dispose;
         auto target = (void*)1;
         request->target(target);
         dispose.addRequest(request);
         dispose.cancelTarget(target);
         request->call();
-        LOGI("先创建Request");
+        RpcCore_LOGI("先创建Request");
         Request::create()
                 ->cmd(AppMsg::CMD1)
                 ->msg(test)
                 ->call(rpc);
     }
 
-    LOG("2. 值类型双端收发验证");
+    RpcCore_LOG("2. 值类型双端收发验证");
     {
         const uint64_t VALUE = 0x00001234abcd0000;
         using UInt64_t = Raw<uint64_t>;
 
-        LOGI("TEST_VALUE: 0x%016llx", VALUE);
+        RpcCore_LOGI("TEST_VALUE: 0x%016llx", VALUE);
         rpc->subscribe<UInt64_t, UInt64_t>(AppMsg::CMD2, [&](const UInt64_t& msg) {
-            LOGI("get AppMsg::CMD2: 0x%llx", msg.value);
+            RpcCore_LOGI("get AppMsg::CMD2: 0x%llx", msg.value);
             assert(msg.value == VALUE);
             return VALUE;
         });
@@ -119,19 +119,19 @@ void RpcTest() {
                 ->cmd(AppMsg::CMD2)
                 ->msg(UInt64_t(VALUE))
                 ->rsp<UInt64_t>([&](const UInt64_t& rsp) {
-                    LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
+                    RpcCore_LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
                     assert(rsp.value == VALUE);
                 })
                 ->call();
     }
 
-    LOG("3. 自定义的结构体类型");
+    RpcCore_LOG("3. 自定义的结构体类型");
     {
         TestStruct testStruct{1, 2, 3};
         using RStruct = RpcCore::Struct<TestStruct>;
 
         rpc->subscribe<RStruct, RStruct>(AppMsg::CMD3, [&](const RStruct& msg) {
-            LOGI("get AppMsg::CMD3");
+            RpcCore_LOGI("get AppMsg::CMD3");
             assert(msg.value.a == 1);
             assert(msg.value.b == 2);
             assert(msg.value.c == 3);
@@ -141,7 +141,7 @@ void RpcTest() {
                 ->cmd(AppMsg::CMD3)
                 ->msg(RStruct(testStruct))
                 ->rsp<RStruct>([&](const RStruct& rsp) {
-                    LOGI("get rsp from AppMsg::CMD3");
+                    RpcCore_LOGI("get rsp from AppMsg::CMD3");
                     assert(rsp.value.a == 1);
                     assert(rsp.value.b == 2);
                     assert(rsp.value.c == 3);
@@ -149,11 +149,11 @@ void RpcTest() {
                 ->call();
     }
 
-    LOG("PING PONG测试");
+    RpcCore_LOG("PING PONG测试");
     {
         rpc->ping("ping")
                 ->rsp<String>([&](const String& payload) {
-                    LOGI("get rsp from ping: %s", payload.c_str());
+                    RpcCore_LOGI("get rsp from ping: %s", payload.c_str());
                     assert(payload == "ping");
                 })
                 ->call();

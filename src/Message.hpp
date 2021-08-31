@@ -66,12 +66,12 @@ struct Struct : Message {
     };
     bool deSerialize(const std::string& data) override {
         if (data.size() != sizeof(T) + 1) {
-            LOGE("wrong data size");
+            RpcCore_LOGE("wrong data size");
             return false;
         }
         memcpy(&value, data.data(), sizeof(T) + 1);
         if (align_size != alignof(T)) {
-            LOGE("wrong align_size: alignof(T)=%d != %zu", align_size, alignof(T));
+            RpcCore_LOGE("wrong align_size: alignof(T)=%d != %zu", align_size, alignof(T));
             return false;
         }
         return true;

@@ -17,7 +17,7 @@ namespace RpcCore {
 class Dispose : noncopyable, public Request::DisposeProto {
 public:
     explicit Dispose(std::string name = "") : name_(std::move(name)) {
-        LOGD("new Dispose: %p %s", this, name_.c_str());
+        RpcCore_LOGD("new Dispose: %p %s", this, name_.c_str());
     }
     static std::shared_ptr<Dispose> create(const std::string& name = "") {
         return std::make_shared<Dispose>(name);
@@ -25,13 +25,13 @@ public:
 
 public:
     SRequest addRequest(SRequest request) override {
-        LOGV("addRequest: ptr:%p target:%p", request.get(), request->target());
+        RpcCore_LOGV("addRequest: ptr:%p target:%p", request.get(), request->target());
         targetRequestMap_[request->target()].insert(std::move(request));
         return request;
     }
 
     SRequest rmRequest(SRequest request) override {
-        LOGV("rmRequest: ptr:%p target:%p", request.get(), request->target());
+        RpcCore_LOGV("rmRequest: ptr:%p target:%p", request.get(), request->target());
         auto it = targetRequestMap_.find(request->target());
         if (it == targetRequestMap_.cend()) return request;
         auto& rs = it->second;
@@ -70,7 +70,7 @@ public:
 
     // RAII
     ~Dispose() override {
-        LOGD("~Dispose: size:%zu \t%s", getRequestSize(), name_.c_str());
+        RpcCore_LOGD("~Dispose: size:%zu \t%s", getRequestSize(), name_.c_str());
         cancelAll();
     }
 

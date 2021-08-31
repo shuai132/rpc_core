@@ -39,7 +39,7 @@ private:
         });
     }
     ~Rpc() override {
-        LOGD("~Rpc");
+        RpcCore_LOGD("~Rpc");
     };
 
 public:

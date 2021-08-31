@@ -81,7 +81,7 @@ public:
 private:
     FinallyType finallyType_;
     void onFinish(FinallyType type, bool byDispose = false) {
-        LOGV("onFinish: cmd:%s, %p", cmd().c_str(), this);
+        RpcCore_LOGV("onFinish: cmd:%s, %p", cmd().c_str(), this);
         if (not dispose_.expired() && not byDispose) {
             if (type == FinallyType::TIMEOUT && retryCount_ != 0) { // will retry
             } else {
@@ -97,7 +97,7 @@ private:
 private:
     explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {} // NOLINT(cppcoreguidelines-pro-type-member-init)
     ~Request() {
-        LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
+        RpcCore_LOGD("~Request: cmd:%s, %p", RpcCore::CmdToStr(cmd_).c_str(), this);
     }
 
 public:
