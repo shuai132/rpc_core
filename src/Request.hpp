@@ -34,8 +34,8 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
     struct DisposeProto {
         virtual ~DisposeProto() = default;
-        virtual SRequest addRequest(SRequest request) = 0;
-        virtual SRequest rmRequest(SRequest request) = 0;
+        virtual void addRequest(SRequest request) = 0;
+        virtual void rmRequest(SRequest request) = 0;
     };
     using SDisposeProto = std::shared_ptr<DisposeProto>;
     using WDisposeProto = std::weak_ptr<DisposeProto>;
@@ -116,23 +116,22 @@ public:
         target(nullptr);
         canceled(false);
         timeout(nullptr);
-        setCb(nullptr);
         inited_ = true;
         needRsp_ = true;
     }
 
 public:
-    SRequest call(const SSendProto& rpc = nullptr) {
+    void call(const SSendProto& rpc = nullptr) {
         assert(inited_);
 
-        if (canceled()) return shared_from_this();
+        if (canceled()) return;
 
         auto self = shared_from_this();
         if (rpc) {
             rpc_ = rpc;
         } else if (rpc_.expired()) {
             onFinish(FinallyType::RPC_EXPIRED);
-            return self;
+            return;
         }
         auto r = rpc_.lock();
         seq_ = r->makeSeq();
@@ -140,7 +139,6 @@ public:
         if (!needRsp_) {
             onFinish(FinallyType::NO_NEED_RSP);
         }
-        return self;
     }
 
     SRequest cancel(bool byDispose = false) {
@@ -161,24 +159,11 @@ public:
 
             auto rsp = msg.unpackAs<T>();
             if (rsp.first) {
-                if (cb) cb(std::forward<T>(rsp.second));
+                if (cb) cb(std::forward<T>(std::move(rsp.second)));
                 onFinish(FinallyType::NORMAL);
                 return true;
             }
             return false;
-        };
-        return self;
-    }
-
-    SRequest setCb(std::function<void()> cb) {
-        auto self = shared_from_this();
-        this->rspHandle_ = [this, RpcCore_MOVE(cb), self](const MsgWrapper&){
-            if (canceled()) {
-                onFinish(FinallyType::CANCELED);
-                return true;
-            }
-            if (cb) cb();
-            return true;
         };
         return self;
     }

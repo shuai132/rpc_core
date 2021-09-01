@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 #include "base/copyable.hpp"
 #include "Type.hpp"
@@ -40,7 +41,7 @@ struct MsgWrapper : copyable {
         if (not ok) {
             RpcCore_LOGE("serialize error, msg info:%s", dump().c_str());
         }
-        return std::make_pair(ok, message);
+        return std::make_pair(ok, std::move(message));
     }
 
     /**
@@ -49,12 +50,12 @@ struct MsgWrapper : copyable {
      * @param data
      * @return
      */
-    static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool needRsp, const std::string& data = "") {
+    static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool needRsp, std::string data = "") {
         MsgWrapper msg;
         msg.type = static_cast<MsgType>(MsgWrapper::COMMAND | (needRsp ? MsgWrapper::NEED_RSP : 0));
         msg.cmd = std::move(cmd);
         msg.seq = seq;
-        msg.data = data;
+        msg.data = std::move(data);
         return msg;
     }
 

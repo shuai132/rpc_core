@@ -24,19 +24,17 @@ public:
     }
 
 public:
-    SRequest addRequest(SRequest request) override {
+    void addRequest(SRequest request) override {
         RpcCore_LOGV("addRequest: ptr:%p target:%p", request.get(), request->target());
         targetRequestMap_[request->target()].insert(std::move(request));
-        return request;
     }
 
-    SRequest rmRequest(SRequest request) override {
+    void rmRequest(SRequest request) override {
         RpcCore_LOGV("rmRequest: ptr:%p target:%p", request.get(), request->target());
         auto it = targetRequestMap_.find(request->target());
-        if (it == targetRequestMap_.cend()) return request;
+        if (it == targetRequestMap_.cend()) return;
         auto& rs = it->second;
         it->second.erase(rs.find(request));
-        return request;
     }
 
     void cancelTarget(void* target) {

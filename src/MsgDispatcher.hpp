@@ -36,7 +36,7 @@ public:
             bool success;
             auto msg = Coder::unserialize(payload, success);
             if (success) {
-                this->dispatch(msg);
+                this->dispatch(std::move(msg));
             } else {
                 RpcCore_LOGE("payload can not be parsed, msg info");
             }
@@ -44,7 +44,7 @@ public:
     }
 
 private:
-    void dispatch(const MsgWrapper& msg)
+    void dispatch(MsgWrapper msg)
     {
         switch (msg.type & (MsgWrapper::COMMAND | MsgWrapper::RESPONSE)) {
             case MsgWrapper::COMMAND:
@@ -59,8 +59,8 @@ private:
                     return;
                 }
                 const auto& fn = (*it).second;
-                auto resp = fn(msg);
                 const bool needRsp = msg.type & MsgWrapper::NEED_RSP;
+                auto resp = fn(std::move(msg));
                 if (needRsp && resp.first) {
                     conn_->sendPackage(Coder::serialize(resp.second));
                 }
@@ -79,7 +79,7 @@ private:
                     RpcCore_LOGE("rsp handle can not be null");
                     return;
                 }
-                if (cb(msg)) {
+                if (cb(std::move(msg))) {
                     rspHandleMap_.erase(it);
                     RpcCore_LOGD("rspHandleMap_.size=%zu", rspHandleMap_.size());
                 } else {
