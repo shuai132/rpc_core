@@ -26,10 +26,8 @@ public:
     }
 
 private:
-    explicit Rpc(
-            std::shared_ptr<Connection> conn = std::make_shared<Connection>(),
-            std::shared_ptr<Coder> coder = std::make_shared<Coder>())
-            : conn_(conn), coder_(std::move(coder)), dispatcher_(std::move(conn))
+    explicit Rpc(std::shared_ptr<Connection> conn = std::make_shared<Connection>())
+        : conn_(conn), dispatcher_(std::move(conn))
     {
         // 注册一个PING消息，以便有PING到来时，给发送者回复PONG，PING/PONG可携带payload，会原样返回。
         dispatcher_.subscribeCmd(InnerCmd::PING, [](MsgWrapper msg) {
@@ -145,12 +143,11 @@ public:
             dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
         }
         auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), needRsp, request->payload());
-        conn_->sendPackage(coder_->serialize(msg));
+        conn_->sendPackage(Coder::serialize(msg));
     }
 
 private:
     std::shared_ptr<Connection> conn_;
-    std::shared_ptr<Coder> coder_;
     internal::MsgDispatcher dispatcher_;
     SeqType seq_{0};
 };

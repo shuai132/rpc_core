@@ -14,9 +14,9 @@ namespace RpcCore {
  */
 struct MsgWrapper : copyable {
     enum MsgType : uint8_t {
-        COMMAND = 1,
-        RESPONSE = 2,
-        NEED_RSP = 4,
+        COMMAND  = 1 << 0,
+        RESPONSE = 1 << 1,
+        NEED_RSP = 1 << 2,
     };
 
     SeqType seq;

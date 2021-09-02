@@ -12,10 +12,10 @@ namespace RpcCore {
         private: \
         type name##_; \
         public: \
-        type name() { \
+        inline type name() { \
             return name##_; \
         } \
-        std::shared_ptr<Request> name(type name) { \
+        inline std::shared_ptr<Request> name(type name) { \
             name##_ = std::move(name); \
             return shared_from_this(); \
         }
