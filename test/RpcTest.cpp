@@ -81,25 +81,38 @@ void RpcTest() {
         ASSERT(pass);
         // 其他功能测试
         RpcCore_LOGI("多次调用");
+        pass = false;
         request->call();
+        ASSERT(pass);
         RpcCore_LOGI("可以取消");
+        pass = false;
         request->cancel();
         request->call();
+        ASSERT(!pass);
         RpcCore_LOGI("恢复取消");
         request->canceled(false);
         request->call();
+        ASSERT(pass);
         RpcCore_LOGI("设置target 配合Dispose");
+        pass = false;
         Dispose dispose;
         auto target = (void*)1;
         request->target(target);
         dispose.addRequest(request);
         dispose.cancelTarget(target);
         request->call();
+        ASSERT(!pass);
         RpcCore_LOGI("先创建Request");
+        pass = false;
         Request::create()
                 ->cmd(AppMsg::CMD1)
                 ->msg(test)
+                ->rsp<String>([&](const String& rsp){
+                    ASSERT(rsp == TEST+"test");
+                    pass = true;
+                })
                 ->call(rpc);
+        ASSERT(pass);
     }
 
     RpcCore_LOG("2. 值类型双端收发验证");
