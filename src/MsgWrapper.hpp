@@ -73,7 +73,7 @@ struct MsgWrapper : copyable {
         if ((intptr_t*) &message != (intptr_t*) &VOID) {
             msg.data = message.serialize();
         }
-        return std::make_pair(success, msg);
+        return std::make_pair(success, std::move(msg));
     }
 };
 

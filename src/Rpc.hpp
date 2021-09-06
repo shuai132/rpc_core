@@ -126,10 +126,9 @@ public:
      */
     inline SRequest ping(std::string payload = "")
     {
-        auto request = createRequest();
-        request->cmd(InnerCmd::PING);
-        request->msg(String(std::move(payload)));
-        return request;
+        return createRequest()
+            ->cmd(InnerCmd::PING)
+            ->msg(String(std::move(payload)));
     }
 
 public:
