@@ -10,7 +10,7 @@ namespace RpcCore {
 #define RpcCore_ENSURE_TYPE_IS_MESSAGE(T) \
         typename std::enable_if<std::is_base_of<Message, T>::value, int>::type = 0
 
-#if _LIBCPP_STD_VER >= 14
+#if __cplusplus >= 201402L
 #define RpcCore_MOVE(arg) arg=std::move(arg)
 #else
 #define RpcCore_MOVE(arg) arg
