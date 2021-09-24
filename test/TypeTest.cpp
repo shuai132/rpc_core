@@ -1,6 +1,6 @@
 #include "Test.h"
 #include "RpcCore.hpp"
-#include "ASSERT.h"
+#include "assert_def.h"
 
 namespace RpcCoreTest {
 
