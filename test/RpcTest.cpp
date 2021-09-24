@@ -4,18 +4,11 @@
 
 namespace RpcCoreTest {
 
-/**
- * 用户命令类型定义
- * 支持两种形式:
- * 1. int32_t 最佳性能 系统占用<0的范围
- * 2. std::string 便于使用 系统占用"RpcCore/"开头的字符串
- */
 namespace AppMsg {
-using namespace RpcCore;
-
-const CmdType CMD1 = "CMD1";
-const CmdType CMD2 = "CMD2";
-const CmdType CMD3 = "CMD3";
+const char* CMD1 = "CMD1";
+const char* CMD2 = "CMD2";
+const char* CMD3 = "CMD3";
+const char* CMD4 = "CMD4";
 }
 
 struct TestStruct {
@@ -79,6 +72,7 @@ void RpcTest() {
         ASSERT(!pass);
         request->call();
         ASSERT(pass);
+
         // 其他功能测试
         RpcCore_LOGI("多次调用");
         pass = false;
@@ -166,6 +160,40 @@ void RpcTest() {
                 })
                 ->call();
         ASSERT(pass);
+    }
+
+    RpcCore_LOG("4. finally测试");
+    {
+        bool pass = false;
+        bool pass_finally = false;
+        rpc->subscribe<String, String>(AppMsg::CMD4, [&](const String& msg) {
+            return msg;
+        });
+        rpc->createRequest()
+            ->cmd(AppMsg::CMD4)
+            ->msg(String("test"))
+            ->rsp<String>([&](const String& rsp){
+                ASSERT(rsp == "test");
+                pass = true;
+            })
+            ->finally([&](FinishType type) {
+                ASSERT(!pass_finally);
+                pass_finally = true;
+            })
+            ->call();
+        ASSERT(pass);
+        ASSERT(pass_finally);
+
+        pass_finally = false;
+        rpc->createRequest()
+            ->cmd(AppMsg::CMD4)
+            ->msg(String("test"))
+            ->finally([&](FinishType type) {
+                ASSERT(!pass_finally);
+                pass_finally = true;
+            })
+            ->call();
+        ASSERT(pass_finally);
     }
 
     RpcCore_LOG("PING PONG测试");

@@ -118,6 +118,10 @@ public:
         timeout(nullptr);
         inited_ = true;
         needRsp_ = true;
+        rspHandle_ = [this](const MsgWrapper& msg) {
+            onFinish(FinallyType::NORMAL);
+            return true;
+        };
     }
 
 public:
