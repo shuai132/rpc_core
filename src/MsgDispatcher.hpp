@@ -32,7 +32,7 @@ public:
 public:
     explicit MsgDispatcher(std::shared_ptr<Connection> conn)
             : conn_(std::move(conn)) {
-        conn_->setRecvPackageHandle([this](const std::string& payload) {
+        conn_->onRecvPackage = ([this](const std::string& payload) {
             bool success;
             auto msg = Coder::unserialize(payload, success);
             if (success) {
@@ -62,7 +62,7 @@ private:
                 const bool needRsp = msg.type & MsgWrapper::NEED_RSP;
                 auto resp = fn(std::move(msg));
                 if (needRsp && resp.first) {
-                    conn_->sendPackage(Coder::serialize(resp.second));
+                    conn_->sendPackageImpl(Coder::serialize(resp.second));
                 }
             } break;
 

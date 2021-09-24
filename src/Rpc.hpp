@@ -142,7 +142,7 @@ public:
             dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
         }
         auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), needRsp, request->payload());
-        conn_->sendPackage(Coder::serialize(msg));
+        conn_->sendPackageImpl(Coder::serialize(msg));
     }
 
 private:
