@@ -24,4 +24,6 @@ jobs:
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make -j2
-          ./RpcCore_example
+
+      - name: Run
+        run: cd build && ./RpcCore_test

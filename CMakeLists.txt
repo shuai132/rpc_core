@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.1)
 
 project(RpcCore CXX)
 
-option(RpcCore_BUILD_EXAMPLE "" OFF)
+option(RpcCore_BUILD_TEST "" OFF)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(RpcCore_BUILD_EXAMPLE ON)
+    set(RpcCore_BUILD_TEST ON)
 endif ()
 
 set(CMAKE_CXX_STANDARD 11)
@@ -20,8 +20,8 @@ set(EXAMPLE_COMPILE_DEFINE
         # RpcCore_LOG_SHOW_VERBOSE
         )
 
-if (${RpcCore_BUILD_EXAMPLE})
-    add_executable(${PROJECT_NAME}_example example.cpp test/RpcTest.cpp test/TypeTest.cpp)
-    target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})
-    target_compile_definitions(${PROJECT_NAME}_example PRIVATE ${EXAMPLE_COMPILE_DEFINE})
+if (${RpcCore_BUILD_TEST})
+    add_executable(${PROJECT_NAME}_test test/main.cpp test/RpcTest.cpp test/TypeTest.cpp)
+    target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+    target_compile_definitions(${PROJECT_NAME}_test PRIVATE ${EXAMPLE_COMPILE_DEFINE})
 endif ()
