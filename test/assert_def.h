@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+// clang-format off
+
 #define __ASSERT(e, file, line) \
     ((void)printf ("%s:%d: failed assertion `%s'\n", file, line, e), abort())
 

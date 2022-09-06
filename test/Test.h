@@ -6,4 +6,4 @@ void TypeTest();
 
 void RpcTest();
 
-}
+}  // namespace RpcCoreTest

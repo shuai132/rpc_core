@@ -5,10 +5,12 @@
 RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP8266)
 
 ## Introduction
+
 完善的RPC框架(如gRPC)使用复杂，尤其在嵌入式平台更不现实。
 本项目提供轻量级的消息注册、解析分发功能以及方便使用的API。
 
 ## Features
+
 * 简单高效 接口易用
 * 支持性能受限的平台
 * Header-Only 仅有头文件 方便引用
@@ -21,51 +23,67 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 * 支持设置超时重试次数
 
 ## Requirements
+
 * C++11编译器 （不需要特别完整 大部分支持C++11的MCU编译器均可）
 * 数据收发需要完整的数据包，例如WebSocket。如果用Socket/串口等需要自己实现消息打包解包
-比如`msgpack`，也可使用这个项目更简单：[https://github.com/shuai132/PacketProcessor](https://github.com/shuai132/PacketProcessor)
+  比如`msgpack`，也可使用这个项目更简单：[https://github.com/shuai132/PacketProcessor](https://github.com/shuai132/PacketProcessor)
 
 ## TestCase
+
 详见[RpcTest.cpp](test/RpcTest.cpp)
 
 ### Clone
+
 因包含submodule，克隆仓库请添加`--recursive`参数，或clone后执行：
+
 ```bash
 git submodule update --init --recursive
 ```
 
 ### Build
+
 1. PC端
-使用CMake:
+   使用CMake:
+
 ```bash
 mkdir build && cd build && cmake .. && make
 ```
 
 ## Usage
+
 1. clone完整仓库
 2. 在自己的项目添加搜索路径
+
 * 方式一：cmake
+
 ```cmake
 add_subdirectory(RpcCore的目录)
 target_link_libraries(YOUR_TARGET RpcCore)
 ```
+
 * 方式二：直接添加路径 cmake为例
+
 ```cmake
 include_directories(RpcCore)
 ```
+
 3. [具体用法参考TestCase](#TestCase)
 
 ## Design
+
 ### 类说明
-* Connection    提供收发实现 不存在连接断开状态 但可以控制它是否收发
-* Message       用户消息接口 自定义序列化/反序列化规则
-* MsgWrapper    包装Message 用于封装一致的消息格式和传输
+
+* Connection 提供收发实现 不存在连接断开状态 但可以控制它是否收发
+* Message 用户消息接口 自定义序列化/反序列化规则
+* MsgWrapper 包装Message 用于封装一致的消息格式和传输
 * MsgDispatcher 解析MsgWrapper 分发消息
-* Coder         MsgWrapper序列化实现
-* Request       消息请求 提供设置Message、接收/超时回调、取消等方法
-* Dispose       管理Request
-* Rpc           对外接口 提供注册消息和创建请求的方法
+* Coder MsgWrapper序列化实现
+* Request 消息请求 提供设置Message、接收/超时回调、取消等方法
+* Dispose 管理Request
+* Rpc 对外接口 提供注册消息和创建请求的方法
+
 ### LifeCycle
+
 * Connection是全局的
 * Request不持有Rpc 发送到完成之间Rpc持有Request(为了接收响应)
 * Dispose持有Request 但Request完成时会自动从Dispose移除

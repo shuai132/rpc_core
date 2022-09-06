@@ -1,0 +1,5 @@
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 150
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Empty

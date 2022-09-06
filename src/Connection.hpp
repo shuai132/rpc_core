@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
-#include <functional>
 #include <cassert>
+#include <functional>
+#include <string>
 #include <utility>
 
 #include "base/noncopyable.hpp"
@@ -18,19 +18,19 @@ namespace RpcCore {
  * 3. 提供发送数据的实现 sendPackageImpl
  */
 struct Connection : noncopyable {
-    std::function<void(std::string)> sendPackageImpl;
-    std::function<void(std::string)> onRecvPackage;
+  std::function<void(std::string)> sendPackageImpl;
+  std::function<void(std::string)> onRecvPackage;
 };
 
 /**
  * 回环消息连接 用于测试
  */
 struct LoopbackConnection : public Connection {
-    LoopbackConnection() {
-        sendPackageImpl = [this](std::string payload) {
-            onRecvPackage(std::move(payload));
-        };
-    }
+  LoopbackConnection() {
+    sendPackageImpl = [this](std::string payload) {
+      onRecvPackage(std::move(payload));
+    };
+  }
 };
 
-}
+}  // namespace RpcCore

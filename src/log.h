@@ -12,6 +12,8 @@
 
 #include <stdio.h>
 
+// clang-format off
+
 #ifdef  RpcCore_LOG_LINE_END_CRLF
 #define RpcCore_LOG_LINE_END        "\r\n"
 #else
