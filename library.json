@@ -1,5 +1,8 @@
 {
   "build": {
-    "srcDir": "."
+    "srcDir": "_",
+    "flags": [
+      "-I ."
+    ]
   }
 }
