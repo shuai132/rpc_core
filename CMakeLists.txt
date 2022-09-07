@@ -20,7 +20,7 @@ set(EXAMPLE_COMPILE_DEFINE
         # RpcCore_LOG_SHOW_VERBOSE
         )
 
-if (${RpcCore_BUILD_TEST})
+if (RpcCore_BUILD_TEST)
     add_executable(${PROJECT_NAME}_test test/main.cpp test/RpcTest.cpp test/TypeTest.cpp)
     target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
     target_compile_definitions(${PROJECT_NAME}_test PRIVATE ${EXAMPLE_COMPILE_DEFINE})
