@@ -80,7 +80,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
  private:
   FinallyType finallyType_;
   void onFinish(FinallyType type, bool byDispose = false) {
-    RpcCore_LOGV("onFinish: cmd:%s, %p", cmd().c_str(), this);
+    RpcCore_LOGD("onFinish: cmd:%s, type: %d, %p", cmd().c_str(), type, this);
     if (not dispose_.expired() && not byDispose) {
       if (type == FinallyType::TIMEOUT && retryCount_ != 0) {  // will retry
       } else {

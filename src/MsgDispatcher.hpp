@@ -77,7 +77,7 @@ class MsgDispatcher : noncopyable {
         }
         if (cb(std::move(msg))) {
           rspHandleMap_.erase(it);
-          RpcCore_LOGD("rspHandleMap_.size=%zu", rspHandleMap_.size());
+          RpcCore_LOGV("rspHandleMap_.size=%zu", rspHandleMap_.size());
         } else {
           RpcCore_LOGE("may unserialize error");
         }
@@ -120,7 +120,7 @@ class MsgDispatcher : noncopyable {
           timeoutCb();
         }
         rspHandleMap_.erase(seq);
-        RpcCore_LOGD("Timeout seq=%d, rspHandleMap_.size=%zu", seq, rspHandleMap_.size());
+        RpcCore_LOGV("Timeout seq=%d, rspHandleMap_.size=%zu", seq, rspHandleMap_.size());
       }
     });
   }
