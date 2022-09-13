@@ -4,8 +4,8 @@
 #include <cstring>
 #include <string>
 
-#include "base/copyable.hpp"
-#include "log.h"
+#include "detail/copyable.hpp"
+#include "detail/log.h"
 
 namespace RpcCore {
 

@@ -6,7 +6,7 @@
 #include "Connection.hpp"
 #include "MsgDispatcher.hpp"
 #include "Request.hpp"
-#include "base/noncopyable.hpp"
+#include "detail/noncopyable.hpp"
 
 namespace RpcCore {
 /**

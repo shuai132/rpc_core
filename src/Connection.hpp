@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-#include "base/noncopyable.hpp"
+#include "detail/noncopyable.hpp"
 
 namespace RpcCore {
 

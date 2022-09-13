@@ -7,8 +7,8 @@
 #include "Coder.hpp"
 #include "Connection.hpp"
 #include "Message.hpp"
-#include "base/noncopyable.hpp"
-#include "log.h"
+#include "detail/noncopyable.hpp"
+#include "detail/log.h"
 
 namespace RpcCore {
 namespace internal {

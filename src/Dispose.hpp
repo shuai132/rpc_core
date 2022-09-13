@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "Request.hpp"
-#include "base/noncopyable.hpp"
+#include "detail/noncopyable.hpp"
 
 namespace RpcCore {
 

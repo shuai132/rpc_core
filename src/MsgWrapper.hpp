@@ -4,8 +4,8 @@
 #include <utility>
 
 #include "Type.hpp"
-#include "base/copyable.hpp"
-#include "log.h"
+#include "detail/copyable.hpp"
+#include "detail/log.h"
 
 namespace RpcCore {
 

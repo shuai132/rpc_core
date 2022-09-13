@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "MsgWrapper.hpp"
-#include "base/noncopyable.hpp"
+#include "detail/noncopyable.hpp"
 
 namespace RpcCore {
 
