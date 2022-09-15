@@ -15,7 +15,6 @@ add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE .)
 
 set(EXAMPLE_COMPILE_DEFINE
-        RpcCore_LOG_WITH_COLOR
         RpcCore_LOG_SHOW_DEBUG
         # RpcCore_LOG_SHOW_VERBOSE
         )

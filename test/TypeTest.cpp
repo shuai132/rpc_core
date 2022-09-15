@@ -30,7 +30,7 @@ void TypeTest() {
     b.deSerialize(a.serialize());
     ASSERT(b.value.a == 1);
     ASSERT(b.value.b == 2);
-    ASSERT(0 == memcmp(&a.value, &b.value, sizeof(MyData)));
+    ASSERT(0 == memcmp(&a.value, &b.value, sizeof(MyData)));  // NOLINT
   }
   {
     RpcCore_LOGD("String/Binary...");

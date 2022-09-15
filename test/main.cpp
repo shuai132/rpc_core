@@ -1,13 +1,14 @@
-#include "src/log.h"
+#include <cstdio>
+
 #include "test/Test.h"
 
 using namespace RpcCoreTest;
 
 int main() {
-  RpcCore_LOG("TypeTest...");
+  printf("TypeTest...\n");
   TypeTest();
 
-  RpcCore_LOG("RpcTest...");
+  printf("RpcTest...\n");
   RpcTest();
 
   return 0;
