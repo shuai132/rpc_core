@@ -115,11 +115,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     canceled(false);
     timeout(nullptr);
     inited_ = true;
-    needRsp_ = true;
-    rspHandle_ = [this](const MsgWrapper& msg) {
-      onFinish(FinallyType::NORMAL);
-      return true;
-    };
+    needRsp_ = false;
   }
 
  public:
@@ -152,6 +148,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
   template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
   SRequest rsp(std::function<void(T&&)> cb) {
+    needRsp_ = true;
     auto self = shared_from_this();
     this->rspHandle_ = [this, RpcCore_MOVE(cb), self](MsgWrapper msg) {
       if (canceled()) {
@@ -199,6 +196,9 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     return shared_from_this();
   }
 
+  /**
+   * 强制忽略rsp回调 用于调试
+   */
   SRequest noRsp() {
     needRsp_ = false;
     return shared_from_this();

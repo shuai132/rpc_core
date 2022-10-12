@@ -177,6 +177,7 @@ void RpcTest() {
           pass = true;
         })
         ->finally([&](FinishType type) {
+          ASSERT(type == FinishType::NORMAL);
           ASSERT(!pass_finally);
           pass_finally = true;
         })
@@ -189,6 +190,7 @@ void RpcTest() {
         ->cmd(AppMsg::CMD4)
         ->msg(String("test"))
         ->finally([&](FinishType type) {
+          ASSERT(type == FinishType::NO_NEED_RSP);
           ASSERT(!pass_finally);
           pass_finally = true;
         })
