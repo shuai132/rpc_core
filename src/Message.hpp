@@ -104,4 +104,16 @@ struct String : Message, public std::string {
  */
 using Binary = String;
 
+struct Bool : Raw<uint8_t> {
+  Bool() {
+    value = 0;
+  };
+  Bool(bool v) {
+    value = v;
+  }
+  operator bool() {
+    return value != 0;
+  }
+};
+
 }  // namespace RpcCore
