@@ -79,10 +79,10 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   }
 
   template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-  SRequest rsp(std::function<void(T&&)> cb) {
+  SRequest rsp(RpcCore_MOVE_PARAM(std::function<void(T&&)>) cb) {
     needRsp_ = true;
     auto self = shared_from_this();
-    this->rspHandle_ = [this, RpcCore_MOVE(cb), self](MsgWrapper msg) {
+    this->rspHandle_ = [this, RpcCore_MOVE_LAMBDA(cb), self](MsgWrapper msg) {
       if (canceled()) {
         onFinish(FinallyType::CANCELED);
         return true;
@@ -119,8 +119,8 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     }
   }
 
-  std::shared_ptr<Request> timeout(std::function<void()> timeoutCb) {
-    timeoutCb_ = [this, RpcCore_MOVE(timeoutCb)] {
+  std::shared_ptr<Request> timeout(RpcCore_MOVE_PARAM(std::function<void()>) timeoutCb) {
+    timeoutCb_ = [this, RpcCore_MOVE_LAMBDA(timeoutCb)] {
       if (timeoutCb) {
         timeoutCb();
       }

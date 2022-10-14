@@ -7,8 +7,8 @@
 #include "Coder.hpp"
 #include "Connection.hpp"
 #include "Message.hpp"
-#include "detail/noncopyable.hpp"
 #include "detail/log.h"
+#include "detail/noncopyable.hpp"
 
 namespace RpcCore {
 namespace internal {
@@ -104,7 +104,7 @@ class MsgDispatcher : noncopyable {
     }
   }
 
-  void subscribeRsp(SeqType seq, RspHandle handle, TimeoutCb timeoutCb, uint32_t timeoutMs) {
+  void subscribeRsp(SeqType seq, RspHandle handle, RpcCore_MOVE_PARAM(TimeoutCb) timeoutCb, uint32_t timeoutMs) {
     RpcCore_LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
     if (handle == nullptr) return;
     rspHandleMap_[seq] = std::move(handle);
@@ -113,7 +113,7 @@ class MsgDispatcher : noncopyable {
       RpcCore_LOGW("no timeout will cause memory leak!");
     }
 
-    timerImpl_(timeoutMs, [this, seq, RpcCore_MOVE(timeoutCb)] {
+    timerImpl_(timeoutMs, [this, seq, RpcCore_MOVE_LAMBDA(timeoutCb)] {
       auto it = rspHandleMap_.find(seq);
       if (it != rspHandleMap_.cend()) {
         if (timeoutCb) {

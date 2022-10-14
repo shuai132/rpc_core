@@ -76,8 +76,8 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
    * @param handle 接收数据 返回操作状态
    */
   template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-  void subscribe(const CmdType& cmd, std::function<void(T&&)> handle) {
-    dispatcher_.subscribeCmd(cmd, [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
+  void subscribe(const CmdType& cmd, RpcCore_MOVE_PARAM(std::function<void(T&&)>) handle) {
+    dispatcher_.subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const MsgWrapper& msg) {
       auto r = msg.unpackAs<T>();
       if (r.first) {
         handle(std::move(r.second));
@@ -91,8 +91,8 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
    * @param cmd
    * @param handle 不接收参数 返回操作状态
    */
-  inline void subscribe(CmdType cmd, std::function<void()> handle) {
-    dispatcher_.subscribeCmd(std::move(cmd), [RpcCore_MOVE(handle)](const MsgWrapper& msg) {
+  inline void subscribe(CmdType cmd, RpcCore_MOVE_PARAM(std::function<void()>) handle) {
+    dispatcher_.subscribeCmd(std::move(cmd), [RpcCore_MOVE_LAMBDA(handle)](const MsgWrapper& msg) {
       handle();
       return MsgWrapper::MakeRsp(msg.seq);
     });
