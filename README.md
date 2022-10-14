@@ -32,14 +32,6 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 
 详见[RpcTest.cpp](test/RpcTest.cpp)
 
-### Clone
-
-因包含submodule，克隆仓库请添加`--recursive`参数，或clone后执行：
-
-```bash
-git submodule update --init --recursive
-```
-
 ### Build
 
 1. PC端
@@ -79,12 +71,16 @@ include_directories(RpcCore)
 * MsgDispatcher 解析MsgWrapper 分发消息
 * Coder MsgWrapper序列化实现
 * Request 消息请求 提供设置Message、接收/超时回调、取消等方法
-* Dispose 管理Request
+* Dispose 通过RAII的方式 用于自动取消Request
 * Rpc 对外接口 提供注册消息和创建请求的方法
 
 ### LifeCycle
 
 * Connection是全局的
-* Request不持有Rpc 发送到完成之间Rpc持有Request(为了接收响应)
-* Dispose持有Request 但Request完成时会自动从Dispose移除
-* Request持有Dispose的弱引用 完成时如果它存在就从它移除
+* Request不持有Rpc 发送到完成之间Rpc将持有Request(为了接收回复)
+* Dispose持有Request的弱引用
+
+## Plugin
+
+* [FlatbuffersMsg.hpp](./plugin/FlatbuffersMsg.hpp)  
+  支持直接使用Flatbuffers生成的对象作为消息传输(`flatc`需添加参数`--gen-object-api`)
