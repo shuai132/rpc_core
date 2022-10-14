@@ -87,13 +87,11 @@ void RpcTest() {
     request->unCancel();
     request->call();
     ASSERT(pass);
-    RpcCore_LOGI("设置target 配合Dispose");
+    RpcCore_LOGI("添加到Dispose");
     pass = false;
     Dispose dispose;
-    auto target = (void*)1;
-    request->target(target);
-    dispose.addRequest(request);
-    dispose.cancelTarget(target);
+    request->addTo(dispose);
+    dispose.dispose();
     request->call();
     ASSERT(!pass);
     RpcCore_LOGI("先创建Request");
@@ -213,7 +211,6 @@ void RpcTest() {
 
   RpcCore_LOG("Dispose");
   {
-    bool pass = false;
     auto request = rpc->ping("ping")
                        ->rsp<String>([&](const String& payload) {
                          ASSERT(false);

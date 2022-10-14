@@ -67,7 +67,6 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   }
 
   RpcCore_Request_MAKE_PROP_PUBLIC(CmdType, cmd);
-  RpcCore_Request_MAKE_PROP_PUBLIC(void*, target);
   RpcCore_Request_MAKE_PROP_PUBLIC(std::function<void(FinallyType)>, finally);
 
  public:
@@ -177,7 +176,6 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
  private:
   void init() {
     timeoutMs(3000);
-    target(nullptr);
     canceled(false);
     timeout(nullptr);
     needRsp_ = false;

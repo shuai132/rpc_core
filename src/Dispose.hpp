@@ -6,6 +6,8 @@
 #include <string>
 #include <utility>
 
+//#define RpcCore_LOG_SHOW_VERBOSE
+
 #include "Request.hpp"
 #include "detail/noncopyable.hpp"
 
@@ -25,55 +27,30 @@ class Dispose : noncopyable, public Request::DisposeProto {
 
  public:
   void addRequest(SRequest request) override {
-    RpcCore_LOGV("addRequest: ptr:%p target:%p", request.get(), request->target());
-    targetRequestMap_[request->target()].insert(std::move(request));
+    RpcCore_LOGV("addRequest: ptr:%p", request.get());
+    requests_.insert(std::move(request));
   }
 
   void rmRequest(SRequest request) override {
-    RpcCore_LOGV("rmRequest: ptr:%p target:%p", request.get(), request->target());
-    auto it = targetRequestMap_.find(request->target());
-    if (it == targetRequestMap_.cend()) return;
-    auto& rs = it->second;
-    it->second.erase(rs.find(request));
+    RpcCore_LOGV("rmRequest: ptr:%p", request.get());
+    requests_.erase(request);
   }
 
-  void cancelTarget(void* target) {
-    auto it = targetRequestMap_.find(target);
-    if (it == targetRequestMap_.cend()) return;
-    for (const auto& request : it->second) {
-      if (request->target() == target) {
-        request->cancel();
-      }
+  void dispose() {
+    for (const auto& item : requests_) {
+      item->cancel();
     }
-    targetRequestMap_.erase(it);
-  }
-
-  void cancelAll() {
-    for (auto& m : targetRequestMap_) {
-      for (const auto& request : m.second) {
-        request->cancel();
-      }
-      m.second.clear();
-    }
-    targetRequestMap_.clear();
-  }
-
-  size_t getRequestSize() {
-    size_t sum = 0;
-    for (const auto& m : targetRequestMap_) {
-      sum += m.second.size();
-    }
-    return sum;
+    requests_.clear();
   }
 
   // RAII
   ~Dispose() override {
-    RpcCore_LOGD("~Dispose: size:%zu \t%s", getRequestSize(), name_.c_str());
-    cancelAll();
+    RpcCore_LOGD("~Dispose: size:%zu \t%s", requests_.size(), name_.c_str());
+    dispose();
   }
 
  private:
-  std::map<void*, std::set<SRequest>> targetRequestMap_;
+  std::set<SRequest> requests_;
   std::string name_;
 };
 
