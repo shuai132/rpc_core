@@ -1,10 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <memory>
-#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 //#define RpcCore_LOG_SHOW_VERBOSE
 
@@ -26,19 +27,27 @@ class Dispose : noncopyable, public Request::DisposeProto {
   }
 
  public:
-  void addRequest(SRequest request) override {
-    RpcCore_LOGV("addRequest: ptr:%p", request.get());
-    requests_.insert(std::move(request));
+  void add(const SRequest& request) override {
+    RpcCore_LOGV("add: ptr:%p", request.get());
+    requests_.push_back(WRequest{request});
   }
 
-  void rmRequest(SRequest request) override {
-    RpcCore_LOGV("rmRequest: ptr:%p", request.get());
-    requests_.erase(request);
+  void remove(const SRequest& request) override {
+    RpcCore_LOGV("remove: ptr:%p", request.get());
+    auto iter = std::remove_if(requests_.begin(), requests_.end(), [&](WRequest& param) {
+      auto r = param.lock();
+      if (!r) return true;
+      return r == request;
+    });
+    requests_.erase(iter);
   }
 
   void dispose() {
     for (const auto& item : requests_) {
-      item->cancel();
+      auto r = item.lock();
+      if (r) {
+        r->cancel();
+      }
     }
     requests_.clear();
   }
@@ -50,7 +59,7 @@ class Dispose : noncopyable, public Request::DisposeProto {
   }
 
  private:
-  std::set<SRequest> requests_;
+  std::vector<WRequest> requests_;
   std::string name_;
 };
 

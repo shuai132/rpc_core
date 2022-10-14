@@ -44,8 +44,8 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
   struct DisposeProto {
     virtual ~DisposeProto() = default;
-    virtual void addRequest(SRequest request) = 0;
-    virtual void rmRequest(SRequest request) = 0;
+    virtual void add(const SRequest& request) = 0;
+    virtual void remove(const SRequest& request) = 0;
   };
 
   enum class FinallyType {
@@ -134,7 +134,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
   SRequest addTo(DisposeProto& dispose) {
     auto self = shared_from_this();
-    dispose.addRequest(self);
+    dispose.add(self);
     return self;
   }
 
@@ -211,6 +211,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 };
 
 using SRequest = Request::SRequest;
+using WRequest = Request::WRequest;
 using FinishType = Request::FinallyType;
 
 }  // namespace RpcCore
