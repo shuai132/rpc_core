@@ -150,12 +150,17 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     r->sendRequest(self);
     if (!needRsp_) {
       onFinish(FinallyType::NO_NEED_RSP);
+    } else {
+      waitingRsp_ = true;
     }
   }
 
   SRequest cancel(bool byDispose = false) {
     canceled(true);
-    onFinish(FinallyType::CANCELED, byDispose);
+    if (waitingRsp_) {
+      waitingRsp_ = false;
+      onFinish(FinallyType::CANCELED, byDispose);
+    }
     return shared_from_this();
   }
 
@@ -219,6 +224,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
  private:
   WDisposeProto dispose_;
   int retryCount_ = 0;
+  bool waitingRsp_ = false;
 };
 
 using SRequest = Request::SRequest;
