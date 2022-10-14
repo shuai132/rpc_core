@@ -84,7 +84,7 @@ void RpcTest() {
     request->call();
     ASSERT(!pass);
     RpcCore_LOGI("恢复取消");
-    request->canceled(false);
+    request->unCancel();
     request->call();
     ASSERT(pass);
     RpcCore_LOGI("设置target 配合Dispose");

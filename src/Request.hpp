@@ -8,16 +8,27 @@
 
 namespace RpcCore {
 
-#define RpcCore_Request_MAKE_PROP(type, name)       \
- private:                                           \
-  type name##_;                                     \
-                                                    \
- public:                                            \
-  inline type name() { return name##_; }            \
-  inline std::shared_ptr<Request> name(type name) { \
-    name##_ = std::move(name);                      \
-    return shared_from_this();                      \
-  }
+#define RpcCore_Request_MAKE_PROP_PUBLIC(type, name) \
+ public:                                             \
+  inline std::shared_ptr<Request> name(type name) {  \
+    name##_ = std::move(name);                       \
+    return shared_from_this();                       \
+  }                                                  \
+                                                     \
+ private:                                            \
+  type name##_;                                      \
+  inline type name() { return name##_; }
+
+#define RpcCore_Request_MAKE_PROP_PRIVATE(type, name) \
+ private:                                             \
+  inline type name() { return name##_; }              \
+  inline std::shared_ptr<Request> name(type name) {   \
+    name##_ = std::move(name);                        \
+    return shared_from_this();                        \
+  }                                                   \
+                                                      \
+ private:                                             \
+  type name##_;
 
 struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   using SRequest = std::shared_ptr<Request>;
@@ -47,19 +58,24 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     NO_NEED_RSP,
   };
 
-  RpcCore_Request_MAKE_PROP(WSendProto, rpc);
-  RpcCore_Request_MAKE_PROP(CmdType, cmd);
-  RpcCore_Request_MAKE_PROP(void*, target);
-  RpcCore_Request_MAKE_PROP(SeqType, seq);
-  RpcCore_Request_MAKE_PROP(std::function<bool(MsgWrapper)>, rspHandle);
-  RpcCore_Request_MAKE_PROP(uint32_t, timeoutMs);
-  RpcCore_Request_MAKE_PROP(bool, canceled);
-  RpcCore_Request_MAKE_PROP(std::function<void(FinallyType)>, finally);
-  RpcCore_Request_MAKE_PROP(std::string, payload);
-  RpcCore_Request_MAKE_PROP(bool, needRsp);
+  RpcCore_Request_MAKE_PROP_PUBLIC(CmdType, cmd);
+  RpcCore_Request_MAKE_PROP_PUBLIC(void*, target);
+  RpcCore_Request_MAKE_PROP_PUBLIC(std::function<void(FinallyType)>, finally);
+
+  friend class Dispose;
+  friend class Rpc;
+  RpcCore_Request_MAKE_PROP_PRIVATE(WSendProto, rpc);
+  RpcCore_Request_MAKE_PROP_PRIVATE(SeqType, seq);
+  RpcCore_Request_MAKE_PROP_PRIVATE(std::function<bool(MsgWrapper)>, rspHandle);
+  RpcCore_Request_MAKE_PROP_PRIVATE(uint32_t, timeoutMs);
+  RpcCore_Request_MAKE_PROP_PRIVATE(std::string, payload);
+  RpcCore_Request_MAKE_PROP_PRIVATE(bool, needRsp);
+  RpcCore_Request_MAKE_PROP_PRIVATE(bool, canceled);
+
+ private:
+  std::function<void()> timeoutCb_;
 
  public:
-  std::function<void()> timeoutCb_;
   std::shared_ptr<Request> timeout(std::function<void()> timeoutCb) {
     timeoutCb_ = [this, RpcCore_MOVE(timeoutCb)] {
       if (timeoutCb) {
@@ -109,19 +125,17 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     return request;
   }
 
+ private:
   void init() {
     timeoutMs(3000);
     target(nullptr);
     canceled(false);
     timeout(nullptr);
-    inited_ = true;
     needRsp_ = false;
   }
 
  public:
   void call(const SSendProto& rpc = nullptr) {
-    assert(inited_);
-
     if (canceled()) return;
 
     auto self = shared_from_this();
@@ -140,9 +154,13 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   }
 
   SRequest cancel(bool byDispose = false) {
-    assert(inited_);
     canceled(true);
     onFinish(FinallyType::CANCELED, byDispose);
+    return shared_from_this();
+  }
+
+  SRequest unCancel() {
+    canceled(false);
     return shared_from_this();
   }
 
@@ -172,12 +190,6 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     return shared_from_this();
   }
 
-  template <typename T, typename R>
-  SRequest setMessage(const R& message) {
-    this->payload(((T)message).serialize());
-    return shared_from_this();
-  }
-
   /**
    * 添加到dispose并且当执行完成后 自动从dispose删除
    */
@@ -191,7 +203,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   /**
    * 超时后自动重试次数 -1为一直尝试 0为停止 >0为尝试次数
    */
-  SRequest retryCount(int count) {
+  SRequest retry(int count) {
     retryCount_ = count;
     return shared_from_this();
   }
@@ -199,13 +211,12 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   /**
    * 强制忽略rsp回调 用于调试
    */
-  SRequest noRsp() {
+  SRequest disableRsp() {
     needRsp_ = false;
     return shared_from_this();
   }
 
  private:
-  bool inited_ = false;
   WDisposeProto dispose_;
   int retryCount_ = 0;
 };
