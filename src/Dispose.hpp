@@ -42,7 +42,7 @@ class Dispose : noncopyable, public Request::DisposeProto {
     if (it == targetRequestMap_.cend()) return;
     for (const auto& request : it->second) {
       if (request->target() == target) {
-        request->cancel(true);
+        request->cancel();
       }
     }
     targetRequestMap_.erase(it);
@@ -51,7 +51,7 @@ class Dispose : noncopyable, public Request::DisposeProto {
   void cancelAll() {
     for (auto& m : targetRequestMap_) {
       for (const auto& request : m.second) {
-        request->cancel(true);
+        request->cancel();
       }
       m.second.clear();
     }

@@ -47,8 +47,6 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     virtual void addRequest(SRequest request) = 0;
     virtual void rmRequest(SRequest request) = 0;
   };
-  using SDisposeProto = std::shared_ptr<DisposeProto>;
-  using WDisposeProto = std::weak_ptr<DisposeProto>;
 
   enum class FinallyType {
     NORMAL,
@@ -109,13 +107,12 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
       onFinish(FinallyType::RPC_EXPIRED);
       return;
     }
+    waitingRsp_ = true;
     auto r = rpc_.lock();
     seq_ = r->makeSeq();
     r->sendRequest(self);
     if (!needRsp_) {
       onFinish(FinallyType::NO_NEED_RSP);
-    } else {
-      waitingRsp_ = true;
     }
   }
 
@@ -124,30 +121,28 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
       if (timeoutCb) {
         timeoutCb();
       }
-      onFinish(FinallyType::TIMEOUT);
-
       if (retryCount_ == -1) {
         call();
       } else if (retryCount_ > 0) {
         retryCount_--;
         call();
+      } else {
+        onFinish(FinallyType::TIMEOUT);
       }
     };
     return shared_from_this();
   }
 
-  SRequest addTo(const SDisposeProto& dispose) {
-    dispose_ = dispose;
+  SRequest addTo(DisposeProto& dispose) {
     auto self = shared_from_this();
-    dispose->addRequest(self);
+    dispose.addRequest(self);
     return self;
   }
 
-  SRequest cancel(bool byDispose = false) {
+  SRequest cancel() {
     canceled(true);
-    if (waitingRsp_ || byDispose) {
-      waitingRsp_ = false;
-      onFinish(FinallyType::CANCELED, byDispose);
+    if (waitingRsp_) {
+      onFinish(FinallyType::CANCELED);
     }
     return shared_from_this();
   }
@@ -188,14 +183,10 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     needRsp_ = false;
   }
 
-  void onFinish(FinallyType type, bool byDispose = false) {
+  void onFinish(FinallyType type) {
+    assert(waitingRsp_);
+    waitingRsp_ = false;
     RpcCore_LOGD("onFinish: cmd:%s, type: %d, %p", cmd().c_str(), (int)type, this);
-    if (not dispose_.expired() && not byDispose) {
-      if (type == FinallyType::TIMEOUT && retryCount_ != 0) {  // will retry
-      } else {
-        dispose_.lock()->rmRequest(shared_from_this());
-      }
-    }
     finallyType_ = type;
     if (finally_) {
       finally_(finallyType_);
@@ -217,7 +208,6 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   std::function<void()> timeoutCb_;
 
  private:
-  WDisposeProto dispose_;
   int retryCount_ = 0;
   bool waitingRsp_ = false;
 };

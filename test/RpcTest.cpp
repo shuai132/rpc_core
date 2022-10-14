@@ -219,15 +219,14 @@ void RpcTest() {
                          ASSERT(false);
                        })
                        ->finally([&](FinishType type) {
-                         ASSERT(type == FinishType::CANCELED);
-                         pass = true;
+                         // 在call之前已取消 不会触发
+                         ASSERT(false);
                        });
     {
-      auto dispose = Dispose::create();
+      Dispose dispose;
       request->addTo(dispose);
     }
     request->call();
-    ASSERT(pass);
   }
 }
 
