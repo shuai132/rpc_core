@@ -58,63 +58,6 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     NO_NEED_RSP,
   };
 
-  RpcCore_Request_MAKE_PROP_PUBLIC(CmdType, cmd);
-  RpcCore_Request_MAKE_PROP_PUBLIC(void*, target);
-  RpcCore_Request_MAKE_PROP_PUBLIC(std::function<void(FinallyType)>, finally);
-
-  friend class Dispose;
-  friend class Rpc;
-  RpcCore_Request_MAKE_PROP_PRIVATE(WSendProto, rpc);
-  RpcCore_Request_MAKE_PROP_PRIVATE(SeqType, seq);
-  RpcCore_Request_MAKE_PROP_PRIVATE(std::function<bool(MsgWrapper)>, rspHandle);
-  RpcCore_Request_MAKE_PROP_PRIVATE(uint32_t, timeoutMs);
-  RpcCore_Request_MAKE_PROP_PRIVATE(std::string, payload);
-  RpcCore_Request_MAKE_PROP_PRIVATE(bool, needRsp);
-  RpcCore_Request_MAKE_PROP_PRIVATE(bool, canceled);
-
- private:
-  std::function<void()> timeoutCb_;
-
- public:
-  std::shared_ptr<Request> timeout(std::function<void()> timeoutCb) {
-    timeoutCb_ = [this, RpcCore_MOVE(timeoutCb)] {
-      if (timeoutCb) {
-        timeoutCb();
-      }
-      onFinish(FinallyType::TIMEOUT);
-
-      if (retryCount_ == -1) {
-        call();
-      } else if (retryCount_ > 0) {
-        retryCount_--;
-        call();
-      }
-    };
-    return shared_from_this();
-  }
-
- private:
-  FinallyType finallyType_;
-  void onFinish(FinallyType type, bool byDispose = false) {
-    RpcCore_LOGD("onFinish: cmd:%s, type: %d, %p", cmd().c_str(), (int)type, this);
-    if (not dispose_.expired() && not byDispose) {
-      if (type == FinallyType::TIMEOUT && retryCount_ != 0) {  // will retry
-      } else {
-        dispose_.lock()->rmRequest(shared_from_this());
-      }
-    }
-    finallyType_ = type;
-    if (finally_) {
-      finally_(finallyType_);
-    }
-  }
-
- private:
-  explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {}  // NOLINT(cppcoreguidelines-pro-type-member-init)
-  ~Request() {
-    RpcCore_LOGD("~Request: cmd:%s, %p", cmd_.c_str(), this);
-  }
-
  public:
   template <typename... Args>
   static SRequest create(Args&&... args) {
@@ -125,47 +68,13 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     return request;
   }
 
- private:
-  void init() {
-    timeoutMs(3000);
-    target(nullptr);
-    canceled(false);
-    timeout(nullptr);
-    needRsp_ = false;
-  }
+  RpcCore_Request_MAKE_PROP_PUBLIC(CmdType, cmd);
+  RpcCore_Request_MAKE_PROP_PUBLIC(void*, target);
+  RpcCore_Request_MAKE_PROP_PUBLIC(std::function<void(FinallyType)>, finally);
 
  public:
-  void call(const SSendProto& rpc = nullptr) {
-    if (canceled()) return;
-
-    auto self = shared_from_this();
-    if (rpc) {
-      rpc_ = rpc;
-    } else if (rpc_.expired()) {
-      onFinish(FinallyType::RPC_EXPIRED);
-      return;
-    }
-    auto r = rpc_.lock();
-    seq_ = r->makeSeq();
-    r->sendRequest(self);
-    if (!needRsp_) {
-      onFinish(FinallyType::NO_NEED_RSP);
-    } else {
-      waitingRsp_ = true;
-    }
-  }
-
-  SRequest cancel(bool byDispose = false) {
-    canceled(true);
-    if (waitingRsp_) {
-      waitingRsp_ = false;
-      onFinish(FinallyType::CANCELED, byDispose);
-    }
-    return shared_from_this();
-  }
-
-  SRequest unCancel() {
-    canceled(false);
+  SRequest msg(const Message& message) {
+    this->payload(message.serialize());
     return shared_from_this();
   }
 
@@ -190,19 +99,62 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     return self;
   }
 
-  SRequest msg(const Message& message) {
-    this->payload(message.serialize());
+  void call(const SSendProto& rpc = nullptr) {
+    if (canceled()) return;
+
+    auto self = shared_from_this();
+    if (rpc) {
+      rpc_ = rpc;
+    } else if (rpc_.expired()) {
+      onFinish(FinallyType::RPC_EXPIRED);
+      return;
+    }
+    auto r = rpc_.lock();
+    seq_ = r->makeSeq();
+    r->sendRequest(self);
+    if (!needRsp_) {
+      onFinish(FinallyType::NO_NEED_RSP);
+    } else {
+      waitingRsp_ = true;
+    }
+  }
+
+  std::shared_ptr<Request> timeout(std::function<void()> timeoutCb) {
+    timeoutCb_ = [this, RpcCore_MOVE(timeoutCb)] {
+      if (timeoutCb) {
+        timeoutCb();
+      }
+      onFinish(FinallyType::TIMEOUT);
+
+      if (retryCount_ == -1) {
+        call();
+      } else if (retryCount_ > 0) {
+        retryCount_--;
+        call();
+      }
+    };
     return shared_from_this();
   }
 
-  /**
-   * 添加到dispose并且当执行完成后 自动从dispose删除
-   */
   SRequest addTo(const SDisposeProto& dispose) {
     dispose_ = dispose;
     auto self = shared_from_this();
     dispose->addRequest(self);
     return self;
+  }
+
+  SRequest cancel(bool byDispose = false) {
+    canceled(true);
+    if (waitingRsp_) {
+      waitingRsp_ = false;
+      onFinish(FinallyType::CANCELED, byDispose);
+    }
+    return shared_from_this();
+  }
+
+  SRequest unCancel() {
+    canceled(false);
+    return shared_from_this();
   }
 
   /**
@@ -220,6 +172,49 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     needRsp_ = false;
     return shared_from_this();
   }
+
+ private:
+  explicit Request(const SSendProto& rpc = nullptr) : rpc_(rpc) {}  // NOLINT(cppcoreguidelines-pro-type-member-init)
+  ~Request() {
+    RpcCore_LOGD("~Request: cmd:%s, %p", cmd_.c_str(), this);
+  }
+
+ private:
+  void init() {
+    timeoutMs(3000);
+    target(nullptr);
+    canceled(false);
+    timeout(nullptr);
+    needRsp_ = false;
+  }
+
+  void onFinish(FinallyType type, bool byDispose = false) {
+    RpcCore_LOGD("onFinish: cmd:%s, type: %d, %p", cmd().c_str(), (int)type, this);
+    if (not dispose_.expired() && not byDispose) {
+      if (type == FinallyType::TIMEOUT && retryCount_ != 0) {  // will retry
+      } else {
+        dispose_.lock()->rmRequest(shared_from_this());
+      }
+    }
+    finallyType_ = type;
+    if (finally_) {
+      finally_(finallyType_);
+    }
+  }
+
+  friend class Dispose;
+  friend class Rpc;
+  RpcCore_Request_MAKE_PROP_PRIVATE(WSendProto, rpc);
+  RpcCore_Request_MAKE_PROP_PRIVATE(SeqType, seq);
+  RpcCore_Request_MAKE_PROP_PRIVATE(std::function<bool(MsgWrapper)>, rspHandle);
+  RpcCore_Request_MAKE_PROP_PRIVATE(uint32_t, timeoutMs);
+  RpcCore_Request_MAKE_PROP_PRIVATE(std::string, payload);
+  RpcCore_Request_MAKE_PROP_PRIVATE(bool, needRsp);
+  RpcCore_Request_MAKE_PROP_PRIVATE(bool, canceled);
+
+ private:
+  FinallyType finallyType_;
+  std::function<void()> timeoutCb_;
 
  private:
   WDisposeProto dispose_;
