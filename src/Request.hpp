@@ -145,7 +145,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
   SRequest cancel(bool byDispose = false) {
     canceled(true);
-    if (waitingRsp_) {
+    if (waitingRsp_ || byDispose) {
       waitingRsp_ = false;
       onFinish(FinallyType::CANCELED, byDispose);
     }

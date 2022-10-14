@@ -210,6 +210,25 @@ void RpcTest() {
         ->call();
     ASSERT(pass);
   }
+
+  RpcCore_LOG("Dispose");
+  {
+    bool pass = false;
+    auto request = rpc->ping("ping")
+                       ->rsp<String>([&](const String& payload) {
+                         ASSERT(false);
+                       })
+                       ->finally([&](FinishType type) {
+                         ASSERT(type == FinishType::CANCELED);
+                         pass = true;
+                       });
+    {
+      auto dispose = Dispose::create();
+      request->addTo(dispose);
+    }
+    request->call();
+    ASSERT(pass);
+  }
 }
 
 }  // namespace RpcCoreTest
