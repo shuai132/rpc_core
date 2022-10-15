@@ -112,6 +112,10 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
     return Request::create(shared_from_this());
   }
 
+  inline SRequest cmd(CmdType cmd) {
+    return createRequest()->cmd(std::move(cmd));
+  }
+
   /**
    * 可作为连通性的测试 会原样返回payload
    */

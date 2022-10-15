@@ -54,8 +54,7 @@ void RpcTest() {
       return test + "test";
     });
     // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
-    auto request = rpc->createRequest()
-                       ->cmd(AppMsg::CMD1)
+    auto request = rpc->cmd(AppMsg::CMD1)
                        ->msg(test)
                        ->rsp<String>([&](const String& rsp) {
                          RpcCore_LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
@@ -121,8 +120,7 @@ void RpcTest() {
       return VALUE;
     });
 
-    rpc->createRequest()
-        ->cmd(AppMsg::CMD2)
+    rpc->cmd(AppMsg::CMD2)
         ->msg(UInt64_t(VALUE))
         ->rsp<UInt64_t>([&](const UInt64_t& rsp) {
           RpcCore_LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
@@ -146,8 +144,7 @@ void RpcTest() {
       ASSERT(msg.value.c == 3);
       return testStruct;
     });
-    rpc->createRequest()
-        ->cmd(AppMsg::CMD3)
+    rpc->cmd(AppMsg::CMD3)
         ->msg(RStruct(testStruct))
         ->rsp<RStruct>([&](const RStruct& rsp) {
           RpcCore_LOGI("get rsp from AppMsg::CMD3");
@@ -167,8 +164,7 @@ void RpcTest() {
     rpc->subscribe<String, String>(AppMsg::CMD4, [&](const String& msg) {
       return msg;
     });
-    rpc->createRequest()
-        ->cmd(AppMsg::CMD4)
+    rpc->cmd(AppMsg::CMD4)
         ->msg(String("test"))
         ->rsp<String>([&](const String& rsp) {
           ASSERT(rsp == "test");
@@ -184,8 +180,7 @@ void RpcTest() {
     ASSERT(pass_finally);
 
     pass_finally = false;
-    rpc->createRequest()
-        ->cmd(AppMsg::CMD4)
+    rpc->cmd(AppMsg::CMD4)
         ->msg(String("test"))
         ->finally([&](FinishType type) {
           ASSERT(type == FinishType::NO_NEED_RSP);
