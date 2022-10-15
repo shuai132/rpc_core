@@ -15,7 +15,7 @@
 namespace RpcCore {
 
 /**
- * 用于管理取消Request
+ * 用于自动取消Request
  */
 class Dispose : noncopyable, public Request::DisposeProto {
  public:
@@ -52,7 +52,6 @@ class Dispose : noncopyable, public Request::DisposeProto {
     requests_.clear();
   }
 
-  // RAII
   ~Dispose() override {
     RpcCore_LOGD("~Dispose: size:%zu \t%s", requests_.size(), name_.c_str());
     dispose();

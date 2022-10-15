@@ -152,7 +152,8 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   }
 
   /**
-   * 超时后自动重试次数 -1为一直尝试 0为停止 >0为尝试次数
+   * 超时后自动重试次数
+   * -1为一直重试 0为不重试 >0为重试次数
    */
   SRequest retry(int count) {
     retryCount_ = count;
@@ -160,7 +161,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   }
 
   /**
-   * 强制忽略rsp回调 用于调试
+   * 强制忽略rsp回调
    */
   SRequest disableRsp() {
     needRsp_ = false;
@@ -175,10 +176,10 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
  private:
   void init() {
-    timeoutMs(3000);
+    needRsp(false);
     canceled(false);
+    timeoutMs(3000);
     timeout(nullptr);
-    needRsp_ = false;
   }
 
   void onFinish(FinallyType type) {

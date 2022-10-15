@@ -19,9 +19,9 @@ namespace internal {
  */
 class MsgDispatcher : noncopyable {
  public:
-  // 命令处理者 当接收到命令时回调：参数为命令携带的信息，返回值为序列化是否成功和返回的信息
+  // 当接收到命令时回调：参数为命令携带的信息，返回值为序列化是否成功和返回的信息
   using CmdHandle = std::function<std::pair<bool, MsgWrapper>(MsgWrapper)>;
-  // 回复处理者 当接收到响应时回调：参数为响应携带的信息，返回值为序列化是否成功
+  // 当接收到响应时回调：参数为响应携带的信息，返回值为序列化是否成功
   using RspHandle = std::function<bool(MsgWrapper)>;
 
   // 超时回调 当期待时间内未收到正确响应时回调

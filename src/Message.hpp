@@ -11,7 +11,6 @@ namespace RpcCore {
 
 /**
  * 数据序列化接口
- * 用户消息需要继承它
  * std::string作为数据载体 并不要求可读
  */
 struct Message : copyable {
@@ -26,8 +25,8 @@ template <typename T, typename std::enable_if<!std::is_class<T>::value, int>::ty
 struct Raw : Message {
   T value;
 
-  Raw() = default;
-  Raw(T v) : value(v) {}
+  Raw() = default;        // NOLINT
+  Raw(T v) : value(v) {}  // NOLINT
 
   friend bool operator==(const Raw<T>& l, const T& r) {
     return l.value == r;
@@ -40,7 +39,7 @@ struct Raw : Message {
   }
 
   std::string serialize() const override {
-    return std::string((char*)&value, sizeof(T));
+    return {(char*)&value, sizeof(T)};
   };
   bool deSerialize(const std::string& data) override {
     return memcpy((void*)&value, data.data(), sizeof(T));
@@ -59,10 +58,10 @@ struct Struct : Message {
   uint8_t align_size;
 
   Struct() : align_size(alignof(T)) {}
-  Struct(T v) : value(v), align_size(alignof(T)) {}
+  Struct(T v) : value(v), align_size(alignof(T)) {}  // NOLINT
 
   std::string serialize() const override {
-    return std::string((char*)&value, sizeof(T) + 1);
+    return {(char*)&value, sizeof(T) + 1};
   };
   bool deSerialize(const std::string& data) override {
     if (data.size() != sizeof(T) + 1) {
@@ -87,11 +86,11 @@ const Void VOID{};
 struct String : Message, public std::string {
   using std::string::string;
   String() = default;
-  String(std::string str) {
+  String(std::string str) {  // NOLINT
     this->swap(str);
   }
   std::string serialize() const override {
-    return *this;
+    return *this;  // NOLINT
   }
   bool deSerialize(const std::string& data) override {
     *this = data;
@@ -108,10 +107,10 @@ struct Bool : Raw<uint8_t> {
   Bool() {
     value = 0;
   };
-  Bool(bool v) {
+  Bool(bool v) {  // NOLINT
     value = v;
   }
-  operator bool() {
+  operator bool() {  // NOLINT
     return value != 0;
   }
 };

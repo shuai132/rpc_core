@@ -21,22 +21,18 @@ void RpcTest() {
   using namespace RpcCore;
   using String = RpcCore::String;
 
-  // 回环的连接 用于测试 实际使用应为具体传输协议实现的Connection
+  // 此示例使用回环连接 实际使用时需自定义连接
   auto connection = std::make_shared<LoopbackConnection>();
 
   // 创建Rpc 收发消息
   auto rpc = Rpc::create(connection);
-  rpc->setTimer([](uint32_t ms, const Rpc::TimeoutCb& cb) {
-    // 定时器实现 应当配合当前应用的事件循环 确保消息收发和超时在同一个线程
-    // 此示例为回环的连接 不需要具体实现
-  });
+
+  // 定时器实现 应配合当前应用的事件循环 以确保消息收发和超时回调在同一个线程
+  // 此示例使用回环连接 不做超时测试
+  rpc->setTimer([](uint32_t ms, const Rpc::TimeoutCb& cb) {});
 
   /**
    * 注册和发送消息 根据使用场景不同 提供以下几种方式
-   * 注:
-   * 1. 收发类型为Message即可，可自定义序列化/反序列化。
-   * 2. 内部提供了常用的Message子类型。包括二进制数据 也可使用内部题二进制值类型。
-   * 3. send可附加超时回调和超时时间
    */
   {
     const std::string TEST("Hello World");

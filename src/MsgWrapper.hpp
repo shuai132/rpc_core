@@ -10,9 +10,9 @@
 namespace RpcCore {
 
 /**
- * 包装数据 用于协议分析
+ * 数据包装 用于协议解析
  */
-struct MsgWrapper : copyable {
+struct MsgWrapper : copyable {  // NOLINT
   enum MsgType : uint8_t {
     COMMAND = 1 << 0,
     RESPONSE = 1 << 1,
@@ -30,10 +30,6 @@ struct MsgWrapper : copyable {
     return tmp;
   }
 
-  /**
-   * 将data解析为指定类型的数据
-   * T为Message类型
-   */
   template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
   std::pair<bool, T> unpackAs() const {
     T message;
@@ -44,12 +40,6 @@ struct MsgWrapper : copyable {
     return std::make_pair(ok, std::move(message));
   }
 
-  /**
-   * 创建Cmd消息
-   * @param cmd
-   * @param data
-   * @return
-   */
   static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool needRsp, std::string data = "") {
     MsgWrapper msg;
     msg.type = static_cast<MsgType>(MsgWrapper::COMMAND | (needRsp ? MsgWrapper::NEED_RSP : 0));
@@ -59,13 +49,6 @@ struct MsgWrapper : copyable {
     return msg;
   }
 
-  /**
-   * 创建Rsp消息
-   * @param seq 对应Cmd的seq
-   * @param message 将保存在MsgWrapper.data
-   * @param success 成功/失败
-   * @return
-   */
   static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, const Message& message = VOID, bool success = true) {
     MsgWrapper msg;
     msg.type = MsgWrapper::RESPONSE;
