@@ -1,8 +1,9 @@
 #pragma once
 
-#include "Message.hpp"
+#include "../Message.hpp"
 
 namespace RpcCore {
+namespace internal {
 
 class Coder {
  public:
@@ -47,4 +48,5 @@ class Coder {
   static const uint8_t PayloadMinLen = 4 /*seq*/ + 2 /*cmdLen*/ + 1 /*type*/;
 };
 
+}  // namespace internal
 }  // namespace RpcCore

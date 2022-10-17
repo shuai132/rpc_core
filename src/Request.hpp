@@ -3,10 +3,12 @@
 #include <memory>
 #include <utility>
 
-#include "MsgWrapper.hpp"
+#include "detail/MsgWrapper.hpp"
 #include "detail/noncopyable.hpp"
 
 namespace RpcCore {
+
+using namespace internal;
 
 #define RpcCore_Request_MAKE_PROP_PUBLIC(type, name) \
  public:                                             \

@@ -3,11 +3,12 @@
 #include <string>
 #include <utility>
 
-#include "Type.hpp"
-#include "detail/copyable.hpp"
-#include "detail/log.h"
+#include "../Type.hpp"
+#include "copyable.hpp"
+#include "log.h"
 
 namespace RpcCore {
+namespace internal {
 
 /**
  * 数据包装 用于协议解析
@@ -60,4 +61,5 @@ struct MsgWrapper : copyable {  // NOLINT
   }
 };
 
+}  // namespace internal
 }  // namespace RpcCore

@@ -1,6 +1,7 @@
 #pragma once
 
 namespace RpcCore {
+namespace internal {
 
 class noncopyable {
  public:
@@ -12,4 +13,5 @@ class noncopyable {
   ~noncopyable() = default;
 };
 
+}  // namespace internal
 }  // namespace RpcCore

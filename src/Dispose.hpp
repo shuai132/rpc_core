@@ -17,7 +17,7 @@ namespace RpcCore {
 /**
  * 用于自动取消Request
  */
-class Dispose : noncopyable, public Request::DisposeProto {
+class Dispose : internal::noncopyable, public Request::DisposeProto {
  public:
   explicit Dispose(std::string name = "") : name_(std::move(name)) {
     RpcCore_LOGD("new Dispose: %p %s", this, name_.c_str());

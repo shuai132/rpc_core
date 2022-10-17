@@ -4,11 +4,13 @@
 #include <utility>
 
 #include "Connection.hpp"
-#include "MsgDispatcher.hpp"
 #include "Request.hpp"
+#include "detail/MsgDispatcher.hpp"
 #include "detail/noncopyable.hpp"
 
 namespace RpcCore {
+
+using namespace internal;
 
 class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Request::RpcProto {
  public:

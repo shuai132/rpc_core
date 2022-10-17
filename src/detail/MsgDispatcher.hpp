@@ -4,11 +4,11 @@
 #include <memory>
 #include <utility>
 
+#include "../Connection.hpp"
+#include "../Message.hpp"
 #include "Coder.hpp"
-#include "Connection.hpp"
-#include "Message.hpp"
-#include "detail/log.h"
-#include "detail/noncopyable.hpp"
+#include "log.h"
+#include "noncopyable.hpp"
 
 namespace RpcCore {
 namespace internal {
