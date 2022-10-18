@@ -247,7 +247,7 @@ void RpcTest() {
     }
   }
 
-  RpcCore_LOG("PING PONG测试");
+  RpcCore_LOG("ping pong测试");
   {
     bool pass = false;
     rpc->ping("ping")

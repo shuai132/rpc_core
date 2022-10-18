@@ -21,9 +21,4 @@ using CmdType = std::string;
 
 using SeqType = uint32_t;
 
-namespace InnerCmd {
-const CmdType PING = "-1";
-const CmdType PONG = "-2";
-}  // namespace InnerCmd
-
 }  // namespace RpcCore

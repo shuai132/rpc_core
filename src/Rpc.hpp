@@ -26,14 +26,8 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
   }
 
  private:
-  explicit Rpc(std::shared_ptr<Connection> conn = std::make_shared<Connection>()) : conn_(conn), dispatcher_(std::move(conn)) {
-    // 注册PING消息，可携带payload，会原样返回。
-    dispatcher_.subscribeCmd(InnerCmd::PING, [](MsgWrapper msg) {
-      msg.cmd = InnerCmd::PONG;
-      auto ret = msg.unpackAs<String>();
-      return MsgWrapper::MakeRsp(msg.seq, ret.second, ret.first);
-    });
-  }
+  explicit Rpc(std::shared_ptr<Connection> conn = std::make_shared<Connection>()) : conn_(conn), dispatcher_(std::move(conn)) {}
+
   ~Rpc() override {
     RpcCore_LOGD("~Rpc");
   };
@@ -69,7 +63,7 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
   }
 
   inline SRequest ping(std::string payload = "") {
-    return createRequest()->cmd(InnerCmd::PING)->msg(String(std::move(payload)));
+    return createRequest()->ping()->msg(String(std::move(payload)));
   }
 
  public:
@@ -80,9 +74,9 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
   void sendRequest(const SRequest& request) override {
     const bool needRsp = request->needRsp();
     if (needRsp) {
-      dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs());
+      dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs(), request->isPing_);
     }
-    auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), needRsp, request->payload());
+    auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->isPing_, needRsp, request->payload());
     conn_->sendPackageImpl(Coder::serialize(msg));
   }
 

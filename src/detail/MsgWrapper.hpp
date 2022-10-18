@@ -10,14 +10,13 @@
 namespace RpcCore {
 namespace internal {
 
-/**
- * 数据包装 用于协议解析
- */
 struct MsgWrapper : copyable {  // NOLINT
   enum MsgType : uint8_t {
     COMMAND = 1 << 0,
     RESPONSE = 1 << 1,
     NEED_RSP = 1 << 2,
+    PING = 1 << 3,
+    PONG = 1 << 4,
   };
 
   SeqType seq;
@@ -41,9 +40,9 @@ struct MsgWrapper : copyable {  // NOLINT
     return std::make_pair(ok, std::move(message));
   }
 
-  static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool needRsp, std::string data = "") {
+  static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool isPing, bool needRsp, std::string data) {
     MsgWrapper msg;
-    msg.type = static_cast<MsgType>(MsgWrapper::COMMAND | (needRsp ? MsgWrapper::NEED_RSP : 0));
+    msg.type = static_cast<MsgType>(MsgWrapper::COMMAND | (isPing ? MsgWrapper::PING : 0) | (needRsp ? MsgWrapper::NEED_RSP : 0));
     msg.cmd = std::move(cmd);
     msg.seq = seq;
     msg.data = std::move(data);

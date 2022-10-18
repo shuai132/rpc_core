@@ -13,20 +13,12 @@
 namespace RpcCore {
 namespace internal {
 
-/**
- * 消息分发器
- * 注册消息到指定命令
- */
 class MsgDispatcher : noncopyable {
  public:
-  // 当接收到命令时回调：参数为命令携带的信息，返回值为序列化是否成功和返回的信息
   using CmdHandle = std::function<std::pair<bool, MsgWrapper>(MsgWrapper)>;
-  // 当接收到响应时回调：参数为响应携带的信息，返回值为序列化是否成功
   using RspHandle = std::function<bool(MsgWrapper)>;
 
-  // 超时回调 当期待时间内未收到正确响应时回调
   using TimeoutCb = std::function<void()>;
-  // 定时器具体实现的接口
   using TimerImpl = std::function<void(uint32_t ms, TimeoutCb)>;
 
  public:
@@ -46,6 +38,14 @@ class MsgDispatcher : noncopyable {
   void dispatch(MsgWrapper msg) {
     switch (msg.type & (MsgWrapper::COMMAND | MsgWrapper::RESPONSE)) {
       case MsgWrapper::COMMAND: {
+        // PING
+        const bool isPing = msg.type & MsgWrapper::PING;
+        if (isPing) {
+          msg.type = static_cast<MsgWrapper::MsgType>(MsgWrapper::RESPONSE | MsgWrapper::PONG);
+          conn_->sendPackageImpl(Coder::serialize(msg));
+          return;
+        }
+
         // COMMAND
         const auto& cmd = msg.cmd;
         RpcCore_LOGD("dispatch cmd:%s, seq:%d, conn:%p", cmd.c_str(), msg.seq, conn_.get());
@@ -55,7 +55,7 @@ class MsgDispatcher : noncopyable {
           RpcCore_LOGD("not register cmd for: %s", cmd.c_str());
           return;
         }
-        const auto& fn = (*it).second;
+        const auto& fn = it->second;
         const bool needRsp = msg.type & MsgWrapper::NEED_RSP;
         auto resp = fn(std::move(msg));
         if (needRsp && resp.first) {
@@ -64,20 +64,24 @@ class MsgDispatcher : noncopyable {
       } break;
 
       case MsgWrapper::RESPONSE: {
+        // PONG or RESPONSE
+        const bool isPong = msg.type & MsgWrapper::PONG;
+        const auto handleMap = isPong ? &pongHandleMap_ : &rspHandleMap_;
+
         RpcCore_LOGD("dispatch rsp: seq=%d, conn:%p", msg.seq, conn_.get());
-        auto it = rspHandleMap_.find(msg.seq);
-        if (it == rspHandleMap_.cend()) {
+        auto it = handleMap->find(msg.seq);
+        if (it == handleMap->cend()) {
           RpcCore_LOGD("not register callback for response");
           break;
         }
-        const auto& cb = (*it).second;
+        const auto& cb = it->second;
         if (not cb) {
           RpcCore_LOGE("rsp handle can not be null");
           return;
         }
         if (cb(std::move(msg))) {
-          rspHandleMap_.erase(it);
-          RpcCore_LOGV("rspHandleMap_.size=%zu", rspHandleMap_.size());
+          handleMap->erase(it);
+          RpcCore_LOGV("handleMap->size=%zu", handleMap->size());
         } else {
           RpcCore_LOGE("may unserialize error");
         }
@@ -104,23 +108,25 @@ class MsgDispatcher : noncopyable {
     }
   }
 
-  void subscribeRsp(SeqType seq, RspHandle handle, RpcCore_MOVE_PARAM(TimeoutCb) timeoutCb, uint32_t timeoutMs) {
+  void subscribeRsp(SeqType seq, RspHandle handle, RpcCore_MOVE_PARAM(TimeoutCb) timeoutCb, uint32_t timeoutMs, bool isPing) {
     RpcCore_LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
     if (handle == nullptr) return;
-    rspHandleMap_[seq] = std::move(handle);
+    const auto handleMap = isPing ? &pongHandleMap_ : &rspHandleMap_;
+
+    (*handleMap)[seq] = std::move(handle);
 
     if (timerImpl_ == nullptr) {
       RpcCore_LOGW("no timeout will cause memory leak!");
     }
 
-    timerImpl_(timeoutMs, [this, seq, RpcCore_MOVE_LAMBDA(timeoutCb)] {
-      auto it = rspHandleMap_.find(seq);
-      if (it != rspHandleMap_.cend()) {
+    timerImpl_(timeoutMs, [handleMap, seq, RpcCore_MOVE_LAMBDA(timeoutCb)] {
+      auto it = handleMap->find(seq);
+      if (it != handleMap->cend()) {
         if (timeoutCb) {
           timeoutCb();
         }
-        rspHandleMap_.erase(seq);
-        RpcCore_LOGV("Timeout seq=%d, rspHandleMap_.size=%zu", seq, rspHandleMap_.size());
+        handleMap->erase(seq);
+        RpcCore_LOGV("Timeout seq=%d, handleMap.size=%zu", seq, handleMap->size());
       }
     });
   }
@@ -137,6 +143,8 @@ class MsgDispatcher : noncopyable {
   std::shared_ptr<Connection> conn_;
   std::map<CmdType, CmdHandle> cmdHandleMap_;
   std::map<SeqType, RspHandle> rspHandleMap_;
+  CmdHandle pingHandle_;
+  std::map<SeqType, RspHandle> pongHandleMap_;
   TimerImpl timerImpl_;
 };
 

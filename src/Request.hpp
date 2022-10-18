@@ -73,6 +73,11 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   RpcCore_Request_MAKE_PROP_PUBLIC(std::function<void(FinallyType)>, finally);
 
  public:
+  SRequest ping() {
+    isPing_ = true;
+    return shared_from_this();
+  }
+
   SRequest msg(const Message& message) {
     this->payload(message.serialize());
     return shared_from_this();
@@ -215,6 +220,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
  private:
   int retryCount_ = 0;
   bool waitingRsp_ = false;
+  bool isPing_ = false;
 };
 
 using SRequest = Request::SRequest;
