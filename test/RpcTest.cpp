@@ -52,7 +52,7 @@ void RpcTest() {
     // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
     auto request = rpc->cmd(AppMsg::CMD1)
                        ->msg(test)
-                       ->rsp<String>([&](const String& rsp) {
+                       ->rsp([&](const String& rsp) {
                          RpcCore_LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
                          ASSERT(rsp == TEST + "test");
                          pass = true;
@@ -94,7 +94,7 @@ void RpcTest() {
     Request::create()
         ->cmd(AppMsg::CMD1)
         ->msg(test)
-        ->rsp<String>([&](const String& rsp) {
+        ->rsp([&](const String& rsp) {
           ASSERT(rsp == TEST + "test");
           pass = true;
         })
@@ -118,7 +118,7 @@ void RpcTest() {
 
     rpc->cmd(AppMsg::CMD2)
         ->msg(UInt64_t(VALUE))
-        ->rsp<UInt64_t>([&](const UInt64_t& rsp) {
+        ->rsp([&](const UInt64_t& rsp) {
           RpcCore_LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
           ASSERT(rsp.value == VALUE);
           pass = true;
@@ -142,7 +142,7 @@ void RpcTest() {
     });
     rpc->cmd(AppMsg::CMD3)
         ->msg(RStruct(testStruct))
-        ->rsp<RStruct>([&](const RStruct& rsp) {
+        ->rsp([&](const RStruct& rsp) {
           RpcCore_LOGI("get rsp from AppMsg::CMD3");
           ASSERT(rsp.value.a == 1);
           ASSERT(rsp.value.b == 2);
@@ -162,7 +162,7 @@ void RpcTest() {
     });
     rpc->cmd(AppMsg::CMD4)
         ->msg(String("test"))
-        ->rsp<String>([&](const String& rsp) {
+        ->rsp([&](const String& rsp) {
           ASSERT(rsp == "test");
           pass = true;
         })
@@ -191,7 +191,7 @@ void RpcTest() {
   {
     bool pass = false;
     rpc->ping("ping")
-        ->rsp<String>([&](const String& payload) {
+        ->rsp([&](const String& payload) {
           RpcCore_LOGI("get rsp from ping: %s", payload.c_str());
           ASSERT(payload == "ping");
           pass = true;
@@ -203,7 +203,7 @@ void RpcTest() {
   RpcCore_LOG("Dispose");
   {
     auto request = rpc->ping("ping")
-                       ->rsp<String>([&](const String& payload) {
+                       ->rsp([&](const String& payload) {
                          ASSERT(false);
                        })
                        ->finally([&](FinishType type) {

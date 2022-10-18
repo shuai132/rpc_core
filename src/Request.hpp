@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "detail/MsgWrapper.hpp"
+#include "detail/helper.hpp"
 #include "detail/noncopyable.hpp"
 
 namespace RpcCore {
@@ -77,8 +78,11 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
     return shared_from_this();
   }
 
-  template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
-  SRequest rsp(RpcCore_MOVE_PARAM(std::function<void(T&&)>) cb) {
+  template <typename F>
+  SRequest rsp(RpcCore_MOVE_PARAM(F) cb) {
+    using T = typename FuncHelper::FirstParamType<F>::type_bare;
+    static_assert(std::is_base_of<Message, T>::value, "function param should be base of `Message`");
+
     needRsp_ = true;
     auto self = shared_from_this();
     this->rspHandle_ = [this, RpcCore_MOVE_LAMBDA(cb), self](MsgWrapper msg) {
@@ -89,7 +93,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
       auto rsp = msg.unpackAs<T>();
       if (rsp.first) {
-        if (cb) cb(std::forward<T>(std::move(rsp.second)));
+        cb(std::move(rsp.second));
         onFinish(FinallyType::NORMAL);
         return true;
       }
