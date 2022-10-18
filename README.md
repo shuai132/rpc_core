@@ -46,7 +46,7 @@ include_directories(RpcCore的目录)
 
 ```c++
 // 接收端
-rpc->subscribe<String, String>("cmd", [](const String& msg) {
+rpc->subscribe("cmd", [](const String& msg) -> String {
     assert(msg == "hello");
     return "world";
 });
@@ -54,7 +54,7 @@ rpc->subscribe<String, String>("cmd", [](const String& msg) {
 // 发送端
 rpc->cmd("cmd")
     ->msg(String("hello"))
-    ->rsp<String>([](const String& rsp) {
+    ->rsp([](const String& rsp) {
       assert(rsp == "world");
     })
     ->call();

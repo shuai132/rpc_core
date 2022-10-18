@@ -9,6 +9,7 @@ const char* CMD1 = "CMD1";
 const char* CMD2 = "CMD2";
 const char* CMD3 = "CMD3";
 const char* CMD4 = "CMD4";
+const char* CMD5 = "CMD5";
 }  // namespace AppMsg
 
 struct TestStruct {
@@ -44,7 +45,7 @@ void RpcTest() {
     RpcCore_LOG("1. 收发消息完整测试");
     bool pass = false;
     // 在机器A上注册监听
-    rpc->subscribe<String, String>(AppMsg::CMD1, [&](const String& msg) {
+    rpc->subscribe(AppMsg::CMD1, [&](const String& msg) -> String {
       RpcCore_LOGI("get AppMsg::CMD1: %s", msg.c_str());
       ASSERT(msg == TEST);
       return test + "test";
@@ -110,7 +111,7 @@ void RpcTest() {
     using UInt64_t = Raw<uint64_t>;
 
     RpcCore_LOGI("TEST_VALUE: 0x%016llx", VALUE);
-    rpc->subscribe<UInt64_t, UInt64_t>(AppMsg::CMD2, [&](const UInt64_t& msg) {
+    rpc->subscribe(AppMsg::CMD2, [&](const UInt64_t& msg) -> UInt64_t {
       RpcCore_LOGI("get AppMsg::CMD2: 0x%llx", msg.value);
       ASSERT(msg.value == VALUE);
       return VALUE;
@@ -133,7 +134,7 @@ void RpcTest() {
     TestStruct testStruct{1, 2, 3};
     using RStruct = RpcCore::Struct<TestStruct>;
 
-    rpc->subscribe<RStruct, RStruct>(AppMsg::CMD3, [&](const RStruct& msg) {
+    rpc->subscribe(AppMsg::CMD3, [&](const RStruct& msg) -> RStruct {
       RpcCore_LOGI("get AppMsg::CMD3");
       ASSERT(msg.value.a == 1);
       ASSERT(msg.value.b == 2);
@@ -157,7 +158,7 @@ void RpcTest() {
   {
     bool pass = false;
     bool pass_finally = false;
-    rpc->subscribe<String, String>(AppMsg::CMD4, [&](const String& msg) {
+    rpc->subscribe(AppMsg::CMD4, [&](const String& msg) {
       return msg;
     });
     rpc->cmd(AppMsg::CMD4)
@@ -185,6 +186,67 @@ void RpcTest() {
         })
         ->call();
     ASSERT(pass_finally);
+  }
+
+  RpcCore_LOG("5. 多种传参排列组合测试");
+  {
+    RpcCore_LOG("5.1 有参数 有返回");
+    {
+      bool pass_cmd = false;
+      bool pass_rsp = false;
+      rpc->subscribe(AppMsg::CMD5, [&](const String& msg) -> String {
+        ASSERT(msg == "cmd");
+        pass_cmd = true;
+        return "rsp";
+      });
+      rpc->cmd(AppMsg::CMD5)
+          ->msg(String("cmd"))
+          ->rsp([&](const String& msg) {
+            ASSERT(msg == "rsp");
+            pass_rsp = true;
+          })
+          ->call();
+      ASSERT(pass_cmd);
+      ASSERT(pass_rsp);
+    }
+
+    RpcCore_LOG("5.2 有参数 无返回");
+    {
+      bool pass_cmd = false;
+      rpc->subscribe(AppMsg::CMD5, [&](const String& msg) {
+        ASSERT(msg == "cmd");
+        pass_cmd = true;
+      });
+      rpc->cmd(AppMsg::CMD5)->msg(String("cmd"))->call();
+      ASSERT(pass_cmd);
+    }
+
+    RpcCore_LOG("5.3 无参数 有返回");
+    {
+      bool pass_cmd = false;
+      bool pass_rsp = false;
+      rpc->subscribe(AppMsg::CMD5, [&]() -> String {
+        pass_cmd = true;
+        return "rsp";
+      });
+      rpc->cmd(AppMsg::CMD5)
+          ->rsp([&](const String& msg) {
+            pass_rsp = true;
+          })
+          ->call();
+      ASSERT(pass_cmd);
+      ASSERT(pass_rsp);
+    }
+
+    RpcCore_LOG("5.4 无参数 无返回");
+    {
+      bool pass_cmd = false;
+      rpc->subscribe(AppMsg::CMD5, [&]() {
+        pass_cmd = true;
+      });
+      rpc->cmd(AppMsg::CMD5)->call();
+      ASSERT(pass_cmd);
+    }
   }
 
   RpcCore_LOG("PING PONG测试");

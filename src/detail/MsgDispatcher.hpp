@@ -89,9 +89,9 @@ class MsgDispatcher : noncopyable {
   }
 
  public:
-  inline void subscribeCmd(CmdType cmd, CmdHandle handle) {
+  inline void subscribeCmd(const CmdType& cmd, CmdHandle handle) {
     RpcCore_LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", cmd.c_str(), conn_.get(), &handle);
-    cmdHandleMap_[std::move(cmd)] = std::move(handle);
+    cmdHandleMap_[cmd] = std::move(handle);
   }
 
   void unsubscribeCmd(const CmdType& cmd) {

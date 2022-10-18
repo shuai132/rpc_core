@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "detail/MsgWrapper.hpp"
-#include "detail/helper.hpp"
+#include "detail/callable/callable.hpp"
 #include "detail/noncopyable.hpp"
 
 namespace RpcCore {
@@ -80,7 +80,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
   template <typename F>
   SRequest rsp(RpcCore_MOVE_PARAM(F) cb) {
-    using T = typename FuncHelper::FirstParamType<F>::type_bare;
+    using T = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
     static_assert(std::is_base_of<Message, T>::value, "function param should be base of `Message`");
 
     needRsp_ = true;
