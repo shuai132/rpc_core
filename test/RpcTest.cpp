@@ -4,19 +4,11 @@
 
 namespace RpcCoreTest {
 
-namespace AppMsg {
 const char* CMD1 = "CMD1";
 const char* CMD2 = "CMD2";
 const char* CMD3 = "CMD3";
 const char* CMD4 = "CMD4";
 const char* CMD5 = "CMD5";
-}  // namespace AppMsg
-
-struct TestStruct {
-  uint8_t a;
-  uint16_t b;
-  uint32_t c;
-};
 
 void RpcTest() {
   using namespace RpcCore;
@@ -45,16 +37,16 @@ void RpcTest() {
     RpcCore_LOG("1. 收发消息完整测试");
     bool pass = false;
     // 在机器A上注册监听
-    rpc->subscribe(AppMsg::CMD1, [&](const String& msg) -> String {
-      RpcCore_LOGI("get AppMsg::CMD1: %s", msg.c_str());
+    rpc->subscribe(CMD1, [&](const String& msg) -> String {
+      RpcCore_LOGI("get CMD1: %s", msg.c_str());
       ASSERT(msg == TEST);
       return test + "test";
     });
     // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
-    auto request = rpc->cmd(AppMsg::CMD1)
+    auto request = rpc->cmd(CMD1)
                        ->msg(test)
                        ->rsp([&](const String& rsp) {
-                         RpcCore_LOGI("get rsp from AppMsg::CMD1: %s", rsp.c_str());
+                         RpcCore_LOGI("get rsp from CMD1: %s", rsp.c_str());
                          ASSERT(rsp == TEST + "test");
                          pass = true;
                        })
@@ -93,7 +85,7 @@ void RpcTest() {
     RpcCore_LOGI("先创建Request");
     pass = false;
     Request::create()
-        ->cmd(AppMsg::CMD1)
+        ->cmd(CMD1)
         ->msg(test)
         ->rsp([&](const String& rsp) {
           ASSERT(rsp == TEST + "test");
@@ -111,16 +103,16 @@ void RpcTest() {
     using UInt64_t = Raw<uint64_t>;
 
     RpcCore_LOGI("TEST_VALUE: 0x%016llx", VALUE);
-    rpc->subscribe(AppMsg::CMD2, [&](const UInt64_t& msg) -> UInt64_t {
-      RpcCore_LOGI("get AppMsg::CMD2: 0x%llx", msg.value);
+    rpc->subscribe(CMD2, [&](const UInt64_t& msg) -> UInt64_t {
+      RpcCore_LOGI("get CMD2: 0x%llx", msg.value);
       ASSERT(msg.value == VALUE);
       return VALUE;
     });
 
-    rpc->cmd(AppMsg::CMD2)
+    rpc->cmd(CMD2)
         ->msg(UInt64_t(VALUE))
         ->rsp([&](const UInt64_t& rsp) {
-          RpcCore_LOGI("get rsp from AppMsg::CMD2: 0x%llx", rsp.value);
+          RpcCore_LOGI("get rsp from CMD2: 0x%llx", rsp.value);
           ASSERT(rsp.value == VALUE);
           pass = true;
         })
@@ -130,21 +122,27 @@ void RpcTest() {
 
   RpcCore_LOG("3. 自定义的结构体类型");
   {
+    struct TestStruct {
+      uint8_t a;
+      uint16_t b;
+      uint32_t c;
+    };
+
     bool pass = false;
     TestStruct testStruct{1, 2, 3};
     using RStruct = RpcCore::Struct<TestStruct>;
 
-    rpc->subscribe(AppMsg::CMD3, [&](const RStruct& msg) -> RStruct {
-      RpcCore_LOGI("get AppMsg::CMD3");
+    rpc->subscribe(CMD3, [&](const RStruct& msg) -> RStruct {
+      RpcCore_LOGI("get CMD3");
       ASSERT(msg.value.a == 1);
       ASSERT(msg.value.b == 2);
       ASSERT(msg.value.c == 3);
       return testStruct;
     });
-    rpc->cmd(AppMsg::CMD3)
+    rpc->cmd(CMD3)
         ->msg(RStruct(testStruct))
         ->rsp([&](const RStruct& rsp) {
-          RpcCore_LOGI("get rsp from AppMsg::CMD3");
+          RpcCore_LOGI("get rsp from CMD3");
           ASSERT(rsp.value.a == 1);
           ASSERT(rsp.value.b == 2);
           ASSERT(rsp.value.c == 3);
@@ -158,10 +156,10 @@ void RpcTest() {
   {
     bool pass = false;
     bool pass_finally = false;
-    rpc->subscribe(AppMsg::CMD4, [&](const String& msg) {
+    rpc->subscribe(CMD4, [&](const String& msg) {
       return msg;
     });
-    rpc->cmd(AppMsg::CMD4)
+    rpc->cmd(CMD4)
         ->msg(String("test"))
         ->rsp([&](const String& rsp) {
           ASSERT(rsp == "test");
@@ -177,7 +175,7 @@ void RpcTest() {
     ASSERT(pass_finally);
 
     pass_finally = false;
-    rpc->cmd(AppMsg::CMD4)
+    rpc->cmd(CMD4)
         ->msg(String("test"))
         ->finally([&](FinishType type) {
           ASSERT(type == FinishType::NO_NEED_RSP);
@@ -194,12 +192,12 @@ void RpcTest() {
     {
       bool pass_cmd = false;
       bool pass_rsp = false;
-      rpc->subscribe(AppMsg::CMD5, [&](const String& msg) -> String {
+      rpc->subscribe(CMD5, [&](const String& msg) -> String {
         ASSERT(msg == "cmd");
         pass_cmd = true;
         return "rsp";
       });
-      rpc->cmd(AppMsg::CMD5)
+      rpc->cmd(CMD5)
           ->msg(String("cmd"))
           ->rsp([&](const String& msg) {
             ASSERT(msg == "rsp");
@@ -213,11 +211,11 @@ void RpcTest() {
     RpcCore_LOG("5.2 有参数 无返回");
     {
       bool pass_cmd = false;
-      rpc->subscribe(AppMsg::CMD5, [&](const String& msg) {
+      rpc->subscribe(CMD5, [&](const String& msg) {
         ASSERT(msg == "cmd");
         pass_cmd = true;
       });
-      rpc->cmd(AppMsg::CMD5)->msg(String("cmd"))->call();
+      rpc->cmd(CMD5)->msg(String("cmd"))->call();
       ASSERT(pass_cmd);
     }
 
@@ -225,11 +223,11 @@ void RpcTest() {
     {
       bool pass_cmd = false;
       bool pass_rsp = false;
-      rpc->subscribe(AppMsg::CMD5, [&]() -> String {
+      rpc->subscribe(CMD5, [&]() -> String {
         pass_cmd = true;
         return "rsp";
       });
-      rpc->cmd(AppMsg::CMD5)
+      rpc->cmd(CMD5)
           ->rsp([&](const String& msg) {
             pass_rsp = true;
           })
@@ -241,10 +239,10 @@ void RpcTest() {
     RpcCore_LOG("5.4 无参数 无返回");
     {
       bool pass_cmd = false;
-      rpc->subscribe(AppMsg::CMD5, [&]() {
+      rpc->subscribe(CMD5, [&]() {
         pass_cmd = true;
       });
-      rpc->cmd(AppMsg::CMD5)->call();
+      rpc->cmd(CMD5)->call();
       ASSERT(pass_cmd);
     }
   }

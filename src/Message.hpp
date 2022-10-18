@@ -98,9 +98,6 @@ struct String : Message, public std::string {
   }
 };
 
-/**
- * 二进制数据
- */
 using Binary = String;
 
 struct Bool : Raw<uint8_t> {
