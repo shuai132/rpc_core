@@ -44,7 +44,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
   void subscribe(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle) {
     constexpr bool F_ReturnIsEmpty = std::is_void<typename detail::callable_traits<F>::return_type>::value;
     constexpr bool F_ParamIsEmpty = detail::callable_traits<F>::argc == 0;
-    subscribe_help<F, F_ReturnIsEmpty, F_ParamIsEmpty>()(cmd, std::move(handle), &dispatcher_);
+    SubscribeHelper<F, F_ReturnIsEmpty, F_ParamIsEmpty>()(cmd, std::move(handle), &dispatcher_);
   }
 
   inline void unsubscribe(const CmdType& cmd) {
@@ -80,10 +80,10 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
 
  private:
   template <typename F, bool F_ReturnIsEmpty, bool F_ParamIsEmpty>
-  struct subscribe_help;
+  struct SubscribeHelper;
 
   template <typename F>
-  struct subscribe_help<F, false, false> {
+  struct SubscribeHelper<F, false, false> {
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
@@ -103,7 +103,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
   };
 
   template <typename F>
-  struct subscribe_help<F, true, false> {
+  struct SubscribeHelper<F, true, false> {
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
@@ -119,7 +119,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
   };
 
   template <typename F>
-  struct subscribe_help<F, false, true> {
+  struct SubscribeHelper<F, false, true> {
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         using F_Return = typename detail::callable_traits<F>::return_type;
@@ -132,7 +132,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
   };
 
   template <typename F>
-  struct subscribe_help<F, true, true> {
+  struct SubscribeHelper<F, true, true> {
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         handle();
