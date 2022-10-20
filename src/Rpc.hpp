@@ -97,7 +97,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
         if (r.first) {
           ret = handle(std::move(r.second));
         }
-        return detail::MsgWrapper::MakeRsp(msg.seq, ret, r.first);
+        return detail::MsgWrapper::MakeRsp(msg.seq, &ret, r.first);
       });
     }
   };
@@ -113,7 +113,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
         if (r.first) {
           handle(std::move(r.second));
         }
-        return detail::MsgWrapper::MakeRsp(msg.seq, VOID, r.first);
+        return detail::MsgWrapper::MakeRsp(msg.seq, nullptr, r.first);
       });
     }
   };
@@ -126,7 +126,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
         static_assert(std::is_base_of<Message, F_Return>::value, "function return type should be base of `Message`");
 
         F_Return ret = handle();
-        return detail::MsgWrapper::MakeRsp(msg.seq, ret, true);
+        return detail::MsgWrapper::MakeRsp(msg.seq, &ret, true);
       });
     }
   };
@@ -136,7 +136,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         handle();
-        return detail::MsgWrapper::MakeRsp(msg.seq, VOID, true);
+        return detail::MsgWrapper::MakeRsp(msg.seq, nullptr, true);
       });
     }
   };

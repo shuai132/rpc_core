@@ -77,8 +77,14 @@ struct Struct : Message {
   }
 };
 
-using Void = Raw<uint8_t>;
-const Void VOID{};
+struct Void : Message {
+  std::string serialize() const override {
+    return {};
+  };
+  bool deSerialize(const std::string& data) override {
+    return true;
+  }
+};
 
 /**
  * string类型 实际可存二进制内容 无需为可读的字符串

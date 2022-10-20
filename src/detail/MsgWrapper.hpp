@@ -49,12 +49,12 @@ struct MsgWrapper : copyable {  // NOLINT
     return msg;
   }
 
-  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, const Message& message = VOID, bool success = true) {
+  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, Message* message = nullptr, bool success = true) {
     MsgWrapper msg;
     msg.type = MsgWrapper::RESPONSE;
     msg.seq = seq;
-    if ((intptr_t*)&message != (intptr_t*)&VOID) {
-      msg.data = message.serialize();
+    if (message != nullptr) {
+      msg.data = message->serialize();
     }
     return std::make_pair(success, std::move(msg));
   }
