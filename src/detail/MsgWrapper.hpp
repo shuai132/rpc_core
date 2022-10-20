@@ -8,7 +8,7 @@
 #include "log.h"
 
 namespace RpcCore {
-namespace internal {
+namespace detail {
 
 struct MsgWrapper : copyable {  // NOLINT
   enum MsgType : uint8_t {
@@ -60,5 +60,5 @@ struct MsgWrapper : copyable {  // NOLINT
   }
 };
 
-}  // namespace internal
+}  // namespace detail
 }  // namespace RpcCore

@@ -13,7 +13,7 @@ namespace RpcCore {
  * 数据序列化接口
  * std::string作为数据载体 并不要求可读
  */
-struct Message : internal::copyable {
+struct Message : detail::copyable {
   virtual std::string serialize() const = 0;
   virtual bool deSerialize(const std::string& data) = 0;
 };

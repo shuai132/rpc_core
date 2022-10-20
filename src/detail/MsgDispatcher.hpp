@@ -11,7 +11,7 @@
 #include "noncopyable.hpp"
 
 namespace RpcCore {
-namespace internal {
+namespace detail {
 
 class MsgDispatcher : noncopyable {
  public:
@@ -148,5 +148,5 @@ class MsgDispatcher : noncopyable {
   TimerImpl timerImpl_;
 };
 
-}  // namespace internal
+}  // namespace detail
 }  // namespace RpcCore

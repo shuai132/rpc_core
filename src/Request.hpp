@@ -9,8 +9,6 @@
 
 namespace RpcCore {
 
-using namespace internal;
-
 #define RpcCore_Request_MAKE_PROP_PUBLIC(type, name) \
  public:                                             \
   inline std::shared_ptr<Request> name(type name) {  \
@@ -33,7 +31,7 @@ using namespace internal;
  private:                                             \
   type name##_;
 
-struct Request : noncopyable, public std::enable_shared_from_this<Request> {
+struct Request : detail::noncopyable, public std::enable_shared_from_this<Request> {
   using SRequest = std::shared_ptr<Request>;
   using WRequest = std::weak_ptr<Request>;
 
@@ -90,7 +88,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
 
     needRsp_ = true;
     auto self = shared_from_this();
-    this->rspHandle_ = [this, RpcCore_MOVE_LAMBDA(cb), self](MsgWrapper msg) {
+    this->rspHandle_ = [this, RpcCore_MOVE_LAMBDA(cb), self](detail::MsgWrapper msg) {
       if (canceled()) {
         onFinish(FinallyType::CANCELED);
         return true;
@@ -207,7 +205,7 @@ struct Request : noncopyable, public std::enable_shared_from_this<Request> {
   friend class Rpc;
   RpcCore_Request_MAKE_PROP_PRIVATE(WSendProto, rpc);
   RpcCore_Request_MAKE_PROP_PRIVATE(SeqType, seq);
-  RpcCore_Request_MAKE_PROP_PRIVATE(std::function<bool(MsgWrapper)>, rspHandle);
+  RpcCore_Request_MAKE_PROP_PRIVATE(std::function<bool(detail::MsgWrapper)>, rspHandle);
   RpcCore_Request_MAKE_PROP_PRIVATE(uint32_t, timeoutMs);
   RpcCore_Request_MAKE_PROP_PRIVATE(std::string, payload);
   RpcCore_Request_MAKE_PROP_PRIVATE(bool, needRsp);

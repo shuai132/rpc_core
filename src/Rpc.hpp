@@ -11,11 +11,9 @@
 
 namespace RpcCore {
 
-using namespace internal;
-
-class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Request::RpcProto {
+class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, public Request::RpcProto {
  public:
-  using TimeoutCb = internal::MsgDispatcher::TimeoutCb;
+  using TimeoutCb = detail::MsgDispatcher::TimeoutCb;
 
  public:
   template <typename... Args>
@@ -37,15 +35,15 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
     return conn_;
   }
 
-  inline void setTimer(internal::MsgDispatcher::TimerImpl timerImpl) {
+  inline void setTimer(detail::MsgDispatcher::TimerImpl timerImpl) {
     dispatcher_.setTimerImpl(std::move(timerImpl));
   }
 
  public:
   template <typename F>
   void subscribe(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle) {
-    constexpr bool F_ReturnIsEmpty = std::is_void<typename callable_traits<F>::return_type>::value;
-    constexpr bool F_ParamIsEmpty = callable_traits<F>::argc == 0;
+    constexpr bool F_ReturnIsEmpty = std::is_void<typename detail::callable_traits<F>::return_type>::value;
+    constexpr bool F_ParamIsEmpty = detail::callable_traits<F>::argc == 0;
     subscribe_help<F, F_ReturnIsEmpty, F_ParamIsEmpty>()(cmd, std::move(handle), &dispatcher_);
   }
 
@@ -76,8 +74,8 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
     if (needRsp) {
       dispatcher_.subscribeRsp(request->seq(), request->rspHandle(), request->timeoutCb_, request->timeoutMs(), request->isPing_);
     }
-    auto msg = MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->isPing_, needRsp, request->payload());
-    conn_->sendPackageImpl(Coder::serialize(msg));
+    auto msg = detail::MsgWrapper::MakeCmd(request->cmd(), request->seq(), request->isPing_, needRsp, request->payload());
+    conn_->sendPackageImpl(detail::Coder::serialize(msg));
   }
 
  private:
@@ -86,12 +84,12 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
 
   template <typename F>
   struct subscribe_help<F, false, false> {
-    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, MsgDispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const MsgWrapper& msg) {
-        using F_Param = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
+    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
+      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
+        using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
         static_assert(std::is_base_of<Message, F_Param>::value, "function param type should be base of `Message`");
 
-        using F_Return = detail::remove_cvref_t<typename callable_traits<F>::return_type>;
+        using F_Return = detail::remove_cvref_t<typename detail::callable_traits<F>::return_type>;
         static_assert(std::is_base_of<Message, F_Return>::value, "function return type should be base of `Message`");
 
         auto r = msg.unpackAs<F_Param>();
@@ -99,53 +97,53 @@ class Rpc : noncopyable, public std::enable_shared_from_this<Rpc>, public Reques
         if (r.first) {
           ret = handle(std::move(r.second));
         }
-        return MsgWrapper::MakeRsp(msg.seq, ret, r.first);
+        return detail::MsgWrapper::MakeRsp(msg.seq, ret, r.first);
       });
     }
   };
 
   template <typename F>
   struct subscribe_help<F, true, false> {
-    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, MsgDispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const MsgWrapper& msg) {
-        using F_Param = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
+    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
+      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
+        using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
         static_assert(std::is_base_of<Message, F_Param>::value, "function param type should be base of `Message`");
 
         auto r = msg.unpackAs<F_Param>();
         if (r.first) {
           handle(std::move(r.second));
         }
-        return MsgWrapper::MakeRsp(msg.seq, VOID, r.first);
+        return detail::MsgWrapper::MakeRsp(msg.seq, VOID, r.first);
       });
     }
   };
 
   template <typename F>
   struct subscribe_help<F, false, true> {
-    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, MsgDispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const MsgWrapper& msg) {
-        using F_Return = typename callable_traits<F>::return_type;
+    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
+      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
+        using F_Return = typename detail::callable_traits<F>::return_type;
         static_assert(std::is_base_of<Message, F_Return>::value, "function return type should be base of `Message`");
 
         F_Return ret = handle();
-        return MsgWrapper::MakeRsp(msg.seq, ret, true);
+        return detail::MsgWrapper::MakeRsp(msg.seq, ret, true);
       });
     }
   };
 
   template <typename F>
   struct subscribe_help<F, true, true> {
-    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, MsgDispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const MsgWrapper& msg) {
+    void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
+      dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         handle();
-        return MsgWrapper::MakeRsp(msg.seq, VOID, true);
+        return detail::MsgWrapper::MakeRsp(msg.seq, VOID, true);
       });
     }
   };
 
  private:
   std::shared_ptr<Connection> conn_;
-  internal::MsgDispatcher dispatcher_;
+  detail::MsgDispatcher dispatcher_;
   SeqType seq_{0};
 };
 

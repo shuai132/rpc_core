@@ -17,7 +17,7 @@ namespace RpcCore {
  * 2. 当实际收到一包数据时 请调用onRecvPackage
  * 3. 提供发送数据的实现 sendPackageImpl
  */
-struct Connection : internal::noncopyable {
+struct Connection : detail::noncopyable {
   std::function<void(std::string)> sendPackageImpl;
   std::function<void(std::string)> onRecvPackage;
 };
