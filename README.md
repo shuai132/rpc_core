@@ -25,15 +25,6 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 * 数据收发需要完整的数据包，例如WebSocket。  
   如果用Socket/串口等需要自己实现消息打包解包。可使用：[PacketProcessor](https://github.com/shuai132/PacketProcessor)
 
-### Build
-
-1. PC端
-   使用CMake:
-
-```bash
-mkdir build && cd build && cmake .. && make
-```
-
 ## Usage
 
 1. 在自己的项目添加搜索路径
@@ -66,14 +57,19 @@ rpc->cmd("cmd")
 
 ### 类说明
 
+外部接口
+
 * Connection 提供收发实现
-* Message 消息自定义序列化/反序列化规则
-* MsgWrapper 包装Message 用于内部传输解析
-* Coder MsgWrapper序列化实现
-* MsgDispatcher 解析MsgWrapper 分发消息
-* Request 提供消息请求的各种方法
-* Dispose 通过RAII的方式 用于自动取消Request
 * Rpc 提供注册消息和创建请求的方法
+* Request 提供消息请求的各种方法
+* Message 消息自定义序列化/反序列化规则
+* Dispose 通过RAII的方式 用于自动取消Request
+
+内部实现
+
+* MsgWrapper 包装Message 用于内部传输解析
+* MsgDispatcher 解析MsgWrapper 分发消息
+* Coder MsgWrapper序列化实现
 
 ## Plugin
 
