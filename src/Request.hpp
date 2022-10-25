@@ -68,6 +68,7 @@ struct Request : detail::noncopyable, public std::enable_shared_from_this<Reques
   }
 
   RpcCore_Request_MAKE_PROP_PUBLIC(CmdType, cmd);
+  RpcCore_Request_MAKE_PROP_PUBLIC(uint32_t, timeoutMs);
   RpcCore_Request_MAKE_PROP_PUBLIC(std::function<void(FinallyType)>, finally);
 
  public:
@@ -206,7 +207,6 @@ struct Request : detail::noncopyable, public std::enable_shared_from_this<Reques
   RpcCore_Request_MAKE_PROP_PRIVATE(WSendProto, rpc);
   RpcCore_Request_MAKE_PROP_PRIVATE(SeqType, seq);
   RpcCore_Request_MAKE_PROP_PRIVATE(std::function<bool(detail::MsgWrapper)>, rspHandle);
-  RpcCore_Request_MAKE_PROP_PRIVATE(uint32_t, timeoutMs);
   RpcCore_Request_MAKE_PROP_PRIVATE(std::string, payload);
   RpcCore_Request_MAKE_PROP_PRIVATE(bool, needRsp);
   RpcCore_Request_MAKE_PROP_PRIVATE(bool, canceled);
