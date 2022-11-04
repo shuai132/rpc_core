@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-//#define RpcCore_LOG_SHOW_VERBOSE
+// #define RpcCore_LOG_SHOW_VERBOSE
 
 #include "Request.hpp"
 #include "detail/noncopyable.hpp"

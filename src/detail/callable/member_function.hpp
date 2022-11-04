@@ -101,33 +101,33 @@ struct member_function_traits<Ret (Class::*)(Args...) const volatile noexcept>
     : member_function_traits_q<Class, Ret(Args...), const_tag, volatile_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) &noexcept> : member_function_traits_q<Class, Ret(Args...), lref_tag, noexcept_tag> {};
+struct member_function_traits<Ret (Class::*)(Args...) & noexcept> : member_function_traits_q<Class, Ret(Args...), lref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) const &noexcept>
+struct member_function_traits<Ret (Class::*)(Args...) const & noexcept>
     : member_function_traits_q<Class, Ret(Args...), const_tag, lref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) volatile &noexcept>
+struct member_function_traits<Ret (Class::*)(Args...) volatile & noexcept>
     : member_function_traits_q<Class, Ret(Args...), volatile_tag, lref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) const volatile &noexcept>
+struct member_function_traits<Ret (Class::*)(Args...) const volatile & noexcept>
     : member_function_traits_q<Class, Ret(Args...), const_tag, volatile_tag, lref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) &&noexcept> : member_function_traits_q<Class, Ret(Args...), rref_tag, noexcept_tag> {};
+struct member_function_traits<Ret (Class::*)(Args...) && noexcept> : member_function_traits_q<Class, Ret(Args...), rref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) const &&noexcept>
+struct member_function_traits<Ret (Class::*)(Args...) const && noexcept>
     : member_function_traits_q<Class, Ret(Args...), const_tag, rref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) volatile &&noexcept>
+struct member_function_traits<Ret (Class::*)(Args...) volatile && noexcept>
     : member_function_traits_q<Class, Ret(Args...), volatile_tag, rref_tag, noexcept_tag> {};
 
 template <typename Class, typename Ret, typename... Args>
-struct member_function_traits<Ret (Class::*)(Args...) const volatile &&noexcept>
+struct member_function_traits<Ret (Class::*)(Args...) const volatile && noexcept>
     : member_function_traits_q<Class, Ret(Args...), const_tag, volatile_tag, rref_tag, noexcept_tag> {};
 #endif  // __cpp_noexcept_function_type
 
