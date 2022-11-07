@@ -23,7 +23,12 @@ class MsgDispatcher : noncopyable {
 
  public:
   explicit MsgDispatcher(std::shared_ptr<Connection> conn) : conn_(std::move(conn)) {
-    conn_->onRecvPackage = ([this](const std::string& payload) {
+    auto alive = std::weak_ptr<void>(isAlive_);
+    conn_->onRecvPackage = ([this, RpcCore_MOVE_LAMBDA(alive)](const std::string& payload) {
+      if (alive.expired()) {
+        RpcCore_LOGD("onRecvPackage: MsgDispatcher destroyed!");
+        return;
+      }
       bool success;
       auto msg = Coder::unserialize(payload, success);
       if (success) {
@@ -134,10 +139,6 @@ class MsgDispatcher : noncopyable {
         RpcCore_LOGV("Timeout seq=%d, handleMap.size=%zu", seq, handleMap->size());
       }
     });
-  }
-
-  inline std::shared_ptr<Connection> getConn() const {
-    return conn_;
   }
 
   inline void setTimerImpl(TimerImpl timerImpl) {
