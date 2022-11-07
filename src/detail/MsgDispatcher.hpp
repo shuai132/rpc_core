@@ -119,7 +119,12 @@ class MsgDispatcher : noncopyable {
       RpcCore_LOGW("no timeout will cause memory leak!");
     }
 
-    timerImpl_(timeoutMs, [handleMap, seq, RpcCore_MOVE_LAMBDA(timeoutCb)] {
+    auto alive = std::weak_ptr<void>(isAlive_);
+    timerImpl_(timeoutMs, [handleMap, seq, RpcCore_MOVE_LAMBDA(timeoutCb), RpcCore_MOVE_LAMBDA(alive)] {
+      if (alive.expired()) {
+        RpcCore_LOGD("timeout after destroy, ignore it!");
+        return;
+      }
       auto it = handleMap->find(seq);
       if (it != handleMap->cend()) {
         if (timeoutCb) {
@@ -146,6 +151,7 @@ class MsgDispatcher : noncopyable {
   CmdHandle pingHandle_;
   std::map<SeqType, RspHandle> pongHandleMap_;
   TimerImpl timerImpl_;
+  std::shared_ptr<void> isAlive_ = std::make_shared<uint8_t>();
 };
 
 }  // namespace detail
