@@ -75,3 +75,8 @@ rpc->cmd("cmd")
 
 * [FlatbuffersMsg.hpp](./plugin/FlatbuffersMsg.hpp)  
   支持直接使用`Flatbuffers`生成的对象作为消息传输(`flatc`需添加参数`--gen-object-api`)
+
+## Links
+
+* 基于asio的实现 [asio_net](https://github.com/shuai132/asio_net)
+* 适用于ESP32/ESP8266的实现 [esp_rpc](https://github.com/shuai132/esp_rpc)
