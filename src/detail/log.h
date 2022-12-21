@@ -107,12 +107,12 @@
 extern int RpcCore_LOG_PRINTF_IMPL(const char *fmt, ...);
 #endif
 
-#define RpcCore_LOG(fmt, ...)           do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_GREEN   "[*]: "             fmt RpcCore_LOG_END, ##__VA_ARGS__); } while(0)
-#define RpcCore_LOGT(tag, fmt, ...)     do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_BLUE    "[" tag "]: "       fmt RpcCore_LOG_END, ##__VA_ARGS__); } while(0)
-#define RpcCore_LOGI(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_YELLOW  "[I]: %s: "         fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, ##__VA_ARGS__); } while(0)
-#define RpcCore_LOGW(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_CARMINE "[W]: %s: %s: %d: " fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __func__, __LINE__, ##__VA_ARGS__); } while(0)                     // NOLINT(bugprone-lambda-function-name)
-#define RpcCore_LOGE(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_RED     "[E]: %s: %s: %d: " fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __func__, __LINE__, ##__VA_ARGS__); } while(0)                     // NOLINT(bugprone-lambda-function-name)
-#define RpcCore_LOGF(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_CYAN    "[!]: %s: %s: %d: " fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __func__, __LINE__, ##__VA_ARGS__); RpcCore_LOG_EXIT_PROGRAM(); } while(0) // NOLINT(bugprone-lambda-function-name)
+#define RpcCore_LOG(fmt, ...)           do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_GREEN   "[*]: %s:%d "       fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
+#define RpcCore_LOGT(tag, fmt, ...)     do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_BLUE    "[" tag "]: %s:%d " fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
+#define RpcCore_LOGI(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_YELLOW  "[I]: %s:%d "       fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
+#define RpcCore_LOGW(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_CARMINE "[W]: %s:%d [%s] "  fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, __func__, ##__VA_ARGS__); } while(0)                     // NOLINT(bugprone-lambda-function-name)
+#define RpcCore_LOGE(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_RED     "[E]: %s:%d [%s] "  fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, __func__, ##__VA_ARGS__); } while(0)                     // NOLINT(bugprone-lambda-function-name)
+#define RpcCore_LOGF(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_CYAN    "[!]: %s:%d [%s] "  fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, __func__, ##__VA_ARGS__); RpcCore_LOG_EXIT_PROGRAM(); } while(0) // NOLINT(bugprone-lambda-function-name)
 
 #if defined(RpcCore_LOG_IN_LIB) && !defined(RpcCore_LOG_SHOW_DEBUG) && !defined(RpcCore_LOG_NDEBUG)
 #define RpcCore_LOG_NDEBUG
@@ -121,7 +121,7 @@ extern int RpcCore_LOG_PRINTF_IMPL(const char *fmt, ...);
 #if defined(NDEBUG) || defined(RpcCore_LOG_NDEBUG)
 #define RpcCore_LOGD(fmt, ...)          ((void)0)
 #else
-#define RpcCore_LOGD(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_DEFAULT "[D]: %s: "         fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, ##__VA_ARGS__); } while(0)
+#define RpcCore_LOGD(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_DEFAULT "[D]: %s:%d "       fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
 #endif
 
 #if defined(RpcCore_LOG_SHOW_VERBOSE)
