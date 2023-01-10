@@ -1,5 +1,6 @@
 #pragma once
 
+#include <future>
 #include <memory>
 #include <utility>
 
@@ -60,6 +61,12 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     CANCELED,
     RPC_EXPIRED,
     NO_NEED_RSP,
+  };
+
+  template <typename T>
+  struct FutureRet {
+    FinallyType type;
+    T data;
   };
 
  public:
@@ -128,6 +135,25 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     if (!needRsp_) {
       onFinish(FinallyType::NO_NEED_RSP);
     }
+  }
+
+  /**
+   * Future模式
+   * 不提倡使用阻塞接口，除非你非常清楚在做什么，否则很容易出现死锁。
+   */
+  template <typename R>
+  std::future<FutureRet<R>> future(const SSendProto& rpc = nullptr) {
+    auto promise = std::make_shared<std::promise<FutureRet<R>>>();
+    rsp([promise](R r) {
+      promise->set_value({FinallyType::NORMAL, std::move(r)});
+    });
+    finally([promise](FinallyType type) {
+      if (type != FinallyType::NORMAL) {
+        promise->set_value({type, {}});
+      }
+    });
+    call();
+    return promise->get_future();
   }
 
   std::shared_ptr<Request> timeout(RpcCore_MOVE_PARAM(std::function<void()>) timeoutCb) {

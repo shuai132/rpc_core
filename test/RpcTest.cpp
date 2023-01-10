@@ -276,6 +276,19 @@ void RpcTest() {
     }
     request->call();
   }
+
+  RpcCore_LOG("Future模式");
+  {
+    {
+      auto result = rpc->ping("ping")->future<String>().get();
+      ASSERT(result.type == FinishType::NORMAL);
+      ASSERT(result.data == "ping");
+    }
+    {
+      auto result = rpc->ping()->future<Void>().get();
+      ASSERT(result.type == FinishType::NORMAL);
+    }
+  }
 }
 
 }  // namespace RpcCoreTest
