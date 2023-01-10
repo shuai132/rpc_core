@@ -18,11 +18,15 @@ namespace RpcCore {
                                                      \
  private:                                            \
   type name##_;                                      \
-  inline type name() { return name##_; }
+  inline type name() {                               \
+    return name##_;                                  \
+  }
 
 #define RpcCore_Request_MAKE_PROP_PRIVATE(type, name) \
  private:                                             \
-  inline type name() { return name##_; }              \
+  inline type name() {                                \
+    return name##_;                                   \
+  }                                                   \
   inline std::shared_ptr<Request> name(type name) {   \
     name##_ = std::move(name);                        \
     return shared_from_this();                        \
@@ -31,7 +35,8 @@ namespace RpcCore {
  private:                                             \
   type name##_;
 
-struct Request : detail::noncopyable, public std::enable_shared_from_this<Request> {
+class Request : detail::noncopyable, public std::enable_shared_from_this<Request> {
+ public:
   using SRequest = std::shared_ptr<Request>;
   using WRequest = std::weak_ptr<Request>;
 
