@@ -9,6 +9,8 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 完善的RPC框架(如gRPC)使用复杂，尤其在嵌入式平台更不现实。
 本项目提供轻量级的消息注册、解析分发功能以及方便使用的API。
 
+注：本仓库只提供协议层和API，不包含传输层实现。基于TCP的实现见文末*Links*。
+
 ## Features
 
 * 简单高效易用 支持性能受限的平台
@@ -18,12 +20,14 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 * 方便自定义消息类型 提供了`Flatbuffers`的实现
 * 提供Dispose基于RAII自动取消请求 方便UI相关应用
 * 支持设置超时重试次数
+* std::future接口
 
 ## Requirements
 
 * C++11
 * 数据收发需要完整的数据包，例如WebSocket。  
   如果用Socket/串口等需要自己实现消息打包解包。可使用：[PacketProcessor](https://github.com/shuai132/PacketProcessor)
+  或 [data_packer.hpp](https://github.com/shuai132/esp_rpc/blob/main/data_packer.hpp)
 
 ## Usage
 
