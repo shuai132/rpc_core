@@ -1,3 +1,5 @@
+#include <cinttypes>
+
 #include "RpcCore.hpp"
 #include "Test.h"
 #include "assert_def.h"
@@ -102,9 +104,9 @@ void RpcTest() {
     const uint64_t VALUE = 0x00001234abcd0000;
     using UInt64_t = Raw<uint64_t>;
 
-    RpcCore_LOGI("TEST_VALUE: 0x%016llx", VALUE);
+    RpcCore_LOGI("TEST_VALUE: 0x%016" PRIx64, VALUE);
     rpc->subscribe(CMD2, [&](const UInt64_t& msg) -> UInt64_t {
-      RpcCore_LOGI("get CMD2: 0x%llx", msg.value);
+      RpcCore_LOGI("get CMD2: 0x%016" PRIx64, msg.value);
       ASSERT(msg.value == VALUE);
       return VALUE;
     });
@@ -112,7 +114,7 @@ void RpcTest() {
     rpc->cmd(CMD2)
         ->msg(UInt64_t(VALUE))
         ->rsp([&](const UInt64_t& rsp) {
-          RpcCore_LOGI("get rsp from CMD2: 0x%llx", rsp.value);
+          RpcCore_LOGI("get rsp from CMD2: 0x%016" PRIx64, rsp.value);
           ASSERT(rsp.value == VALUE);
           pass = true;
         })
