@@ -17,7 +17,7 @@ RPC Core library, designed for IOT, support most microchip(Arduino、STM32、ESP
 * Header-Only 仅有头文件
 * 支持任意形式的连接（串口、TCP等）
 * 提供基本数据类型、结构体、字符串、二进制类型的序列化实现
-* 方便自定义消息类型 提供了`Flatbuffers`的实现
+* 方便自定义消息类型 提供了`Flatbuffers`、`json`的实现
 * 提供Dispose基于RAII自动取消请求 方便UI相关应用
 * 支持设置超时重试次数
 * std::future接口
@@ -77,8 +77,12 @@ rpc->cmd("cmd")
 
 ## Plugin
 
+* [JsonMsg.hpp](./plugin/JsonMsg.hpp)  
+  支持直接使用[nlohmann/json](https://github.com/nlohmann/json)支持的类型作为消息传输
+  (需满足`nlohmann/json`中的`to_json/from_json`规则）
+
 * [FlatbuffersMsg.hpp](./plugin/FlatbuffersMsg.hpp)  
-  支持直接使用`Flatbuffers`生成的对象作为消息传输(`flatc`需添加参数`--gen-object-api`)
+  支持直接使用`Flatbuffers`生成的类型作为消息传输(`flatc`需添加参数`--gen-object-api`)
 
 ## Links
 
