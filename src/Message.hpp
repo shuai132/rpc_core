@@ -82,6 +82,7 @@ struct Void : Message {
     return {};
   };
   bool deSerialize(const std::string& data) override {
+    (void)data;
     return true;
   }
 };

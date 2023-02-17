@@ -152,7 +152,7 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
         promise->set_value({type, {}});
       }
     });
-    call();
+    call(rpc);
     return promise->get_future();
   }
 
