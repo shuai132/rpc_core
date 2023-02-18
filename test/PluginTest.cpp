@@ -2,6 +2,7 @@
 #include "Test.h"
 #include "assert_def.h"
 #include "plugin/FlatbuffersMsg.hpp"
+#include "plugin/Json.hpp"
 #include "plugin/JsonMsg.hpp"
 #include "plugin/JsonType.h"
 #include "plugin/fb/FbMsg_generated.h"
@@ -10,6 +11,24 @@ namespace RpcCoreTest {
 
 void PluginTest() {
   using namespace RpcCore;
+  {
+    RpcCore_LOGI("Json...");
+    Json a;
+    a["id"] = 1;
+    a["name"] = "example";
+    a["age"] = 18;
+
+    auto payload = a.serialize();
+    RpcCore_LOGI("Json: %s", payload.c_str());
+    RpcCore_LOGI("Json: size: %zu", payload.size());
+
+    Json b;
+    b.deSerialize(payload);
+    ASSERT(b["id"] == a["id"]);
+    ASSERT(b["name"] == a["name"]);
+    ASSERT(b["age"] == a["age"]);
+  }
+
   {
     RpcCore_LOGI("JsonMsg<JsonType>...");
     JsonMsg<JsonType> a;
