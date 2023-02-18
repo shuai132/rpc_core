@@ -9,3 +9,6 @@ CMakeLists.txt.user
 
 # vscode
 .vscode/
+
+# thirdparty
+/thirdparty/

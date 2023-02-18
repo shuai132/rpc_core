@@ -12,7 +12,7 @@ struct MyData {
 void TypeTest() {
   using namespace RpcCore;
   {
-    RpcCore_LOGD("Raw<uint64_t>...");
+    RpcCore_LOGI("Raw<uint64_t>...");
     const uint64_t value = 0x12345678abcd;
     Raw<uint64_t> a(value);
     ASSERT(a == a.value);
@@ -21,7 +21,7 @@ void TypeTest() {
     ASSERT(b == a);
   }
   {
-    RpcCore_LOGD("Struct...");
+    RpcCore_LOGI("Struct...");
     MyData data{1, 2};
     Struct<MyData> a;
     ASSERT(a.align_size == alignof(MyData));
@@ -33,7 +33,7 @@ void TypeTest() {
     ASSERT(0 == memcmp(&a.value, &b.value, sizeof(MyData)));  // NOLINT
   }
   {
-    RpcCore_LOGD("String/Binary...");
+    RpcCore_LOGI("String/Binary...");
     uint8_t data[] = {0, 2, 4, 255, 0 /*important*/, 1, 3, 5};
     Binary a((char*)data, sizeof(data));
     Binary b;

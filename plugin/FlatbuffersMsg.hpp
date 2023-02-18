@@ -8,6 +8,7 @@ namespace RpcCore {
 template <typename T, size_t InitialSize = 1024, bool EnableVerify = true>
 struct FlatbuffersMsg : RpcCore::Message {
   using TableType = typename T::TableType;
+
   std::string serialize() const override {
     flatbuffers::FlatBufferBuilder fbb(InitialSize);
     auto offset = TableType::Pack(fbb, &msg);

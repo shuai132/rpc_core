@@ -12,15 +12,18 @@ jobs:
   Linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@v3
 
-      - name: CMake Build
+      - name: CMake
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug ..
-          make -j2
+          cmake -DCMAKE_BUILD_TYPE=Debug -DRpcCore_TEST_PLUGIN=ON ..
+
+      - name: Init thirdparty
+        run: cd build && make RpcCore_test_init
+
+      - name: Build
+        run: cd build && make -j2
 
       - name: Run
         run: cd build && ./RpcCore_test

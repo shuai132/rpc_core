@@ -8,7 +8,12 @@ int main() {
   printf("TypeTest...\n");
   TypeTest();
 
-  printf("RpcTest...\n");
+#ifdef RpcCore_TEST_PLUGIN
+  printf("\nPluginTest...\n");
+  PluginTest();
+#endif
+
+  printf("\nRpcTest...\n");
   RpcTest();
 
   return 0;
