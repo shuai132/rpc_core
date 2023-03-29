@@ -9,25 +9,25 @@ a tiny rpc library, support all platform, even microchips.
 The complete RPC frameworks (such as `gRPC` and `brpc`) have complex functions
 and are not practical for use in embedded platforms.
 
-This project provides a lightweight and easy-to-use implementation,
-which is more suitable for one-to-one interaction scenarios.
+This project offers a lightweight and user-friendly implementation that is better suited for one-to-one RPC calls.
 
-It supports most microchips such as Arduino、STM32、ESP32/ESP8266, and more.
+It supports a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 
-Notice: This project only provides the protocol layer and API,
+Note:
+This project solely offers the protocol layer and API,
 and `does not include the implementation of the transport layer`.
-For implementations based on TCP, please refer to the Links section at the end of the document.
+For TCP-based implementations, please refer to the Links section located at the end of the document.
 
 ## Features
 
 * Header-Only
-* Easy to use, no need to define a schema
-* Supports performance-limited platforms, even MCUs
-* Supports any form of connection (serial port, TCP, etc.)
-* Provides Dispose based on RAII for automatic cancellation of requests
-* Supports setting timeout and retry times
-* Provides `std::future` interface
-* Supports custom message types and provides implementations for `Flatbuffers` and `JSON`
+* No need to define a schema
+* Supports performance-limited platforms, including MCUs
+* Compatible with any connection type (serial port, TCP, etc.)
+* RAII-based Dispose for automatic request cancellation
+* Timeout and retry settings
+* Supports `std::future` interface
+* Customizable message types with implementations for `Flatbuffers` and `JSON`
 
 ## Requirements
 

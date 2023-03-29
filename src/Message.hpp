@@ -9,18 +9,11 @@
 
 namespace RpcCore {
 
-/**
- * 数据序列化接口
- * std::string作为数据载体 并不要求可读
- */
 struct Message : detail::copyable {
   virtual std::string serialize() const = 0;
   virtual bool deSerialize(const std::string& data) = 0;
 };
 
-/**
- * 基本数据类型模板
- */
 template <typename T, typename std::enable_if<!std::is_class<T>::value, int>::type = 0>
 struct Raw : Message {
   T value;
@@ -47,10 +40,14 @@ struct Raw : Message {
 };
 
 /**
- * 结构体类型模板 用于保存用户自定义结构体
- * 为确保在不同平台有一致的结构体内存
- * 1. 收发端T需使用一致的字节对齐
- * 2. 使用字长平台无关的数据类型 如int32_t/int8_t等代替int（显然不要使用size_t）
+ * A struct template used to store user-defined structs.
+ *
+ * 1. T needs to ensure the same memory layout across different platforms.
+ * 2. Use platform-independent types, such as int32_t instead of int, uint32_t instead of size_t.
+ *
+ * NOTE:
+ * This interface is not recommended to use unless you know what you are doing.
+ * It is recommended to use the serialization method in the plugin.
  */
 template <typename T, typename std::enable_if<std::is_class<T>::value, int>::type = 0>
 struct Struct : Message {
@@ -87,9 +84,6 @@ struct Void : Message {
   }
 };
 
-/**
- * string类型 实际可存二进制内容 无需为可读的字符串
- */
 struct String : Message, public std::string {
   using std::string::string;
   String() = default;
