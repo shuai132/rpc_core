@@ -16,12 +16,12 @@ It supports a wide range of microchips, including Arduino, STM32, ESP32/ESP8266,
 Note:
 This project solely offers the protocol layer and API,
 and `does not include the implementation of the transport layer`.
-For TCP-based implementations, please refer to the Links section located at the end of the document.
+For TCP-based implementations, please refer to the [Links](#Links) section.
 
 ## Features
 
 * Header-Only
-* No need to define a schema
+* No schema
 * Supports performance-limited platforms, including MCUs
 * Compatible with any connection type (serial port, TCP, etc.)
 * RAII-based Dispose for automatic request cancellation

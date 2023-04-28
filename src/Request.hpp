@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <future>
 #include <memory>
 #include <utility>
@@ -138,8 +139,8 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
   }
 
   /**
-   * Future模式
-   * 不提倡使用阻塞接口，除非你非常清楚在做什么，否则很容易出现死锁。
+   * Future pattern
+   * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
    */
   template <typename R>
   std::future<FutureRet<R>> future(const SSendProto& rpc = nullptr) {
@@ -193,8 +194,8 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
   }
 
   /**
-   * 超时后自动重试次数
-   * -1为一直重试 0为不重试 >0为重试次数
+   * Automatic retry times after timeout
+   * -1 means retry indefinitely, 0 means no retry, >0 means the number of retries.
    */
   SRequest retry(int count) {
     retryCount_ = count;
@@ -202,7 +203,7 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
   }
 
   /**
-   * 强制忽略rsp回调
+   * Force to ignore `rsp` callback.
    */
   SRequest disableRsp() {
     needRsp_ = false;

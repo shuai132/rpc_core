@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <functional>
 #include <string>
 #include <utility>
@@ -10,12 +9,11 @@
 namespace RpcCore {
 
 /**
- * 消息连接
- * 约定消息发送和接收的接口
- * 用法
- * 1. 收发都要保证是一包完整的数据
- * 2. 当实际收到一包数据时 请调用onRecvPackage
- * 3. 提供发送数据的实现 sendPackageImpl
+ * Defines interfaces for sending and receiving messages
+ * Usage:
+ * 1. Both sending and receiving should ensure that a complete package of data is sent/received.
+ * 2. Call onRecvPackage when a package of data is actually received.
+ * 3. Provides the implementation of sending data, sendPackageImpl.
  */
 struct Connection : detail::noncopyable {
   std::function<void(std::string)> sendPackageImpl;
@@ -23,7 +21,7 @@ struct Connection : detail::noncopyable {
 };
 
 /**
- * 回环消息连接 用于测试
+ * Loopback connection for testing
  */
 struct LoopbackConnection : public Connection {
   LoopbackConnection() {

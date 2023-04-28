@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -14,9 +13,6 @@
 
 namespace RpcCore {
 
-/**
- * 用于自动取消Request
- */
 class Dispose : detail::noncopyable, public Request::DisposeProto {
  public:
   explicit Dispose(std::string name = "") : name_(std::move(name)) {
