@@ -32,7 +32,7 @@ For TCP-based implementations, please refer to the [Links](#Links) section.
 ## Requirements
 
 * C++11
-* Complete data packets are required for data transmission, such as in WebSocket.  
+* Complete data packets are required for data transmission, such as WebSocket.  
   If using socket/serial port, etc.,
   message packing and unpacking need to be implemented by yourself. You can use:
   [PacketProcessor](https://github.com/shuai132/PacketProcessor)

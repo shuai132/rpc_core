@@ -81,7 +81,7 @@
 
 #define RpcCore_LOG_WITH_COLOR
 
-#if defined(_WIN32) || defined(__ANDROID__) || defined(RpcCore_LOG_FOR_MCU)
+#if defined(_WIN32) || (defined(__ANDROID__) && !defined(ANDROID_STANDALONE)) || defined(RpcCore_LOG_FOR_MCU)
 #undef RpcCore_LOG_WITH_COLOR
 #endif
 
@@ -111,7 +111,7 @@
 
 #define RpcCore_LOG_END                 RpcCore_LOG_COLOR_END RpcCore_LOG_LINE_END
 
-#if __ANDROID__
+#if defined(__ANDROID__) && !defined(ANDROID_STANDALONE)
 #include <android/log.h>
 #define RpcCore_LOG_PRINTF(...)         __android_log_print(ANDROID_L##OG_DEBUG, "RpcCore_LOG", __VA_ARGS__)
 #else
@@ -201,7 +201,7 @@ return ss.str();
 #endif
 
 #if defined(RpcCore_LOG_SHOW_VERBOSE)
-#define RpcCore_LOGV(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_DEFAULT "[V]: %s: "         fmt RpcCore_LOG_END, RpcCore_LOG_BASE_FILENAME, ##__VA_ARGS__); } while(0)
+#define RpcCore_LOGV(fmt, ...)          do{ RpcCore_LOG_PRINTF_IMPL(RpcCore_LOG_COLOR_DEFAULT RpcCore_LOG_TIME_LABEL RpcCore_LOG_THREAD_LABEL "[V]: %s:%d "       fmt RpcCore_LOG_END RpcCore_LOG_TIME_VALUE RpcCore_LOG_THREAD_VALUE, RpcCore_LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
 #else
 #define RpcCore_LOGV(fmt, ...)          ((void)0)
 #endif

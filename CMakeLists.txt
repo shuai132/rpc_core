@@ -15,12 +15,13 @@ add_compile_options(-Wall)
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE .)
 
-set(EXAMPLE_COMPILE_DEFINE
-        RpcCore_LOG_SHOW_DEBUG
-        # RpcCore_LOG_SHOW_VERBOSE
-        )
-
 if (RpcCore_BUILD_TEST)
+    set(EXAMPLE_COMPILE_DEFINE
+            ANDROID_STANDALONE
+            RpcCore_LOG_SHOW_DEBUG
+            # RpcCore_LOG_SHOW_VERBOSE
+            )
+
     set(TARGET_NAME ${PROJECT_NAME}_test)
     file(GLOB SRCS test/*.cpp)
     add_executable(${TARGET_NAME} ${SRCS})
