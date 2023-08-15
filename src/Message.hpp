@@ -4,8 +4,10 @@
 #include <cstring>
 #include <string>
 
+#include "detail/all_base_of.hpp"
 #include "detail/copyable.hpp"
 #include "detail/log.h"
+#include "detail/tuple_helper.hpp"
 
 namespace RpcCore {
 
@@ -110,6 +112,29 @@ struct Bool : Raw<uint8_t> {
   }
   operator bool() {  // NOLINT
     return value != 0;
+  }
+};
+
+/**
+ * Combine multiple Message types and automatically serialize each one.
+ *
+ * @tparam Args all should be base of Message
+ */
+template <typename... Args>
+struct Tuple : Message, public std::tuple<Args...> {
+  static_assert(detail::all_base_of<Message, Args...>::value, "all args should be base of `Message`");
+  using std::tuple<Args...>::tuple;
+
+  std::string serialize() const override {
+    detail::tuple_meta meta;
+    detail::tuple_serialize(*this, meta);
+    return std::move(meta.data_serialize);
+  };
+
+  bool deSerialize(const std::string& data) override {
+    detail::tuple_meta meta;
+    meta.data_de_serialize = &data;
+    return detail::tuple_de_serialize(*this, meta);
   }
 };
 
