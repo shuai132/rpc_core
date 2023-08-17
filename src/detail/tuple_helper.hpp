@@ -8,9 +8,8 @@ struct Tuple;
 namespace detail {
 
 struct tuple_meta {
-  const std::string* data_de_serialize = nullptr;
+  char* data_de_serialize_ptr = nullptr;
   std::string data_serialize;
-  uint32_t pos = 0;
 };
 
 template <typename Tuple, std::size_t I>
@@ -46,12 +45,11 @@ void tuple_serialize(const Tuple<Args...>& t, tuple_meta& meta) {
 template <typename Tuple, std::size_t I>
 struct tuple_de_serialize_helper_impl {
   static bool de_serialize(Tuple& t, tuple_meta& meta) {
-    auto p = meta.data_de_serialize->data() + meta.pos;
+    auto& p = meta.data_de_serialize_ptr;
     uint32_t payload_size = *(uint32_t*)(p);
-    meta.pos += sizeof(payload_size);
-    p = meta.data_de_serialize->data() + meta.pos;
-    bool ret = std::get<I>(t).deSerialize(std::string(p, payload_size));
-    meta.pos += payload_size;
+    p += sizeof(payload_size);
+    bool ret = std::get<I>(t).deserialize(detail::string_view(p, payload_size));
+    p += payload_size;
     return ret;
   }
 };

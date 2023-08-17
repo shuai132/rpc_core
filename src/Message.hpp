@@ -7,13 +7,14 @@
 #include "detail/all_base_of.hpp"
 #include "detail/copyable.hpp"
 #include "detail/log.h"
+#include "detail/string_view.hpp"
 #include "detail/tuple_helper.hpp"
 
 namespace RpcCore {
 
 struct Message : detail::copyable {
   virtual std::string serialize() const = 0;
-  virtual bool deSerialize(const std::string& data) = 0;
+  virtual bool deserialize(const detail::string_view& data) = 0;
 };
 
 template <typename T, typename std::enable_if<!std::is_class<T>::value, int>::type = 0>
@@ -36,7 +37,7 @@ struct Raw : Message {
   std::string serialize() const override {
     return {(char*)&value, sizeof(T)};
   };
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     return memcpy((void*)&value, data.data(), sizeof(T));
   };
 };
@@ -62,7 +63,7 @@ struct Struct : Message {
   std::string serialize() const override {
     return {(char*)&value, sizeof(T) + 1};
   };
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     if (data.size() != sizeof(T) + 1) {
       RpcCore_LOGE("wrong data size");
       return false;
@@ -80,7 +81,7 @@ struct Void : Message {
   std::string serialize() const override {
     return {};
   };
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     (void)data;
     return true;
   }
@@ -95,8 +96,8 @@ struct String : Message, public std::string {
   std::string serialize() const override {
     return *this;  // NOLINT
   }
-  bool deSerialize(const std::string& data) override {
-    *this = data;
+  bool deserialize(const detail::string_view& data) override {
+    *this = std::string(data.data(), data.size());
     return true;
   }
 };
@@ -131,9 +132,9 @@ struct Tuple : Message, public std::tuple<Args...> {
     return std::move(meta.data_serialize);
   };
 
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     detail::tuple_meta meta;
-    meta.data_de_serialize = &data;
+    meta.data_de_serialize_ptr = (char*)data.data();
     return detail::tuple_de_serialize(*this, meta);
   }
 };

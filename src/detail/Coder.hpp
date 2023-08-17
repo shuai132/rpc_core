@@ -19,7 +19,7 @@ class Coder {
     return payload;
   }
 
-  static MsgWrapper unserialize(const std::string& payload, bool& ok) {
+  static MsgWrapper deserialize(const std::string& payload, bool& ok) {
     MsgWrapper msg;
     if (payload.size() < PayloadMinLen) {
       ok = false;

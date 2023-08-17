@@ -18,7 +18,7 @@ struct FlatbuffersMsg : RpcCore::Message {
     return {(char*)data, size};
   }
 
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     if (EnableVerify) {
       flatbuffers::Verifier verifier((uint8_t*)data.data(), data.size());
       bool ok = verifier.VerifyBuffer<TableType>();

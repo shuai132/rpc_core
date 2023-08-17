@@ -23,7 +23,7 @@ void PluginTest() {
     RpcCore_LOGI("Json: size: %zu", payload.size());
 
     Json b;
-    b.deSerialize(payload);
+    b.deserialize(payload);
     ASSERT(b["id"] == a["id"]);
     ASSERT(b["name"] == a["name"]);
     ASSERT(b["age"] == a["age"]);
@@ -41,7 +41,7 @@ void PluginTest() {
     RpcCore_LOGI("JsonType: size: %zu", payload.size());
 
     JsonMsg<JsonType> b;
-    b.deSerialize(payload);
+    b.deserialize(payload);
     ASSERT(b->id == a->id);
     ASSERT(b->name == a->name);
     ASSERT(b->age == a->age);
@@ -59,7 +59,7 @@ void PluginTest() {
     RpcCore_LOGI("FlatbuffersMsg: size: %zu", payload.size());
 
     FlatbuffersMsg<msg::FbMsgT> b;
-    b.deSerialize(payload);
+    b.deserialize(payload);
     ASSERT(b->id == a->id);
     ASSERT(b->name == a->name);
     ASSERT(b->age == a->age);

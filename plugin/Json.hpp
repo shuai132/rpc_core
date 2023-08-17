@@ -12,11 +12,11 @@ struct Json : Message, public nlohmann::json {
     return dump();
   }
 
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     try {
-      nlohmann::json::parse(data).swap(*this);
+      nlohmann::json::parse(data.data(), data.data() + data.size()).swap(*this);
     } catch (std::exception& e) {
-      RpcCore_LOGE("deSerialize: %s", e.what());
+      RpcCore_LOGE("deserialize: %s", e.what());
       return false;
     }
     return true;

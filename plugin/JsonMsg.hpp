@@ -17,11 +17,11 @@ struct JsonMsg : RpcCore::Message {
     return nlohmann::json(msg).dump(indent);
   }
 
-  bool deSerialize(const std::string& data) override {
+  bool deserialize(const detail::string_view& data) override {
     try {
-      msg = nlohmann::json::parse(data).get<T>();
+      msg = nlohmann::json::parse(data.data(), data.data() + data.size()).get<T>();
     } catch (std::exception& e) {
-      RpcCore_LOGE("deSerialize: %s", e.what());
+      RpcCore_LOGE("deserialize: %s", e.what());
       return false;
     }
     return true;

@@ -2,7 +2,7 @@
 #include "Test.h"
 #include "assert_def.h"
 
-#define SERIALIZE_AND_ASSERT(a, b) ASSERT(b.deSerialize(a.serialize()))
+#define SERIALIZE_AND_ASSERT(a, b) ASSERT(b.deserialize(a.serialize()))
 
 namespace RpcCoreTest {
 

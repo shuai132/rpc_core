@@ -30,7 +30,7 @@ class MsgDispatcher : noncopyable {
         return;
       }
       bool success;
-      auto msg = Coder::unserialize(payload, success);
+      auto msg = Coder::deserialize(payload, success);
       if (success) {
         this->dispatch(std::move(msg));
       } else {
@@ -88,7 +88,7 @@ class MsgDispatcher : noncopyable {
           handleMap->erase(it);
           RpcCore_LOGV("handleMap->size=%zu", handleMap->size());
         } else {
-          RpcCore_LOGE("may unserialize error");
+          RpcCore_LOGE("may deserialize error");
         }
       } break;
 

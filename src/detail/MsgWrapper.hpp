@@ -33,9 +33,9 @@ struct MsgWrapper : copyable {  // NOLINT
   template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
   std::pair<bool, T> unpackAs() const {
     T message;
-    bool ok = message.deSerialize(data);
+    bool ok = message.deserialize(data);
     if (not ok) {
-      RpcCore_LOGE("serialize error, msg info:%s", dump().c_str());
+      RpcCore_LOGE("deserialize error, msg info:%s", dump().c_str());
     }
     return std::make_pair(ok, std::move(message));
   }
