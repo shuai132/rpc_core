@@ -49,6 +49,34 @@ void TypeTest() {
     ASSERT(std::get<2>(b) == msg3);
     ASSERT(a == b);
   }
+  {
+    RpcCore_LOGI("std::vector...");
+    std::vector<uint32_t> a{1, 2, 3};
+    std::vector<uint32_t> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+  {
+    RpcCore_LOGI("std::list...");
+    std::list<uint32_t> a{1, 2, 3};
+    std::list<uint32_t> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+  {
+    RpcCore_LOGI("std::array...");
+    std::array<uint32_t, 3> a{1, 2, 3};
+    std::array<uint32_t, 3> b{};
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+  {
+    RpcCore_LOGI("std::deque...");
+    std::deque<uint32_t> a{1, 2, 3};
+    std::deque<uint32_t> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
 }
 
 }  // namespace RpcCoreTest

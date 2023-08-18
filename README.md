@@ -28,6 +28,7 @@ For TCP-based implementations, please refer to the [Links](#Links) section.
 * Timeout and retry settings
 * Supports `std::future` interface
 * Customizable message types with implementations for `Flatbuffers` and `JSON`
+* Support automatic serialization of primitive types and most STL containers
 
 ## Requirements
 
@@ -51,7 +52,7 @@ rpc->subscribe("cmd", [](const std::string& msg) -> std::string {
 // The Sender
 rpc->cmd("cmd")
     ->msg("hello")
-    ->rsp([](const std::tring& rsp) {
+    ->rsp([](const std::string& rsp) {
       assert(rsp == "world");
     })
     ->call();
@@ -68,7 +69,7 @@ Detailed initialization process and unit tests can be found at: [RpcTest.cpp](te
 
 * [JsonMsg.hpp](./plugin/JsonMsg.hpp)  
   Supports using types supported by [nlohmann/json](https://github.com/nlohmann/json) directly as message  
-  (the `to_json/from_json` rules in `nlohmann/json` need to be satisfied).
+  (the `to_json/from_json` rules in `nlohmann/json` need to be satisfied, and use `DEFINE_JSON_CLASS`).
 
 
 * [Json.hpp](./plugin/Json.hpp)  
