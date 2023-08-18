@@ -1,11 +1,20 @@
 #pragma once
 
+#include <tuple>
+#include <type_traits>
+
 namespace RpcCore {
 
-template <typename... Args>
-struct Tuple;
-
 namespace detail {
+
+template <std::size_t I, class T>
+using tuple_element_t = typename std::tuple_element<I, typename std::remove_cv<typename std::remove_reference<T>::type>::type>::type;
+
+template <typename T>
+struct is_tuple : std::false_type {};
+
+template <typename... Args>
+struct is_tuple<std::tuple<Args...>> : std::true_type {};
 
 struct tuple_meta {
   char* data_de_serialize_ptr = nullptr;
@@ -15,7 +24,7 @@ struct tuple_meta {
 template <typename Tuple, std::size_t I>
 struct tuple_serialize_helper_impl {
   static void serialize(Tuple& t, tuple_meta& meta) {
-    auto payload = std::get<I>(t).serialize();
+    auto payload = RpcCore::serialize<tuple_element_t<I, Tuple>>(std::get<I>(t));
     uint32_t payload_size = payload.size();
     meta.data_serialize.append((char*)&payload_size, sizeof(payload_size));
     meta.data_serialize.append(std::move(payload));
@@ -38,7 +47,7 @@ struct tuple_serialize_helper<Tuple, 1> {
 };
 
 template <typename... Args>
-void tuple_serialize(const Tuple<Args...>& t, tuple_meta& meta) {
+void tuple_serialize(const std::tuple<Args...>& t, tuple_meta& meta) {
   tuple_serialize_helper<decltype(t), sizeof...(Args)>::serialize(t, meta);
 }
 
@@ -48,7 +57,7 @@ struct tuple_de_serialize_helper_impl {
     auto& p = meta.data_de_serialize_ptr;
     uint32_t payload_size = *(uint32_t*)(p);
     p += sizeof(payload_size);
-    bool ret = std::get<I>(t).deserialize(detail::string_view(p, payload_size));
+    bool ret = deserialize<tuple_element_t<I, Tuple>>(detail::string_view(p, payload_size), std::get<I>(t));
     p += payload_size;
     return ret;
   }
@@ -71,9 +80,24 @@ struct tuple_de_serialize_helper<Tuple, 1> {
 };
 
 template <typename... Args>
-bool tuple_de_serialize(Tuple<Args...>& t, tuple_meta& meta) {
+bool tuple_de_serialize(std::tuple<Args...>& t, tuple_meta& meta) {
   return tuple_de_serialize_helper<decltype(t), sizeof...(Args)>::de_serialize(t, meta);
 }
 
 }  // namespace detail
+
+template <typename T, typename std::enable_if<detail::is_tuple<T>::value, int>::type = 0>
+inline std::string serialize(const T& t) {
+  detail::tuple_meta meta;
+  detail::tuple_serialize(t, meta);
+  return std::move(meta.data_serialize);
+}
+
+template <typename T, typename std::enable_if<detail::is_tuple<T>::value, int>::type = 0>
+inline bool deserialize(const detail::string_view& data, T& t) {
+  detail::tuple_meta meta;
+  meta.data_de_serialize_ptr = (char*)data.data();
+  return detail::tuple_de_serialize(t, meta);
+}
+
 }  // namespace RpcCore

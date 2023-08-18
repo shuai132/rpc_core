@@ -5,6 +5,7 @@
 #include <memory>
 #include <utility>
 
+#include "Serialize.hpp"
 #include "detail/MsgWrapper.hpp"
 #include "detail/callable/callable.hpp"
 #include "detail/noncopyable.hpp"
@@ -90,15 +91,20 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     return shared_from_this();
   }
 
-  SRequest msg(const Message& message) {
-    this->payload(message.serialize());
+  template <class T>
+  SRequest msg(const T& message) {
+    this->payload(serialize(message));
+    return shared_from_this();
+  }
+
+  SRequest msg(const char* message) {
+    this->payload(serialize(std::string(message)));
     return shared_from_this();
   }
 
   template <typename F>
   SRequest rsp(RpcCore_MOVE_PARAM(F) cb) {
     using T = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
-    static_assert(std::is_base_of<Message, T>::value, "function param should be base of `Message`");
 
     needRsp_ = true;
     auto self = shared_from_this();

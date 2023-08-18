@@ -1,9 +1,8 @@
 #include "RpcCore.hpp"
 #include "Test.h"
 #include "assert_def.h"
-#include "plugin/FlatbuffersMsg.hpp"
+#include "plugin/Flatbuffers.hpp"
 #include "plugin/Json.hpp"
-#include "plugin/JsonMsg.hpp"
 #include "plugin/JsonType.h"
 #include "plugin/fb/FbMsg_generated.h"
 
@@ -13,17 +12,17 @@ void PluginTest() {
   using namespace RpcCore;
   {
     RpcCore_LOGI("Json...");
-    Json a;
+    nlohmann::json a;
     a["id"] = 1;
     a["name"] = "example";
     a["age"] = 18;
 
-    auto payload = a.serialize();
+    auto payload = serialize(a);
     RpcCore_LOGI("Json: %s", payload.c_str());
     RpcCore_LOGI("Json: size: %zu", payload.size());
 
-    Json b;
-    b.deserialize(payload);
+    nlohmann::json b;
+    deserialize(payload, b);
     ASSERT(b["id"] == a["id"]);
     ASSERT(b["name"] == a["name"]);
     ASSERT(b["age"] == a["age"]);
@@ -31,38 +30,38 @@ void PluginTest() {
 
   {
     RpcCore_LOGI("JsonMsg<JsonType>...");
-    JsonMsg<JsonType> a;
-    a->id = 1;
-    a->name = "example";
-    a->age = 18;
+    JsonType a;
+    a.id = 1;
+    a.name = "example";
+    a.age = 18;
 
-    auto payload = a.serialize();
+    auto payload = serialize(a);
     RpcCore_LOGI("JsonType: %s", payload.c_str());
     RpcCore_LOGI("JsonType: size: %zu", payload.size());
 
-    JsonMsg<JsonType> b;
-    b.deserialize(payload);
-    ASSERT(b->id == a->id);
-    ASSERT(b->name == a->name);
-    ASSERT(b->age == a->age);
+    JsonType b;
+    deserialize(payload, b);
+    ASSERT(b.id == a.id);
+    ASSERT(b.name == a.name);
+    ASSERT(b.age == a.age);
   }
 
   {
-    RpcCore_LOGI("FlatbuffersMsg<msg::FbMsgT>...");
-    FlatbuffersMsg<msg::FbMsgT> a;
-    a->id = 1;
-    a->name = "example";
-    a->age = 18;
+    RpcCore_LOGI("Flatbuffers...");
+    msg::FbMsgT a;
+    a.id = 1;
+    a.name = "example";
+    a.age = 18;
 
     // flatbuffers payload is not readable
-    auto payload = a.serialize();
-    RpcCore_LOGI("FlatbuffersMsg: size: %zu", payload.size());
+    auto payload = serialize(a);
+    RpcCore_LOGI("Flatbuffers: size: %zu", payload.size());
 
-    FlatbuffersMsg<msg::FbMsgT> b;
-    b.deserialize(payload);
-    ASSERT(b->id == a->id);
-    ASSERT(b->name == a->name);
-    ASSERT(b->age == a->age);
+    msg::FbMsgT b;
+    deserialize(payload, b);
+    ASSERT(b.id == a.id);
+    ASSERT(b.name == a.name);
+    ASSERT(b.age == a.age);
   }
 }
 

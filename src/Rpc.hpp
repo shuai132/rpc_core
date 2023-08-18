@@ -60,8 +60,8 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     return createRequest()->cmd(std::move(cmd));
   }
 
-  inline SRequest ping(std::string payload = "") {
-    return createRequest()->ping()->msg(String(std::move(payload)));
+  inline SRequest ping(const std::string& payload = "") {
+    return createRequest()->ping()->msg(payload);
   }
 
  public:
@@ -87,10 +87,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
-        static_assert(std::is_base_of<Message, F_Param>::value, "function param type should be base of `Message`");
-
         using F_Return = detail::remove_cvref_t<typename detail::callable_traits<F>::return_type>;
-        static_assert(std::is_base_of<Message, F_Return>::value, "function return type should be base of `Message`");
 
         auto r = msg.unpackAs<F_Param>();
         F_Return ret;
@@ -107,13 +104,12 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
-        static_assert(std::is_base_of<Message, F_Param>::value, "function param type should be base of `Message`");
 
         auto r = msg.unpackAs<F_Param>();
         if (r.first) {
           handle(std::move(r.second));
         }
-        return detail::MsgWrapper::MakeRsp(msg.seq, nullptr, r.first);
+        return detail::MsgWrapper::MakeRsp<void>(msg.seq, nullptr, r.first);
       });
     }
   };
@@ -123,7 +119,6 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         using F_Return = typename detail::callable_traits<F>::return_type;
-        static_assert(std::is_base_of<Message, F_Return>::value, "function return type should be base of `Message`");
 
         F_Return ret = handle();
         return detail::MsgWrapper::MakeRsp(msg.seq, &ret, true);
@@ -136,7 +131,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         handle();
-        return detail::MsgWrapper::MakeRsp(msg.seq, nullptr, true);
+        return detail::MsgWrapper::MakeRsp<void>(msg.seq, nullptr, true);
       });
     }
   };

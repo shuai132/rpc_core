@@ -5,7 +5,6 @@
 #include <utility>
 
 #include "../Connection.hpp"
-#include "../Message.hpp"
 #include "Coder.hpp"
 #include "log.h"
 #include "noncopyable.hpp"

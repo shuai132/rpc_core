@@ -30,10 +30,10 @@ struct MsgWrapper : copyable {  // NOLINT
     return tmp;
   }
 
-  template <typename T, RpcCore_ENSURE_TYPE_IS_MESSAGE(T)>
+  template <typename T>
   std::pair<bool, T> unpackAs() const {
     T message;
-    bool ok = message.deserialize(data);
+    bool ok = deserialize(data, message);
     if (not ok) {
       RpcCore_LOGE("deserialize error, msg info:%s", dump().c_str());
     }
@@ -49,13 +49,24 @@ struct MsgWrapper : copyable {  // NOLINT
     return msg;
   }
 
+  template <typename Message>
   static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, Message* message = nullptr, bool success = true) {
+    static_assert(!std::is_same<void, Message>::value, "");
     MsgWrapper msg;
     msg.type = MsgWrapper::RESPONSE;
     msg.seq = seq;
     if (message != nullptr) {
-      msg.data = message->serialize();
+      msg.data = serialize(*message);
     }
+    return std::make_pair(success, std::move(msg));
+  }
+
+  template <typename Message>
+  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, void* message = nullptr, bool success = true) {
+    static_assert(std::is_same<void, Message>::value, "");
+    MsgWrapper msg;
+    msg.type = MsgWrapper::RESPONSE;
+    msg.seq = seq;
     return std::make_pair(success, std::move(msg));
   }
 };
