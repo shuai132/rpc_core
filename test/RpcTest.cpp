@@ -292,15 +292,15 @@ void RpcTest() {
 
   RpcCore_LOG("Future模式");
   {
-    //    {
-    //      auto result = rpc->ping("ping")->future<std::string>().get();
-    //      ASSERT(result.type == FinishType::NORMAL);
-    //      ASSERT(result.data == "ping");
-    //    }
-    //    {
-    //      auto result = rpc->ping()->future<Void>().get();
-    //      ASSERT(result.type == FinishType::NORMAL);
-    //    }
+    {
+      auto result = rpc->ping("ping")->future<std::string>().get();
+      ASSERT(result.type == FinishType::NORMAL);
+      ASSERT(result.data == "ping");
+    }
+    {
+      auto result = rpc->ping()->future<Void>().get();
+      ASSERT(result.type == FinishType::NORMAL);
+    }
   }
 }
 
