@@ -14,15 +14,15 @@ struct MyData {
 void TypeTest() {
   using namespace RpcCore;
   {
-    RpcCore_LOGI("Raw<uint64_t>...");
-    const uint64_t a = 0x12345678abcd;
+    RpcCore_LOGI("uint64_t...");
+    uint64_t a = 0x12345678abcd;
     uint64_t b;
     serialize(a);
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(b == a);
   }
   {
-    RpcCore_LOGI("Struct...");
+    RpcCore_LOGI("struct...");
     MyData a{1, 2};
     MyData b{};
     SERIALIZE_AND_ASSERT(a, b);
@@ -37,7 +37,7 @@ void TypeTest() {
     ASSERT(b == a);
   }
   {
-    RpcCore_LOGI("Tuple...");
+    RpcCore_LOGI("std::tuple...");
     bool msg1 = true;
     uint32_t msg2 = 12;
     std::string msg3 = "test";

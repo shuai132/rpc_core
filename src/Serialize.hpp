@@ -8,7 +8,7 @@ namespace RpcCore {
 
 template <typename T, typename std::enable_if<std::is_trivial<T>::value, int>::type = 0>
 inline std::string serialize(const T& t) {
-  return {(char*)&t, sizeof(uint64_t)};
+  return {(char*)&t, sizeof(t)};
 }
 
 template <typename T, typename std::enable_if<std::is_trivial<T>::value, int>::type = 0>
