@@ -49,24 +49,14 @@ struct MsgWrapper : copyable {  // NOLINT
     return msg;
   }
 
-  template <typename Message>
-  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, Message* message = nullptr, bool success = true) {
-    static_assert(!std::is_same<void, Message>::value, "");
+  template <typename T>
+  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, T* t = nullptr, bool success = true) {
     MsgWrapper msg;
     msg.type = MsgWrapper::RESPONSE;
     msg.seq = seq;
-    if (message != nullptr) {
-      msg.data = serialize(*message);
+    if (success && t != nullptr) {
+      msg.data = serialize(*t);
     }
-    return std::make_pair(success, std::move(msg));
-  }
-
-  template <typename Message>
-  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, void* message = nullptr, bool success = true) {
-    static_assert(std::is_same<void, Message>::value, "");
-    MsgWrapper msg;
-    msg.type = MsgWrapper::RESPONSE;
-    msg.seq = seq;
     return std::make_pair(success, std::move(msg));
   }
 };

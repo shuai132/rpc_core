@@ -109,7 +109,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
         if (r.first) {
           handle(std::move(r.second));
         }
-        return detail::MsgWrapper::MakeRsp<void>(msg.seq, nullptr, r.first);
+        return detail::MsgWrapper::MakeRsp<uint8_t>(msg.seq, nullptr, r.first);
       });
     }
   };
@@ -131,7 +131,7 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     void operator()(const CmdType& cmd, RpcCore_MOVE_PARAM(F) handle, detail::MsgDispatcher* dispatcher) {
       dispatcher->subscribeCmd(cmd, [RpcCore_MOVE_LAMBDA(handle)](const detail::MsgWrapper& msg) {
         handle();
-        return detail::MsgWrapper::MakeRsp<void>(msg.seq, nullptr, true);
+        return detail::MsgWrapper::MakeRsp<uint8_t>(msg.seq, nullptr, true);
       });
     }
   };
