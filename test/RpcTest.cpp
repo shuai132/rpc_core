@@ -12,12 +12,31 @@ void RpcTest() {
   // 此示例使用回环连接 实际使用时需自定义连接
   auto connection = std::make_shared<LoopbackConnection>();
 
-  // 创建Rpc 收发消息
+  // 创建rpc 收发消息
   auto rpc = Rpc::create(connection);
 
   // 定时器实现 应配合当前应用的事件循环 以确保消息收发和超时回调在同一个线程
   // 此示例使用回环连接 不做超时测试
   rpc->setTimer([](uint32_t ms, const Rpc::TimeoutCb& cb) {});
+
+  /**
+   * 最简单的示例
+   */
+  {
+    // The Receiver
+    rpc->subscribe("cmd", [](const std::string& msg) -> std::string {
+      assert(msg == "hello");
+      return "world";
+    });
+
+    // The Sender
+    rpc->cmd("cmd")
+        ->msg("hello")
+        ->rsp([](const std::string& rsp) {
+          assert(rsp == "world");
+        })
+        ->call();
+  }
 
   /**
    * 注册和发送消息 根据使用场景不同 提供以下几种方式
@@ -30,14 +49,15 @@ void RpcTest() {
     ASSERT(TEST == test);
 
     RpcCore_LOG("1. 收发消息完整测试");
-    bool pass = false;
-    // 在机器A上注册监听
+    // 注册监听
     rpc->subscribe("cmd1", [&](const std::string& msg) -> std::string {
       RpcCore_LOGI("get cmd1: %s", msg.c_str());
       ASSERT(msg == TEST);
       return test + "test";
     });
-    // 在机器B上发送请求 请求支持很多方法 可根据需求使用所需部分
+
+    // 请求支持很多方法 可根据需求使用所需部分
+    bool pass = false;
     auto request = rpc->cmd("cmd1")
                        ->msg(test)
                        ->rsp([&](const std::string& rsp) {
