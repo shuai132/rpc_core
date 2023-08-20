@@ -1,32 +1,17 @@
 #pragma once
 
-#include <cstring>
+#include <type_traits>
 
 #include "Type.hpp"
 #include "detail/string_view.hpp"
 
-namespace RpcCore {
+// clang-format off
+/// The include order cannot be changed!!!
+#include "serialize/void.hpp"
+#include "serialize/trivial_type.hpp"
 
-template <typename T, typename std::enable_if<std::is_trivial<T>::value && !std::is_same<T, Void>::value, int>::type = 0>
-inline std::string serialize(const T& t) {
-  return {(char*)&t, sizeof(t)};
-}
+#include "serialize/std_string.hpp"
 
-template <typename T, typename std::enable_if<std::is_trivial<T>::value && !std::is_same<T, Void>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t) {
-  memcpy((void*)&t, data.data(), sizeof(t));
-  return true;
-}
+#include "serialize/list_like.hpp"
 
-template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
-inline std::string serialize(const T& t) {
-  return t;
-}
-
-template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t) {
-  t = std::string(data.data(), data.size());
-  return true;
-}
-
-}  // namespace RpcCore
+#include "serialize/std_tuple.hpp"

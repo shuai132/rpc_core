@@ -60,8 +60,8 @@ class Rpc : detail::noncopyable, public std::enable_shared_from_this<Rpc>, publi
     return createRequest()->cmd(std::move(cmd));
   }
 
-  inline SRequest ping(const std::string& payload = "") {
-    return createRequest()->ping()->msg(payload);
+  inline SRequest ping(std::string payload = "") {
+    return createRequest()->ping()->msg(std::move(payload));
   }
 
  public:

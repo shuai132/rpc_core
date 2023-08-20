@@ -97,8 +97,9 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     return shared_from_this();
   }
 
-  SRequest msg(const char* message) {
-    this->payload(serialize(std::string(message)));
+  template <class T>
+  SRequest msg(T&& message) {
+    this->payload(serialize(std::forward<T>(message)));
     return shared_from_this();
   }
 

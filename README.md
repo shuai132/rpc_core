@@ -51,7 +51,7 @@ rpc->subscribe("cmd", [](const std::string& msg) -> std::string {
 
 // The Sender
 rpc->cmd("cmd")
-    ->msg("hello")
+    ->msg(std::string("hello"))
     ->rsp([](const std::string& rsp) {
       assert(rsp == "world");
     })

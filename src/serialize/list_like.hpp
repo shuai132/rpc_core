@@ -3,7 +3,6 @@
 #include <deque>
 #include <list>
 #include <queue>
-#include <type_traits>
 #include <vector>
 
 namespace RpcCore {

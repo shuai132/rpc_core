@@ -31,7 +31,7 @@ void RpcTest() {
 
     // The Sender
     rpc->cmd("cmd")
-        ->msg("hello")
+        ->msg(std::string("hello"))
         ->rsp([](const std::string& rsp) {
           assert(rsp == "world");
         })
@@ -228,7 +228,7 @@ void RpcTest() {
         ASSERT(msg == "cmd");
         pass_cmd = true;
       });
-      rpc->cmd("cmd5")->msg("cmd")->call();
+      rpc->cmd("cmd5")->msg(std::string("cmd"))->call();
       ASSERT(pass_cmd);
     }
 

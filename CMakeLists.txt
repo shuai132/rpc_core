@@ -7,6 +7,7 @@ option(RpcCore_TEST_PLUGIN "" OFF)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(RpcCore_BUILD_TEST ON)
+    set(RpcCore_TEST_PLUGIN "" ON)
 endif ()
 
 set(CMAKE_CXX_STANDARD 11)
@@ -20,7 +21,7 @@ if (RpcCore_BUILD_TEST)
             ANDROID_STANDALONE
             RpcCore_LOG_SHOW_DEBUG
             # RpcCore_LOG_SHOW_VERBOSE
-            )
+    )
 
     set(TARGET_NAME ${PROJECT_NAME}_test)
     file(GLOB SRCS test/*.cpp)
@@ -35,11 +36,11 @@ if (RpcCore_BUILD_TEST)
                 COMMAND rm -rf ${CMAKE_CURRENT_LIST_DIR}/thirdparty
                 # json
                 COMMAND mkdir -p ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann
-                COMMAND wget https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp -P ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann
+                COMMAND curl -L -o ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
                 # flatbuffers
                 COMMAND git clone https://github.com/google/flatbuffers.git --depth=1 --branch=v23.1.21 ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers
                 WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-                )
+        )
 
         target_include_directories(${TARGET_NAME} PRIVATE thirdparty)
         target_include_directories(${TARGET_NAME} PRIVATE thirdparty/flatbuffers/include)
