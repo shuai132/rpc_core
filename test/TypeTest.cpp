@@ -83,6 +83,15 @@ void TypeTest() {
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
+
+  /// misc types
+  {
+    RpcCore_LOGI("misc types...");
+    std::tuple<bool, std::vector<std::tuple<int>>, std::string> a{true, {{1}, {2}}, "test"};
+    std::tuple<bool, std::vector<std::tuple<int>>, std::string> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
 }
 
 }  // namespace RpcCoreTest
