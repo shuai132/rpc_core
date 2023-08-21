@@ -26,9 +26,9 @@ For TCP-based implementations, please refer to the [Links](#Links) section.
 * Compatible with any connection type (serial port, TCP, etc.)
 * RAII-based Dispose for automatic request cancellation
 * Timeout and retry settings
-* Supports `std::future` interface
+* Support `std::future` interface
 * Customizable message types with implementations for `Flatbuffers` and `JSON`
-* Support automatic serialization of primitive types and most STL containers
+* Support automatic serialization of primitive types and most STL containers, and custom types by `RpcCore_DEFINE_TYPE`
 
 ## Requirements
 

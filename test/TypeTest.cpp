@@ -19,18 +19,6 @@ void TypeTest() {
     ASSERT(b == a);
   }
   {
-    RpcCore_LOGI("struct...");
-    struct MyData {
-      uint8_t a;
-      uint16_t b;
-    };
-    MyData a{1, 2};
-    MyData b{};
-    SERIALIZE_AND_ASSERT(a, b);
-    ASSERT(b.a == 1);
-    ASSERT(b.b == 2);
-  }
-  {
     RpcCore_LOGI("std::array...");
     std::array<uint32_t, 3> a{1, 2, 3};
     std::array<uint32_t, 3> b{};
@@ -95,6 +83,18 @@ void TypeTest() {
     CustomType b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
+  }
+  {
+    RpcCore_LOGI("custom type...");
+    CustomType2 a;
+    a.id1 = 1;
+    a.id2 = 2;
+    a.id3 = 3;
+    CustomType3 b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a.id1 == b.id1);
+    ASSERT(a.id2 == b.id2);
+    ASSERT(a.id3 == b.id3);
   }
 
   /// misc types

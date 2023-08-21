@@ -9,3 +9,17 @@ struct CustomType {
   }
 };
 RpcCore_DEFINE_TYPE(CustomType, id, ids, name);
+
+struct alignas(4) CustomType2 {
+  uint8_t id1;
+  uint8_t id2;
+  uint32_t id3;
+};
+// RpcCore_DEFINE_TYPE(CustomType2, id1, id2);
+
+struct alignas(32) CustomType3 {
+  uint8_t id1;
+  uint8_t id2;
+  uint32_t id3;
+};
+// RpcCore_DEFINE_TYPE(CustomType3, id1, id2);
