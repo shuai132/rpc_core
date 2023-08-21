@@ -11,8 +11,8 @@ struct tuple_meta {
 
 template <typename Tuple, std::size_t I>
 struct tuple_serialize_helper_impl {
-  static void serialize(Tuple& t, tuple_meta& meta) {
-    auto payload = RpcCore::serialize<tuple_element_t<I, Tuple>>(std::get<I>(t));
+  static void serialize(const Tuple& t, tuple_meta& meta) {
+    auto payload = RpcCore::serialize<detail::remove_cvref_t<tuple_element_t<I, Tuple>>>(std::get<I>(t));
     uint32_t payload_size = payload.size();
     meta.data_serialize.append((char*)&payload_size, sizeof(payload_size));
     meta.data_serialize.append(std::move(payload));
@@ -21,7 +21,7 @@ struct tuple_serialize_helper_impl {
 
 template <typename Tuple, std::size_t N>
 struct tuple_serialize_helper {
-  static void serialize(Tuple& t, tuple_meta& meta) {
+  static void serialize(const Tuple& t, tuple_meta& meta) {
     tuple_serialize_helper<Tuple, N - 1>::serialize(t, meta);
     tuple_serialize_helper_impl<Tuple, N - 1>::serialize(t, meta);
   }
@@ -29,7 +29,7 @@ struct tuple_serialize_helper {
 
 template <typename Tuple>
 struct tuple_serialize_helper<Tuple, 1> {
-  static void serialize(Tuple& t, tuple_meta& meta) {
+  static void serialize(const Tuple& t, tuple_meta& meta) {
     tuple_serialize_helper_impl<Tuple, 0>::serialize(t, meta);
   }
 };

@@ -2,12 +2,14 @@
 
 #include <tuple>
 
+#include "../detail/callable/helpers.hpp"
+
 namespace RpcCore {
 
 namespace detail {
 
 template <std::size_t I, class T>
-using tuple_element_t = typename std::tuple_element<I, typename std::remove_cv<typename std::remove_reference<T>::type>::type>::type;
+using tuple_element_t = typename std::tuple_element<I, detail::remove_cvref_t<T>>::type;
 
 template <typename T>
 struct is_tuple : std::false_type {};
