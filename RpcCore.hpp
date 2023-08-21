@@ -5,3 +5,4 @@
 #include "src/Request.hpp"
 #include "src/Rpc.hpp"
 #include "src/Serialize.hpp"
+#include "src/SerializeImpl.hpp"

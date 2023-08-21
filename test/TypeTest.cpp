@@ -1,5 +1,6 @@
 #include <array>
 
+#include "CustomType.h"
 #include "RpcCore.hpp"
 #include "Test.h"
 #include "assert_def.h"
@@ -84,11 +85,27 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// custom class/struct
+  {
+    RpcCore_LOGI("custom type...");
+    CustomType a;
+    a.id = 1;
+    a.ids = {1, 2, 3};
+    a.name = "test";
+    CustomType b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// misc types
   {
     RpcCore_LOGI("misc types...");
-    std::tuple<bool, std::vector<std::tuple<int>>, std::string> a{true, {{1}, {2}}, "test"};
-    std::tuple<bool, std::vector<std::tuple<int>>, std::string> b;
+    CustomType customType;
+    customType.id = 1;
+    customType.ids = {1, 2, 3};
+    customType.name = "test";
+    std::tuple<bool, std::vector<std::tuple<uint32_t>>, std::string, CustomType> a{true, {{1}, {2}}, "test", customType};
+    std::tuple<bool, std::vector<std::tuple<uint32_t>>, std::string, CustomType> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }

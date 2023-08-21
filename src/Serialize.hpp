@@ -4,19 +4,11 @@
 
 #include "Type.hpp"
 #include "detail/string_view.hpp"
-
-// clang-format off
-/// The include order cannot be changed!!!
-#include "serialize/void.hpp"
-
-#include "serialize/trivial_type.hpp"
-
+#include "serialize/define_type.hpp"
 #include "serialize/std_string.hpp"
+#include "serialize/trivial_type.hpp"
+#include "serialize/void.hpp"
 
 // container interface
 #include "serialize/list_like.hpp"
 #include "serialize/std_tuple.hpp"
-
-// container implementation
-#include "serialize/list_like_impl.hpp"
-#include "serialize/std_tuple_impl.hpp"
