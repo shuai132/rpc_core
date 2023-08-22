@@ -71,6 +71,11 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     T data;
   };
 
+  template <>
+  struct FutureRet<void> {
+    FinallyType type;
+  };
+
  public:
   template <typename... Args>
   static SRequest create(Args&&... args) {
@@ -103,7 +108,7 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     return shared_from_this();
   }
 
-  template <typename F>
+  template <typename F, typename std::enable_if<callable_traits<F>::argc, int>::type = 0>
   SRequest rsp(RpcCore_MOVE_PARAM(F) cb) {
     using T = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
 
@@ -122,6 +127,22 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
         return true;
       }
       return false;
+    };
+    return self;
+  }
+
+  template <typename F, typename std::enable_if<!callable_traits<F>::argc, int>::type = 0>
+  SRequest rsp(RpcCore_MOVE_PARAM(F) cb) {
+    needRsp_ = true;
+    auto self = shared_from_this();
+    this->rspHandle_ = [this, RpcCore_MOVE_LAMBDA(cb), self](const detail::MsgWrapper& msg) {
+      if (canceled()) {
+        onFinish(FinallyType::CANCELED);
+        return true;
+      }
+      cb();
+      onFinish(FinallyType::NORMAL);
+      return true;
     };
     return self;
   }
@@ -149,7 +170,7 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
    * Future pattern
    * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
    */
-  template <typename R>
+  template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
   std::future<FutureRet<R>> future(const SSendProto& rpc = nullptr) {
     auto promise = std::make_shared<std::promise<FutureRet<R>>>();
     rsp([promise](R r) {
@@ -158,6 +179,21 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     finally([promise](FinallyType type) {
       if (type != FinallyType::NORMAL) {
         promise->set_value({type, {}});
+      }
+    });
+    call(rpc);
+    return promise->get_future();
+  }
+
+  template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
+  std::future<FutureRet<void>> future(const SSendProto& rpc = nullptr) {
+    auto promise = std::make_shared<std::promise<FutureRet<void>>>();
+    rsp([promise] {
+      promise->set_value({FinallyType::NORMAL});
+    });
+    finally([promise](FinallyType type) {
+      if (type != FinallyType::NORMAL) {
+        promise->set_value({type});
       }
     });
     call(rpc);

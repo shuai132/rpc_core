@@ -296,7 +296,7 @@ void RpcTest() {
       ASSERT(result.data == "ping");
     }
     {
-      auto result = rpc->ping()->future<Void>().get();
+      auto result = rpc->ping()->future<void>().get();
       ASSERT(result.type == FinishType::NORMAL);
     }
   }

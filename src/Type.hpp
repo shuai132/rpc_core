@@ -17,6 +17,4 @@ using CmdType = std::string;
 
 using SeqType = uint32_t;
 
-struct Void {};
-
 }  // namespace RpcCore
