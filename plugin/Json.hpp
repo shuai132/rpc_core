@@ -2,6 +2,7 @@
 
 #include "nlohmann/json.hpp"
 #include "src/Serialize.hpp"
+#include "src/detail/log.h"
 
 namespace RpcCore {
 

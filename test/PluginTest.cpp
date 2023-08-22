@@ -1,20 +1,42 @@
-#include "RpcCore.hpp"
-#include "Test.h"
-#include "assert_def.h"
+// include first
 #include "plugin/Flatbuffers.hpp"
 #include "plugin/Json.hpp"
 #include "plugin/JsonType.h"
+#include "plugin/RawType.h"
 #include "plugin/fb/FbMsg_generated.h"
+
+// include other
+#include "RpcCore.hpp"
+#include "Test.h"
+#include "assert_def.h"
 
 namespace RpcCoreTest {
 
 void PluginTest() {
   using namespace RpcCore;
   {
+    RpcCore_LOGI("RawType...");
+    RawType a;
+    a.id = 1;
+    a.name = "test";
+    a.age = 18;
+
+    auto payload = serialize(a);
+    // payload is not readable
+    RpcCore_LOGI("RawType: size: %zu", payload.size());
+
+    RawType b;
+    deserialize(payload, b);
+    ASSERT(a.id == b.id);
+    ASSERT(a.name == b.name);
+    ASSERT(a.age == b.age);
+  }
+
+  {
     RpcCore_LOGI("Json...");
     nlohmann::json a;
     a["id"] = 1;
-    a["name"] = "example";
+    a["name"] = "test";
     a["age"] = 18;
 
     auto payload = serialize(a);
@@ -29,10 +51,10 @@ void PluginTest() {
   }
 
   {
-    RpcCore_LOGI("JsonMsg<JsonType>...");
+    RpcCore_LOGI("JsonType...");
     JsonType a;
     a.id = 1;
-    a.name = "example";
+    a.name = "test";
     a.age = 18;
 
     auto payload = serialize(a);
@@ -50,11 +72,11 @@ void PluginTest() {
     RpcCore_LOGI("Flatbuffers...");
     msg::FbMsgT a;
     a.id = 1;
-    a.name = "example";
+    a.name = "test";
     a.age = 18;
 
-    // flatbuffers payload is not readable
     auto payload = serialize(a);
+    // flatbuffers payload is not readable
     RpcCore_LOGI("Flatbuffers: size: %zu", payload.size());
 
     msg::FbMsgT b;

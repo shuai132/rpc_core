@@ -1,6 +1,7 @@
-#include <array>
-
+// include first
 #include "CustomType.h"
+
+// include other
 #include "RpcCore.hpp"
 #include "Test.h"
 #include "assert_def.h"
@@ -9,15 +10,43 @@
 
 namespace RpcCoreTest {
 
-void TypeTest() {
-  /// trivial type
-  {
-    RpcCore_LOGI("uint64_t...");
-    uint64_t a = 0x12345678abcd;
-    uint64_t b;
-    SERIALIZE_AND_ASSERT(a, b);
-    ASSERT(b == a);
+template <typename T>
+void raw_type_test() {
+  T a;
+  memset(&a, 0xFF, sizeof(T));
+  T b;
+  SERIALIZE_AND_ASSERT(a, b);
+  auto ok = (0 == memcmp(&a, &b, sizeof(T)));  // NOLINT
+  if (ok) {
+    RpcCore_LOGI("  => ok! ");
+  } else {
+    RpcCore_LOGI("  => type will lose precision... ");
   }
+}
+
+#define RAW_TYPE_TEST(t)      \
+  RpcCore_LOGI("  <" #t ">"); \
+  raw_type_test<t>();
+
+void TypeTest() {
+  /// raw type
+  {
+    RpcCore_LOGI("raw type test...");
+    RAW_TYPE_TEST(char);
+    RAW_TYPE_TEST(signed char);
+    RAW_TYPE_TEST(unsigned char);
+    RAW_TYPE_TEST(int);
+    RAW_TYPE_TEST(unsigned int);
+    RAW_TYPE_TEST(long int);
+    RAW_TYPE_TEST(unsigned long int);
+    RAW_TYPE_TEST(long long int);
+    RAW_TYPE_TEST(unsigned long long int);
+    RAW_TYPE_TEST(float);
+    RAW_TYPE_TEST(double);
+    RAW_TYPE_TEST(long double);
+  }
+
+  /// std::array
   {
     RpcCore_LOGI("std::array...");
     std::array<uint32_t, 3> a{1, 2, 3};
@@ -85,7 +114,7 @@ void TypeTest() {
     ASSERT(a == b);
   }
   {
-    RpcCore_LOGI("custom type...");
+    RpcCore_LOGI("custom type(different alignas)...");
     CustomType2 a;
     a.id1 = 1;
     a.id2 = 2;
@@ -95,6 +124,18 @@ void TypeTest() {
     ASSERT(a.id1 == b.id1);
     ASSERT(a.id2 == b.id2);
     ASSERT(a.id3 == b.id3);
+  }
+  {
+    RpcCore_LOGI("custom type(nest define)...");
+    CustomTypeNest a;
+    a.c2.id1 = 1;
+    a.c2.id2 = 2;
+    a.c2.id3 = 3;
+    CustomTypeNest b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a.c2.id1 == b.c2.id1);
+    ASSERT(a.c2.id2 == b.c2.id2);
+    ASSERT(a.c2.id3 == b.c2.id3);
   }
 
   /// misc types

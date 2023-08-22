@@ -1,5 +1,9 @@
 #include <cinttypes>
 
+// should include before "RpcCore.hpp"
+#include "TestStruct.h"
+
+// normal include
 #include "RpcCore.hpp"
 #include "Test.h"
 #include "assert_def.h"
@@ -136,12 +140,6 @@ void RpcTest() {
 
   RpcCore_LOG("3. 自定义的结构体类型");
   {
-    struct TestStruct {
-      uint8_t a;
-      uint16_t b;
-      uint32_t c;
-    };
-
     bool pass = false;
     TestStruct testStruct{1, 2, 3};
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "src/Serialize.hpp"
 
 struct CustomType {
@@ -10,16 +12,28 @@ struct CustomType {
 };
 RpcCore_DEFINE_TYPE(CustomType, id, ids, name);
 
-struct alignas(4) CustomType2 {
-  uint8_t id1;
-  uint8_t id2;
-  uint32_t id3;
+#pragma pack(push, 1)
+struct CustomType2 {
+  uint8_t id1{};
+  uint8_t id2{};
+  uint32_t id3{};
 };
-// RpcCore_DEFINE_TYPE(CustomType2, id1, id2);
+#pragma pack(pop)
+RpcCore_DEFINE_TYPE(CustomType2, id1, id2, id3);
 
-struct alignas(32) CustomType3 {
-  uint8_t id1;
-  uint8_t id2;
-  uint32_t id3;
+#pragma pack(push, 4)
+struct CustomType3 {
+  uint8_t id1{};
+  uint8_t id2{};
+  uint32_t id3{};
 };
-// RpcCore_DEFINE_TYPE(CustomType3, id1, id2);
+#pragma pack(pop)
+RpcCore_DEFINE_TYPE(CustomType3, id1, id2, id3);
+
+// 嵌套定义
+struct CustomTypeNest {
+  CustomType2 c2{};
+  CustomType3 c3{};
+  CustomTypeNest* ptr{};
+};
+RpcCore_DEFINE_TYPE(CustomTypeNest, c2, c3, ptr);

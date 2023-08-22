@@ -9,7 +9,7 @@ namespace RpcCore {
 namespace detail {
 
 template <std::size_t I, class T>
-using tuple_element_t = typename std::tuple_element<I, detail::remove_cvref_t<T>>::type;
+using tuple_element_t = detail::remove_cvref_t<typename std::tuple_element<I, detail::remove_cvref_t<T>>::type>;
 
 template <typename T>
 struct is_tuple : std::false_type {};
