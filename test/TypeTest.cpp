@@ -102,6 +102,22 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::set
+  {
+    RpcCore_LOGI("std::set...");
+    std::set<CustomType> a;
+    {
+      CustomType t;
+      t.id = 1;
+      t.ids = {1, 2, 3};
+      t.name = "test";
+      a.emplace(std::move(t));
+    }
+    std::set<CustomType> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// custom class/struct
   {
     RpcCore_LOGI("custom type...");

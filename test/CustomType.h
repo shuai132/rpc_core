@@ -9,6 +9,9 @@ struct CustomType {
   bool operator==(const CustomType& t) const {
     return std::tie(id, ids, name) == std::tie(t.id, t.ids, t.name);
   }
+  bool operator<(const CustomType& t) const {
+    return std::tie(id, ids, name) < std::tie(t.id, t.ids, t.name);
+  }
 };
 RpcCore_DEFINE_TYPE(CustomType, id, ids, name);
 

@@ -2,7 +2,7 @@
 
 namespace RpcCore {
 
-template <typename T, typename std::enable_if<detail::is_list_like<T>::value, int>::type>
+template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type>
 std::string serialize(const T& t) {
   uint32_t size = t.size();
   std::string payload;
@@ -16,7 +16,7 @@ std::string serialize(const T& t) {
   return payload;
 }
 
-template <typename T, typename std::enable_if<detail::is_list_like<T>::value, int>::type>
+template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type>
 inline bool deserialize(const detail::string_view& data, T& t) {
   char* p = (char*)data.data();
   uint32_t size = *(uint32_t*)p;
@@ -29,7 +29,7 @@ inline bool deserialize(const detail::string_view& data, T& t) {
       return false;
     }
     p += item_size;
-    t.emplace_back(std::move(item));
+    t.emplace(std::move(item));
   }
   return true;
 }
