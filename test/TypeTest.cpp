@@ -118,6 +118,38 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::map
+  {
+    RpcCore_LOGI("std::map...");
+    std::map<std::string, CustomType> a;
+    {
+      CustomType t;
+      t.id = 1;
+      t.ids = {1, 2, 3};
+      t.name = "test";
+      a.emplace("id_0", std::move(t));
+    }
+    std::map<std::string, CustomType> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
+  /// std::unordered_map
+  {
+    RpcCore_LOGI("std::unordered_map...");
+    std::unordered_map<std::string, CustomType> a;
+    {
+      CustomType t;
+      t.id = 1;
+      t.ids = {1, 2, 3};
+      t.name = "test";
+      a.emplace("id0", std::move(t));
+    }
+    std::unordered_map<std::string, CustomType> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// custom class/struct
   {
     RpcCore_LOGI("custom type...");

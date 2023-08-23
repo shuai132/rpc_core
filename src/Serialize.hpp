@@ -18,6 +18,8 @@
 
 // container interface
 #include "serialize/list_like.hpp"
+#include "serialize/std_map.hpp"
+#include "serialize/std_pair.hpp"
 #include "serialize/std_set.hpp"
 #include "serialize/std_tuple.hpp"
 
