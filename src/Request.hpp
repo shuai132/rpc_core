@@ -66,15 +66,7 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
   };
 
   template <typename T>
-  struct FutureRet {
-    FinallyType type;
-    T data;
-  };
-
-  template <>
-  struct FutureRet<void> {
-    FinallyType type;
-  };
+  struct FutureRet;
 
  public:
   template <typename... Args>
@@ -171,34 +163,10 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
    * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
    */
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  std::future<FutureRet<R>> future(const SSendProto& rpc = nullptr) {
-    auto promise = std::make_shared<std::promise<FutureRet<R>>>();
-    rsp([promise](R r) {
-      promise->set_value({FinallyType::NORMAL, std::move(r)});
-    });
-    finally([promise](FinallyType type) {
-      if (type != FinallyType::NORMAL) {
-        promise->set_value({type, {}});
-      }
-    });
-    call(rpc);
-    return promise->get_future();
-  }
+  std::future<FutureRet<R>> future(const SSendProto& rpc = nullptr);
 
   template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  std::future<FutureRet<void>> future(const SSendProto& rpc = nullptr) {
-    auto promise = std::make_shared<std::promise<FutureRet<void>>>();
-    rsp([promise] {
-      promise->set_value({FinallyType::NORMAL});
-    });
-    finally([promise](FinallyType type) {
-      if (type != FinallyType::NORMAL) {
-        promise->set_value({type});
-      }
-    });
-    call(rpc);
-    return promise->get_future();
-  }
+  std::future<FutureRet<void>> future(const SSendProto& rpc = nullptr);
 
   std::shared_ptr<Request> timeout(RpcCore_MOVE_PARAM(std::function<void()>) timeoutCb) {
     timeoutCb_ = [this, RpcCore_MOVE_LAMBDA(timeoutCb)] {
@@ -295,6 +263,47 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
   bool waitingRsp_ = false;
   bool isPing_ = false;
 };
+
+template <typename T>
+struct Request::FutureRet {
+  FinallyType type;
+  T data;
+};
+
+template <>
+struct Request::FutureRet<void> {
+  FinallyType type;
+};
+
+template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
+std::future<Request::FutureRet<R>> Request::future(const Request::SSendProto& rpc) {
+  auto promise = std::make_shared<std::promise<FutureRet<R>>>();
+  rsp([promise](R r) {
+    promise->set_value({FinallyType::NORMAL, std::move(r)});
+  });
+  finally([promise](FinallyType type) {
+    if (type != FinallyType::NORMAL) {
+      promise->set_value({type, {}});
+    }
+  });
+  call(rpc);
+  return promise->get_future();
+}
+
+template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
+std::future<Request::FutureRet<void>> Request::future(const Request::SSendProto& rpc) {
+  auto promise = std::make_shared<std::promise<Request::FutureRet<void>>>();
+  rsp([promise] {
+    promise->set_value({Request::FinallyType::NORMAL});
+  });
+  finally([promise](Request::FinallyType type) {
+    if (type != Request::FinallyType::NORMAL) {
+      promise->set_value({type});
+    }
+  });
+  call(rpc);
+  return promise->get_future();
+}
 
 using SRequest = Request::SRequest;
 using WRequest = Request::WRequest;
