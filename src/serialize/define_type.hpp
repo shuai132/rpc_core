@@ -131,24 +131,58 @@
 #define RpcCore_DETAIL_SERIALIZE_PASTE63(func, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62) RpcCore_DETAIL_SERIALIZE_PASTE2(func, v1) RpcCore_DETAIL_SERIALIZE_PASTE62(func, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62)
 #define RpcCore_DETAIL_SERIALIZE_PASTE64(func, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62, v63) RpcCore_DETAIL_SERIALIZE_PASTE2(func, v1) RpcCore_DETAIL_SERIALIZE_PASTE63(func, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62, v63)
 
-#define RpcCore_DETAIL_SERIALIZE_FIELD(v1) , t.v1
-#define RpcCore_DETAIL_SERIALIZE_DECLTYPE(v1) , decltype(t.v1)
+#define RpcCore_DETAIL_SERIALIZE_FIELD(v1) ar & t.v1;
 // clang-format on
 
-#define RpcCore_DEFINE_TYPE(Type, ...)                                                                                    \
-  namespace RpcCore {                                                                                                     \
-  template <typename T, typename std::enable_if<std::is_same<T, Type>::value, int>::type = 0>                             \
-  inline std::string serialize(const T& t) {                                                                              \
-    auto tup = std::tie(std::ignore RpcCore_DETAIL_SERIALIZE_PASTE(RpcCore_DETAIL_SERIALIZE_FIELD, __VA_ARGS__));         \
-    return RpcCore::serialize(tup);                                                                                       \
-  }                                                                                                                       \
-  template <typename T, typename std::enable_if<std::is_same<T, Type>::value, int>::type = 0>                             \
-  inline bool deserialize(const detail::string_view& data, T& t) {                                                        \
-    std::tuple<decltype(std::ignore) RpcCore_DETAIL_SERIALIZE_PASTE(RpcCore_DETAIL_SERIALIZE_DECLTYPE, __VA_ARGS__)> tup; \
-    if (!deserialize(data, tup)) {                                                                                        \
-      return false;                                                                                                       \
-    };                                                                                                                    \
-    std::tie(std::ignore RpcCore_DETAIL_SERIALIZE_PASTE(RpcCore_DETAIL_SERIALIZE_FIELD, __VA_ARGS__)) = std::move(tup);   \
-    return true;                                                                                                          \
-  }                                                                                                                       \
+#include <string>
+#include <type_traits>
+
+#include "../Serialize.hpp"
+#include "../detail/noncopyable.hpp"
+#include "../detail/string_view.hpp"
+
+namespace RpcCore {
+
+struct serialize_oarchive : detail::noncopyable {
+  std::string ss_;
+  bool inner_ = false;
+};
+
+struct serialize_iarchive : detail::noncopyable {
+  serialize_iarchive(detail::string_view sv) : data_((char*)sv.data()), size_(sv.size()) {}  // NOLINT(google-explicit-constructor)
+  char* data_;
+  size_t size_;
+  bool error_ = false;
+};
+
+}  // namespace RpcCore
+
+namespace RpcCore {
+
+template <typename T, typename std::enable_if<std::is_fundamental<T>::value, int>::type = 0>
+serialize_oarchive& operator&(serialize_oarchive& oa, const T& t);
+
+template <typename T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type = 0>
+serialize_oarchive& operator&(serialize_oarchive& oa, const T& t);
+
+template <class T, typename std::enable_if<std::is_fundamental<T>::value, int>::type = 0>
+serialize_iarchive& operator&(serialize_iarchive& ia, T& t);
+
+template <class T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type = 0>
+serialize_iarchive& operator&(serialize_iarchive& ia, T& t);
+
+}  // namespace RpcCore
+
+#define RpcCore_DEFINE_TYPE(Type, ...)                                                         \
+  namespace RpcCore {                                                                          \
+  template <typename T, typename std::enable_if<std::is_same<T, Type>::value, int>::type = 0>  \
+  inline std::string serialize(const T& t) {                                                   \
+    serialize_oarchive ar;                                                                     \
+    RpcCore_DETAIL_SERIALIZE_PASTE(RpcCore_DETAIL_SERIALIZE_FIELD, __VA_ARGS__) return ar.ss_; \
+  }                                                                                            \
+  template <typename T, typename std::enable_if<std::is_same<T, Type>::value, int>::type = 0>  \
+  inline bool deserialize(const detail::string_view& data, T& t) {                             \
+    serialize_iarchive ar(data);                                                               \
+    RpcCore_DETAIL_SERIALIZE_PASTE(RpcCore_DETAIL_SERIALIZE_FIELD, __VA_ARGS__) return true;   \
+  }                                                                                            \
   }
