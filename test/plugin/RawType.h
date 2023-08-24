@@ -1,10 +1,10 @@
 #pragma once
 
-#include "src/Serialize.hpp"
+#include "src/serialize.hpp"
 
 struct RawType {
   int id = 0;
   std::string name;
   uint8_t age = 0;
 };
-RpcCore_DEFINE_TYPE(RawType, id, name, age);
+RPC_CORE_DEFINE_TYPE(RawType, id, name, age);

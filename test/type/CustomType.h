@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/Serialize.hpp"
+#include "src/serialize.hpp"
 
 struct CustomType {
   uint32_t id = 0;
@@ -13,7 +13,7 @@ struct CustomType {
     return std::tie(id, ids, name) < std::tie(t.id, t.ids, t.name);
   }
 };
-RpcCore_DEFINE_TYPE(CustomType, id, ids, name);
+RPC_CORE_DEFINE_TYPE(CustomType, id, ids, name);
 
 #pragma pack(push, 1)
 struct CustomType2 {
@@ -22,7 +22,7 @@ struct CustomType2 {
   uint32_t id3{};
 };
 #pragma pack(pop)
-RpcCore_DEFINE_TYPE(CustomType2, id1, id2, id3);
+RPC_CORE_DEFINE_TYPE(CustomType2, id1, id2, id3);
 
 #pragma pack(push, 4)
 struct CustomType3 {
@@ -31,7 +31,7 @@ struct CustomType3 {
   uint32_t id3{};
 };
 #pragma pack(pop)
-RpcCore_DEFINE_TYPE(CustomType3, id1, id2, id3);
+RPC_CORE_DEFINE_TYPE(CustomType3, id1, id2, id3);
 
 // 嵌套定义
 struct CustomTypeNest {
@@ -39,4 +39,4 @@ struct CustomTypeNest {
   CustomType3 c3{};
   CustomTypeNest* ptr{};
 };
-RpcCore_DEFINE_TYPE(CustomTypeNest, c2, c3, ptr);
+RPC_CORE_DEFINE_TYPE(CustomTypeNest, c2, c3, ptr);

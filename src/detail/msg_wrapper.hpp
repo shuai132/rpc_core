@@ -3,15 +3,15 @@
 #include <string>
 #include <utility>
 
-#include "../Type.hpp"
+#include "../type.hpp"
 #include "copyable.hpp"
 #include "log.h"
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 namespace detail {
 
-struct MsgWrapper : copyable {  // NOLINT
-  enum MsgType : uint8_t {
+struct msg_wrapper : copyable {  // NOLINT
+  enum msg_type : uint8_t {
     COMMAND = 1 << 0,
     RESPONSE = 1 << 1,
     NEED_RSP = 1 << 2,
@@ -19,9 +19,9 @@ struct MsgWrapper : copyable {  // NOLINT
     PONG = 1 << 4,
   };
 
-  SeqType seq;
-  CmdType cmd;
-  MsgType type;
+  seq_type seq;
+  cmd_type cmd;
+  msg_type type;
   std::string data;
 
   std::string dump() const {
@@ -35,14 +35,14 @@ struct MsgWrapper : copyable {  // NOLINT
     T message;
     bool ok = deserialize(data, message);
     if (not ok) {
-      RpcCore_LOGE("deserialize error, msg info:%s", dump().c_str());
+      RPC_CORE_LOGE("deserialize error, msg info:%s", dump().c_str());
     }
     return std::make_pair(ok, std::move(message));
   }
 
-  static MsgWrapper MakeCmd(CmdType cmd, SeqType seq, bool isPing, bool needRsp, std::string data) {
-    MsgWrapper msg;
-    msg.type = static_cast<MsgType>(MsgWrapper::COMMAND | (isPing ? MsgWrapper::PING : 0) | (needRsp ? MsgWrapper::NEED_RSP : 0));
+  static msg_wrapper make_cmd(cmd_type cmd, seq_type seq, bool is_ping, bool need_rsp, std::string data) {
+    msg_wrapper msg;
+    msg.type = static_cast<msg_type>(msg_wrapper::COMMAND | (is_ping ? msg_wrapper::PING : 0) | (need_rsp ? msg_wrapper::NEED_RSP : 0));
     msg.cmd = std::move(cmd);
     msg.seq = seq;
     msg.data = std::move(data);
@@ -50,9 +50,9 @@ struct MsgWrapper : copyable {  // NOLINT
   }
 
   template <typename T>
-  static std::pair<bool, MsgWrapper> MakeRsp(SeqType seq, T* t = nullptr, bool success = true) {
-    MsgWrapper msg;
-    msg.type = MsgWrapper::RESPONSE;
+  static std::pair<bool, msg_wrapper> make_rsp(seq_type seq, T* t = nullptr, bool success = true) {
+    msg_wrapper msg;
+    msg.type = msg_wrapper::RESPONSE;
     msg.seq = seq;
     if (success && t != nullptr) {
       msg.data = serialize(*t);
@@ -62,4 +62,4 @@ struct MsgWrapper : copyable {  // NOLINT
 };
 
 }  // namespace detail
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type>
 std::string serialize(const T& t) {
@@ -17,7 +17,7 @@ std::string serialize(const T& t) {
 }
 
 template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type>
-inline bool deserialize(const detail::string_view& data, T& t) {
+bool deserialize(const detail::string_view& data, T& t) {
   char* p = (char*)data.data();
   uint32_t size = *(uint32_t*)p;
   p += sizeof(size);
@@ -34,4 +34,4 @@ inline bool deserialize(const detail::string_view& data, T& t) {
   return true;
 }
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

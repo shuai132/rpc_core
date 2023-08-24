@@ -2,22 +2,22 @@
 
 #include <string>
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
-inline std::string serialize(const T& t) {
+std::string serialize(const T& t) {
   return t;
 }
 
 template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
-inline std::string serialize(T&& t) {
+std::string serialize(T&& t) {
   return std::forward<T>(t);
 }
 
 template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t) {
+bool deserialize(const detail::string_view& data, T& t) {
   t = std::string(data.data(), data.size());
   return true;
 }
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

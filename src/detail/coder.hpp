@@ -1,11 +1,11 @@
 #pragma once
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 namespace detail {
 
-class Coder {
+class coder {
  public:
-  static std::string serialize(const MsgWrapper& msg) {
+  static std::string serialize(const msg_wrapper& msg) {
     std::string payload;
     payload.reserve(PayloadMinLen + msg.cmd.size() + msg.data.size());
     payload.append((char*)&msg.seq, 4);
@@ -17,15 +17,15 @@ class Coder {
     return payload;
   }
 
-  static MsgWrapper deserialize(const std::string& payload, bool& ok) {
-    MsgWrapper msg;
+  static msg_wrapper deserialize(const std::string& payload, bool& ok) {
+    msg_wrapper msg;
     if (payload.size() < PayloadMinLen) {
       ok = false;
       return msg;
     }
     char* p = (char*)payload.data();
     const char* pend = payload.data() + payload.size();
-    msg.seq = *(SeqType*)p;
+    msg.seq = *(seq_type*)p;
     p += 4;
     uint16_t cmdLen = *(uint16_t*)p;
     p += 2;
@@ -35,7 +35,7 @@ class Coder {
     }
     msg.cmd.append(p, cmdLen);
     p += cmdLen;
-    msg.type = *(MsgWrapper::MsgType*)(p);
+    msg.type = *(msg_wrapper::msg_type*)(p);
     p += 1;
     msg.data.append(p, pend - p);
     ok = true;
@@ -47,4 +47,4 @@ class Coder {
 };
 
 }  // namespace detail
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

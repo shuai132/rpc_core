@@ -4,7 +4,7 @@
 #include <cstring>
 #include <type_traits>
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 namespace detail {
 
@@ -17,12 +17,12 @@ struct is_std_array<std::array<T, N>> : std::true_type {};
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
-inline std::string serialize(const T& t) {
+std::string serialize(const T& t) {
   return {(char*)&t, sizeof(t)};
 }
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t, size_t* cost_len = nullptr) {
+bool deserialize(const detail::string_view& data, T& t, size_t* cost_len = nullptr) {
   if (cost_len) {
     *cost_len = sizeof(t);
   }
@@ -30,4 +30,4 @@ inline bool deserialize(const detail::string_view& data, T& t, size_t* cost_len 
   return true;
 }
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

@@ -4,7 +4,7 @@
 
 #include "../detail/callable/helpers.hpp"
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 namespace detail {
 
@@ -20,9 +20,9 @@ struct is_tuple<std::tuple<Args...>> : std::true_type {};
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_tuple<T>::value, int>::type = 0>
-inline std::string serialize(const T& t);
+std::string serialize(const T& t);
 
 template <typename T, typename std::enable_if<detail::is_tuple<T>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t);
+bool deserialize(const detail::string_view& data, T& t);
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

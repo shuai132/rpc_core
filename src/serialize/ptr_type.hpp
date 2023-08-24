@@ -4,16 +4,16 @@
 #include <cstring>
 #include <type_traits>
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_pointer<T>::value, int>::type = 0>
-inline std::string serialize(const T& t) {
+std::string serialize(const T& t) {
   auto data = (uint64_t)t;
   return {(char*)&data, sizeof(uint64_t)};
 }
 
 template <typename T, typename std::enable_if<std::is_pointer<T>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t, std::size_t* cost_len = nullptr) {
+bool deserialize(const detail::string_view& data, T& t, std::size_t* cost_len = nullptr) {
   uint64_t d = *(uint64_t*)(data.data());
   if (cost_len) {
     *cost_len = sizeof(d);
@@ -22,4 +22,4 @@ inline bool deserialize(const detail::string_view& data, T& t, std::size_t* cost
   return true;
 }
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

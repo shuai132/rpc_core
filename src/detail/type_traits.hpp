@@ -2,7 +2,7 @@
 
 #include <type_traits>
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 namespace detail {
 
 template <typename Base, typename T, typename... Args>
@@ -16,4 +16,4 @@ struct all_base_of<Base, T> {
 };
 
 }  // namespace detail
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

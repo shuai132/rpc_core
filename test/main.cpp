@@ -1,22 +1,22 @@
 #include <cstdio>
 
 #include "src/detail/log.h"
-#include "test/Test.h"
+#include "test/test.h"
 
-using namespace RpcCoreTest;
+using namespace rpc_core_test;
 
 int main() {
-  RpcCore_LOG("TypeTest...");
+  RPC_CORE_LOG("TypeTest...");
   TypeTest();
 
-#ifdef RpcCore_TEST_PLUGIN
+#ifdef RPC_CORE_TEST_PLUGIN
   printf("\n");
-  RpcCore_LOG("PluginTest...");
+  RPC_CORE_LOG("PluginTest...");
   PluginTest();
 #endif
 
   printf("\n");
-  RpcCore_LOG("RpcTest...");
+  RPC_CORE_LOG("RpcTest...");
   RpcTest();
 
   return 0;

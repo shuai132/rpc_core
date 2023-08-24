@@ -1,6 +1,6 @@
 #pragma once
 
-namespace RpcCoreTest {
+namespace rpc_core_test {
 
 void TypeTest();
 
@@ -8,4 +8,4 @@ void RpcTest();
 
 void PluginTest();
 
-}  // namespace RpcCoreTest
+}  // namespace rpc_core_test

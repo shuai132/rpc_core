@@ -4,7 +4,7 @@
 
 #include "helpers.hpp"
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 namespace detail {
 
@@ -37,4 +37,4 @@ struct function_traits : detail::function_traits<detail::remove_cvref_t<Func>> {
 template <typename Func>
 struct function_traits<Func*> : detail::function_traits<detail::remove_cvref_t<Func>> {};
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

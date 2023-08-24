@@ -1,10 +1,10 @@
 #pragma once
 
-#include "src/Serialize.hpp"
+#include "src/serialize.hpp"
 
 struct TestStruct {
   uint8_t a;
   uint16_t b;
   uint32_t c;
 };
-RpcCore_DEFINE_TYPE(TestStruct, a, b, c);
+RPC_CORE_DEFINE_TYPE(TestStruct, a, b, c);

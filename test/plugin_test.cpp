@@ -1,21 +1,21 @@
 // include first
-#include "plugin/Flatbuffers.hpp"
-#include "plugin/Json.hpp"
 #include "plugin/JsonType.h"
 #include "plugin/RawType.h"
 #include "plugin/fb/FbMsg_generated.h"
+#include "plugin/flatbuffers.hpp"
+#include "plugin/json.hpp"
 
 // include other
-#include "RpcCore.hpp"
-#include "Test.h"
 #include "assert_def.h"
+#include "rpc_core.hpp"
+#include "test.h"
 
-namespace RpcCoreTest {
+namespace rpc_core_test {
 
 void PluginTest() {
-  using namespace RpcCore;
+  using namespace RPC_CORE_NAMESPACE;
   {
-    RpcCore_LOGI("RawType...");
+    RPC_CORE_LOGI("RawType...");
     RawType a;
     a.id = 1;
     a.name = "test";
@@ -23,7 +23,7 @@ void PluginTest() {
 
     auto payload = serialize(a);
     // payload is not readable
-    RpcCore_LOGI("RawType: size: %zu", payload.size());
+    RPC_CORE_LOGI("RawType: size: %zu", payload.size());
 
     RawType b;
     deserialize(payload, b);
@@ -33,15 +33,15 @@ void PluginTest() {
   }
 
   {
-    RpcCore_LOGI("Json...");
+    RPC_CORE_LOGI("json...");
     nlohmann::json a;
     a["id"] = 1;
     a["name"] = "test";
     a["age"] = 18;
 
     auto payload = serialize(a);
-    RpcCore_LOGI("Json: %s", payload.c_str());
-    RpcCore_LOGI("Json: size: %zu", payload.size());
+    RPC_CORE_LOGI("json: %s", payload.c_str());
+    RPC_CORE_LOGI("json: size: %zu", payload.size());
 
     nlohmann::json b;
     deserialize(payload, b);
@@ -51,15 +51,15 @@ void PluginTest() {
   }
 
   {
-    RpcCore_LOGI("JsonType...");
+    RPC_CORE_LOGI("JsonType...");
     JsonType a;
     a.id = 1;
     a.name = "test";
     a.age = 18;
 
     auto payload = serialize(a);
-    RpcCore_LOGI("JsonType: %s", payload.c_str());
-    RpcCore_LOGI("JsonType: size: %zu", payload.size());
+    RPC_CORE_LOGI("JsonType: %s", payload.c_str());
+    RPC_CORE_LOGI("JsonType: size: %zu", payload.size());
 
     JsonType b;
     deserialize(payload, b);
@@ -69,7 +69,7 @@ void PluginTest() {
   }
 
   {
-    RpcCore_LOGI("Flatbuffers...");
+    RPC_CORE_LOGI("flatbuffers...");
     msg::FbMsgT a;
     a.id = 1;
     a.name = "test";
@@ -77,7 +77,7 @@ void PluginTest() {
 
     auto payload = serialize(a);
     // flatbuffers payload is not readable
-    RpcCore_LOGI("Flatbuffers: size: %zu", payload.size());
+    RPC_CORE_LOGI("flatbuffers: size: %zu", payload.size());
 
     msg::FbMsgT b;
     deserialize(payload, b);
@@ -87,4 +87,4 @@ void PluginTest() {
   }
 }
 
-}  // namespace RpcCoreTest
+}  // namespace rpc_core_test

@@ -1,15 +1,15 @@
 #pragma once
 
-namespace RpcCore {
+namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_same<T, void>::value, int>::type = 0>
-inline std::string serialize(const T& t) {
+std::string serialize(const T& t) {
   return {};
 }
 
 template <typename T, typename std::enable_if<std::is_same<T, void>::value, int>::type = 0>
-inline bool deserialize(const detail::string_view& data, T& t) {
+bool deserialize(const detail::string_view& data, T& t) {
   return true;
 }
 
-}  // namespace RpcCore
+}  // namespace RPC_CORE_NAMESPACE

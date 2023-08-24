@@ -17,13 +17,13 @@ jobs:
       - name: CMake
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DRpcCore_TEST_PLUGIN=ON ..
+          cmake -DCMAKE_BUILD_TYPE=Debug -DRPC_CORE_TEST_PLUGIN=ON ..
 
       - name: Init thirdparty
-        run: cd build && make RpcCore_test_init
+        run: cd build && make rpc_core_test_init
 
       - name: Build
         run: cd build && make -j2
 
       - name: Run
-        run: cd build && ./RpcCore_test
+        run: cd build && ./rpc_core_test

@@ -1,14 +1,13 @@
 // include first
-#include "CustomType.h"
+#include "type/CustomType.h"
 
 // include other
-#include "RpcCore.hpp"
-#include "Test.h"
 #include "assert_def.h"
+#include "rpc_core.hpp"
 
-#define SERIALIZE_AND_ASSERT(a, b) ASSERT(RpcCore::deserialize(RpcCore::serialize(a), b))
+#define SERIALIZE_AND_ASSERT(a, b) ASSERT(RPC_CORE_NAMESPACE::deserialize(RPC_CORE_NAMESPACE::serialize(a), b))
 
-namespace RpcCoreTest {
+namespace rpc_core_test {
 
 template <typename T>
 void raw_type_test() {
@@ -18,20 +17,20 @@ void raw_type_test() {
   SERIALIZE_AND_ASSERT(a, b);
   auto ok = (0 == memcmp(&a, &b, sizeof(T)));  // NOLINT
   if (ok) {
-    RpcCore_LOGI("  => ok! ");
+    RPC_CORE_LOGI("  => ok! ");
   } else {
-    RpcCore_LOGI("  => type will lose precision... ");
+    RPC_CORE_LOGI("  => type will lose precision... ");
   }
 }
 
-#define RAW_TYPE_TEST(t)      \
-  RpcCore_LOGI("  <" #t ">"); \
+#define RAW_TYPE_TEST(t)       \
+  RPC_CORE_LOGI("  <" #t ">"); \
   raw_type_test<t>();
 
 void TypeTest() {
   /// raw type
   {
-    RpcCore_LOGI("raw type test...");
+    RPC_CORE_LOGI("raw type test...");
     RAW_TYPE_TEST(char);
     RAW_TYPE_TEST(signed char);
     RAW_TYPE_TEST(unsigned char);
@@ -48,7 +47,7 @@ void TypeTest() {
 
   /// std::array
   {
-    RpcCore_LOGI("std::array...");
+    RPC_CORE_LOGI("std::array...");
     std::array<uint32_t, 3> a{1, 2, 3};
     std::array<uint32_t, 3> b{};
     SERIALIZE_AND_ASSERT(a, b);
@@ -57,7 +56,7 @@ void TypeTest() {
 
   /// std::string
   {
-    RpcCore_LOGI("std::string...");
+    RPC_CORE_LOGI("std::string...");
     std::string a = "test";
     std::string b;
     SERIALIZE_AND_ASSERT(a, b);
@@ -66,7 +65,7 @@ void TypeTest() {
 
   /// std::tuple
   {
-    RpcCore_LOGI("std::tuple...");
+    RPC_CORE_LOGI("std::tuple...");
     bool msg1 = true;
     uint32_t msg2 = 12;
     std::string msg3 = "test";
@@ -81,21 +80,21 @@ void TypeTest() {
 
   /// list_like type
   {
-    RpcCore_LOGI("std::vector...");
+    RPC_CORE_LOGI("std::vector...");
     std::vector<uint32_t> a{1, 2, 3};
     std::vector<uint32_t> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
   {
-    RpcCore_LOGI("std::list...");
+    RPC_CORE_LOGI("std::list...");
     std::list<uint32_t> a{1, 2, 3};
     std::list<uint32_t> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
   {
-    RpcCore_LOGI("std::deque...");
+    RPC_CORE_LOGI("std::deque...");
     std::deque<uint32_t> a{1, 2, 3};
     std::deque<uint32_t> b;
     SERIALIZE_AND_ASSERT(a, b);
@@ -104,7 +103,7 @@ void TypeTest() {
 
   /// std::set
   {
-    RpcCore_LOGI("std::set...");
+    RPC_CORE_LOGI("std::set...");
     std::set<CustomType> a;
     {
       CustomType t;
@@ -120,7 +119,7 @@ void TypeTest() {
 
   /// std::map
   {
-    RpcCore_LOGI("std::map...");
+    RPC_CORE_LOGI("std::map...");
     std::map<std::string, CustomType> a;
     {
       CustomType t;
@@ -136,7 +135,7 @@ void TypeTest() {
 
   /// std::unordered_map
   {
-    RpcCore_LOGI("std::unordered_map...");
+    RPC_CORE_LOGI("std::unordered_map...");
     std::unordered_map<std::string, CustomType> a;
     {
       CustomType t;
@@ -152,7 +151,7 @@ void TypeTest() {
 
   /// custom class/struct
   {
-    RpcCore_LOGI("custom type...");
+    RPC_CORE_LOGI("custom type...");
     CustomType a;
     a.id = 1;
     a.ids = {1, 2, 3};
@@ -162,7 +161,7 @@ void TypeTest() {
     ASSERT(a == b);
   }
   {
-    RpcCore_LOGI("custom type(different alignas)...");
+    RPC_CORE_LOGI("custom type(different alignas)...");
     CustomType2 a;
     a.id1 = 1;
     a.id2 = 2;
@@ -174,7 +173,7 @@ void TypeTest() {
     ASSERT(a.id3 == b.id3);
   }
   {
-    RpcCore_LOGI("custom type(nest define)...");
+    RPC_CORE_LOGI("custom type(nest define)...");
     CustomTypeNest a;
     a.c2.id1 = 1;
     a.c2.id2 = 2;
@@ -188,7 +187,7 @@ void TypeTest() {
 
   /// misc types
   {
-    RpcCore_LOGI("misc types...");
+    RPC_CORE_LOGI("misc types...");
     CustomType customType;
     customType.id = 1;
     customType.ids = {1, 2, 3};
@@ -200,4 +199,4 @@ void TypeTest() {
   }
 }
 
-}  // namespace RpcCoreTest
+}  // namespace rpc_core_test

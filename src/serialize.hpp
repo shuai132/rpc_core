@@ -1,5 +1,8 @@
 #pragma once
 
+// config
+#include "config.hpp"
+
 // type traits
 #include "detail/type_traits.hpp"
 
