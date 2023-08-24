@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cassert>
-#include <future>
 #include <memory>
 #include <utility>
+
+#ifndef RpcCore_FEATURE_DISABLE_FUTURE
+#include <future>
+#endif
 
 #include "Serialize.hpp"
 #include "detail/MsgWrapper.hpp"
@@ -64,9 +67,6 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     RPC_EXPIRED,
     NO_NEED_RSP,
   };
-
-  template <typename T>
-  struct FutureRet;
 
  public:
   template <typename... Args>
@@ -158,15 +158,20 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
     }
   }
 
+#ifndef RpcCore_FEATURE_DISABLE_FUTURE
   /**
    * Future pattern
    * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
    */
+  template <typename T>
+  struct FutureRet;
+
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
   std::future<FutureRet<R>> future(const SSendProto& rpc = nullptr);
 
   template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
   std::future<FutureRet<void>> future(const SSendProto& rpc = nullptr);
+#endif
 
   std::shared_ptr<Request> timeout(RpcCore_MOVE_PARAM(std::function<void()>) timeoutCb) {
     timeoutCb_ = [this, RpcCore_MOVE_LAMBDA(timeoutCb)] {
@@ -264,6 +269,7 @@ class Request : detail::noncopyable, public std::enable_shared_from_this<Request
   bool isPing_ = false;
 };
 
+#ifndef RpcCore_FEATURE_DISABLE_FUTURE
 template <typename T>
 struct Request::FutureRet {
   FinallyType type;
@@ -304,6 +310,7 @@ std::future<Request::FutureRet<void>> Request::future(const Request::SSendProto&
   call(rpc);
   return promise->get_future();
 }
+#endif
 
 using SRequest = Request::SRequest;
 using WRequest = Request::WRequest;

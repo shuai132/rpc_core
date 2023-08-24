@@ -288,6 +288,7 @@ void RpcTest() {
     request->call();
   }
 
+#ifndef RpcCore_FEATURE_DISABLE_FUTURE
   RpcCore_LOG("Future模式");
   {
     {
@@ -300,6 +301,7 @@ void RpcTest() {
       ASSERT(result.type == FinishType::NORMAL);
     }
   }
+#endif
 }
 
 }  // namespace RpcCoreTest
