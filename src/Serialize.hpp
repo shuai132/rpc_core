@@ -1,13 +1,9 @@
-#ifdef RpcCore_SERIALIZE_IMPL_INCLUDED
-#error "should include before `SerializeImpl.hpp`"
-#endif
+#pragma once
 
-#ifndef RpcCore_Serialize_hpp
-#define RpcCore_Serialize_hpp
+// type traits
+#include "detail/type_traits.hpp"
 
-#include <type_traits>
-
-#include "Type.hpp"
+// types
 #include "detail/string_view.hpp"
 #include "serialize/define_type.hpp"
 #include "serialize/ptr_type.hpp"
@@ -22,5 +18,3 @@
 #include "serialize/std_pair.hpp"
 #include "serialize/std_set.hpp"
 #include "serialize/std_tuple.hpp"
-
-#endif

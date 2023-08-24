@@ -29,7 +29,7 @@ inline bool deserialize(const detail::string_view& data, T& t) {
       return false;
     }
     p += item_size;
-    t.insert(std::move(item));
+    t.emplace(std::move(item));
   }
   return true;
 }
