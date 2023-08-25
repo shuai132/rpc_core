@@ -6,6 +6,9 @@
 // type traits
 #include "detail/type_traits.hpp"
 
+// serialize type
+#include "serialize_type.hpp"
+
 // types
 #include "detail/string_view.hpp"
 #include "serialize/define_type.hpp"

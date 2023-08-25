@@ -139,23 +139,6 @@
 
 #include "../detail/noncopyable.hpp"
 #include "../detail/string_view.hpp"
-#include "../serialize.hpp"
-
-namespace RPC_CORE_NAMESPACE {
-
-struct serialize_oarchive : detail::noncopyable {
-  std::string ss_;
-  bool inner_ = false;
-};
-
-struct serialize_iarchive : detail::noncopyable {
-  serialize_iarchive(detail::string_view sv) : data_((char*)sv.data()), size_(sv.size()) {}  // NOLINT(google-explicit-constructor)
-  char* data_;
-  size_t size_;
-  bool error_ = false;
-};
-
-}  // namespace RPC_CORE_NAMESPACE
 
 namespace RPC_CORE_NAMESPACE {
 
@@ -173,16 +156,10 @@ serialize_iarchive& operator&(serialize_iarchive& ia, T& t);
 
 }  // namespace RPC_CORE_NAMESPACE
 
-#define RPC_CORE_DEFINE_TYPE(Type, ...)                                                          \
-  namespace RPC_CORE_NAMESPACE {                                                                 \
-  template <typename T, typename std::enable_if<std::is_same<T, Type>::value, int>::type = 0>    \
-  std::string serialize(const T& t) {                                                            \
-    serialize_oarchive ar;                                                                       \
-    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__) return ar.ss_; \
-  }                                                                                              \
-  template <typename T, typename std::enable_if<std::is_same<T, Type>::value, int>::type = 0>    \
-  bool deserialize(const detail::string_view& data, T& t) {                                      \
-    serialize_iarchive ar(data);                                                                 \
-    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__) return true;   \
-  }                                                                                              \
-  }
+#define RPC_CORE_DEFINE_TYPE(Type, ...)                                                 \
+  inline void operator<<(::RPC_CORE_NAMESPACE::serialize_oarchive& ar, const Type& t) { \
+    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__)       \
+  }                                                                                     \
+  inline void operator>>(::RPC_CORE_NAMESPACE::serialize_iarchive& ar, Type& t) {       \
+    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__)       \
+  }\

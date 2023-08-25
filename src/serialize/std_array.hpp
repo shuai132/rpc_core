@@ -17,17 +17,15 @@ struct is_std_array<std::array<T, N>> : std::true_type {};
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
-std::string serialize(const T& t) {
-  return {(char*)&t, sizeof(t)};
+serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+  oa.data.append((char*)&t, sizeof(t));
+  return oa;
 }
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
-bool deserialize(const detail::string_view& data, T& t, size_t* cost_len = nullptr) {
-  if (cost_len) {
-    *cost_len = sizeof(t);
-  }
-  memcpy((void*)&t, data.data(), sizeof(t));
-  return true;
+serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+  memcpy((void*)&t, ia.data_, sizeof(t));
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE

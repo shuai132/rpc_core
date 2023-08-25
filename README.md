@@ -6,10 +6,10 @@ a tiny rpc library, support all platform, even microchips.
 
 ## Introduction
 
-The complete RPC frameworks (such as `gRPC` and `brpc`) have complex functions
+The complete rpc frameworks (such as `gRPC` and `brpc`) have complex functions
 and are not practical for use in embedded platforms.
 
-This project offers a lightweight and user-friendly implementation that is better suited for one-to-one RPC calls.
+This project offers a lightweight and user-friendly implementation that is better suited for one-to-one rpc calls.
 
 It supports a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 

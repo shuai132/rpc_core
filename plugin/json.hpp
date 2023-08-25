@@ -7,19 +7,20 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::value, int>::type = 0>
-std::string serialize(const T& t) {
-  return t.dump();
+serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+  oa << t.dump();
+  return oa;
 }
 
 template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::value, int>::type = 0>
-bool deserialize(const detail::string_view& data, T& t) {
+serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
   try {
-    nlohmann::json::parse(data.data(), data.data() + data.size()).swap(t);
+    nlohmann::json::parse(ia.data_, ia.data_ + ia.size_).swap(t);
   } catch (std::exception& e) {
     RPC_CORE_LOGE("deserialize: %s", e.what());
-    return false;
+    ia.error_ = true;
   }
-  return true;
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE

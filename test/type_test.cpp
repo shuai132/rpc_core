@@ -78,6 +78,15 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::pair
+  {
+    RPC_CORE_LOGI("std::pair...");
+    std::pair<std::string, std::string> a{"k:1", "v:1"};
+    std::pair<std::string, std::string> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(b == a);
+  }
+
   /// list_like type
   {
     RPC_CORE_LOGI("std::vector...");
@@ -104,15 +113,8 @@ void TypeTest() {
   /// std::set
   {
     RPC_CORE_LOGI("std::set...");
-    std::set<CustomType> a;
-    {
-      CustomType t;
-      t.id = 1;
-      t.ids = {1, 2, 3};
-      t.name = "test";
-      a.emplace(std::move(t));
-    }
-    std::set<CustomType> b;
+    std::set<uint32_t> a{1, 2, 3};
+    std::set<uint32_t> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
@@ -120,15 +122,8 @@ void TypeTest() {
   /// std::map
   {
     RPC_CORE_LOGI("std::map...");
-    std::map<std::string, CustomType> a;
-    {
-      CustomType t;
-      t.id = 1;
-      t.ids = {1, 2, 3};
-      t.name = "test";
-      a.emplace("id_0", std::move(t));
-    }
-    std::map<std::string, CustomType> b;
+    std::map<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
+    std::map<std::string, std::string> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
@@ -136,15 +131,8 @@ void TypeTest() {
   /// std::unordered_map
   {
     RPC_CORE_LOGI("std::unordered_map...");
-    std::unordered_map<std::string, CustomType> a;
-    {
-      CustomType t;
-      t.id = 1;
-      t.ids = {1, 2, 3};
-      t.name = "test";
-      a.emplace("id0", std::move(t));
-    }
-    std::unordered_map<std::string, CustomType> b;
+    std::unordered_map<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
+    std::unordered_map<std::string, std::string> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
@@ -174,11 +162,11 @@ void TypeTest() {
   }
   {
     RPC_CORE_LOGI("custom type(nest define)...");
-    CustomTypeNest a;
+    test::CustomTypeNest a;
     a.c2.id1 = 1;
     a.c2.id2 = 2;
     a.c2.id3 = 3;
-    CustomTypeNest b;
+    test::CustomTypeNest b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a.c2.id1 == b.c2.id1);
     ASSERT(a.c2.id2 == b.c2.id2);

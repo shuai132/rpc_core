@@ -3,21 +3,20 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<detail::is_std_pair<T>::value, int>::type>
-std::string serialize(const T& t) {
-  return serialize(std::tie(t.first, t.second));
+inline serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+  oa << std::tie(t.first, t.second);
+  return oa;
 }
 
 template <typename T, typename std::enable_if<detail::is_std_pair<T>::value, int>::type>
-bool deserialize(const detail::string_view& data, T& t) {
+serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
   using first_type = detail::remove_cvref_t<decltype(t.first)>;
   using second_type = detail::remove_cvref_t<decltype(t.second)>;
   auto& tt = (std::pair<first_type, second_type>&)t;
   std::tuple<first_type, second_type> tup;
-  if (!deserialize(data, tup)) {
-    return false;
-  }
+  ia >> tup;
   std::tie(tt.first, tt.second) = std::move(tup);
-  return true;
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE

@@ -6,7 +6,7 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_base_of<::flatbuffers::NativeTable, T>::value, int>::type = 0>
-std::string serialize(const T& t) {
+serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
   using TableType = typename T::TableType;
 
   flatbuffers::FlatBufferBuilder fbb(1024);
@@ -14,20 +14,21 @@ std::string serialize(const T& t) {
   fbb.Finish(offset);
   auto data = fbb.GetBufferPointer();
   auto size = fbb.GetSize();
-  return {(char*)data, size};
+  oa.data.append((char*)data, size);
+  return oa;
 }
 
 template <typename T, typename std::enable_if<std::is_base_of<::flatbuffers::NativeTable, T>::value, int>::type = 0>
-bool deserialize(const detail::string_view& data, T& t) {
+serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
   using TableType = typename T::TableType;
 
-  flatbuffers::Verifier verifier((uint8_t*)data.data(), data.size());
+  flatbuffers::Verifier verifier((uint8_t*)ia.data_, ia.size_);
   bool ok = verifier.VerifyBuffer<TableType>();
   if (!ok) {
-    return false;
+    ia.error_ = true;
   }
-  flatbuffers::GetRoot<TableType>(data.data())->UnPackTo(&t);
-  return true;
+  flatbuffers::GetRoot<TableType>(ia.data_)->UnPackTo(&t);
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE

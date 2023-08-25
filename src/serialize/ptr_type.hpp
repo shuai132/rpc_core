@@ -7,19 +7,17 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_pointer<T>::value, int>::type = 0>
-std::string serialize(const T& t) {
+inline serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
   auto data = (uint64_t)t;
-  return {(char*)&data, sizeof(uint64_t)};
+  oa.data.append((char*)&data, sizeof(uint64_t));
+  return oa;
 }
 
 template <typename T, typename std::enable_if<std::is_pointer<T>::value, int>::type = 0>
-bool deserialize(const detail::string_view& data, T& t, std::size_t* cost_len = nullptr) {
-  uint64_t d = *(uint64_t*)(data.data());
-  if (cost_len) {
-    *cost_len = sizeof(d);
-  }
+inline serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+  uint64_t d = *(uint64_t*)(ia.data_);
   t = (T)d;
-  return true;
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE

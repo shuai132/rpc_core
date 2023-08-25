@@ -3,35 +3,33 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<detail::is_map_like<T>::value, int>::type>
-std::string serialize(const T& t) {
+serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
   uint32_t size = t.size();
-  std::string payload;
-  payload.append((char*)&size, sizeof(size));
-  for (auto& i : t) {
-    auto item = serialize(i);
-    uint32_t item_size = item.size();
-    payload.append((char*)&item_size, sizeof(item_size));
-    payload.append((char*)item.data(), item.size());
+  oa << size;
+  for (auto& item : t) {
+    serialize_oarchive tmp;
+    tmp << item;
+    oa << tmp;
   }
-  return payload;
+  return oa;
 }
 
 template <typename T, typename std::enable_if<detail::is_map_like<T>::value, int>::type>
-bool deserialize(const detail::string_view& data, T& t) {
-  char* p = (char*)data.data();
-  uint32_t size = *(uint32_t*)p;
-  p += sizeof(size);
+serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+  uint32_t size;
+  ia >> size;
   for (uint32_t i = 0; i < size; ++i) {
-    uint32_t item_size = *(uint32_t*)p;
-    p += sizeof(item_size);
     typename T::value_type item;
-    if (!deserialize(detail::string_view(p, item_size), item)) {
-      return false;
+    serialize_iarchive tmp;
+    ia >> tmp;
+    tmp >> item;
+    if (tmp.error_) {
+      ia.error_ = true;
+      break;
     }
-    p += item_size;
     t.emplace(std::move(item));
   }
-  return true;
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE
