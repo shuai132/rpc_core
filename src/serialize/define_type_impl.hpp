@@ -18,22 +18,22 @@ inline serialize_oarchive& operator&(serialize_oarchive& oa, const T& t) {
 
 template <class T, typename std::enable_if<std::is_fundamental<T>::value, int>::type>
 inline serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
-  if (ia.error_) return ia;
+  if (ia.error) return ia;
   ia >> t;
   return ia;
 }
 
 template <class T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type>
 serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
-  if (ia.error_) return ia;
-  uint32_t size = *(uint32_t*)(ia.data_);
-  ia.data_ += sizeof(uint32_t);
+  if (ia.error) return ia;
+  uint32_t size = *(uint32_t*)(ia.data);
+  ia.data += sizeof(uint32_t);
 
-  serialize_iarchive tmp(detail::string_view(ia.data_, size));
+  serialize_iarchive tmp(detail::string_view(ia.data, size));
   tmp >> t;
-  ia.error_ = tmp.error_;
+  ia.error = tmp.error;
 
-  ia.data_ += size;
+  ia.data += size;
   return ia;
 }
 

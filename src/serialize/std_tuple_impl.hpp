@@ -94,7 +94,7 @@ template <typename Tuple, std::size_t N>
 struct tuple_de_serialize_helper {
   static void de_serialize(Tuple& t, serialize_iarchive& ia) {
     tuple_de_serialize_helper<Tuple, N - 1>::de_serialize(t, ia);
-    if (ia.error_) return;
+    if (ia.error) return;
     tuple_de_serialize_helper_impl<Tuple, N - 1, tuple_serialize_type_check<tuple_element_t<N - 1, Tuple>>::value>::de_serialize(t, ia);
   }
 };

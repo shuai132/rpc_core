@@ -26,13 +26,13 @@ serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
     typename T::value_type item;
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
       ia >> item;
-      if (ia.error_) break;
+      if (ia.error) break;
     } else {
       serialize_iarchive tmp;
       ia >> tmp;
       tmp >> item;
-      if (tmp.error_) {
-        ia.error_ = true;
+      if (tmp.error) {
+        ia.error = true;
         break;
       }
     }

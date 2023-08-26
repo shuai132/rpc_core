@@ -24,7 +24,7 @@ serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
 serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
-  memcpy((void*)&t, ia.data_, sizeof(t));
+  memcpy((void*)&t, ia.data, sizeof(t));
   return ia;
 }
 

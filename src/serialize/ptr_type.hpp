@@ -15,7 +15,7 @@ inline serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
 
 template <typename T, typename std::enable_if<std::is_pointer<T>::value, int>::type = 0>
 inline serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
-  uint64_t d = *(uint64_t*)(ia.data_);
+  uint64_t d = *(uint64_t*)(ia.data);
   t = (T)d;
   return ia;
 }

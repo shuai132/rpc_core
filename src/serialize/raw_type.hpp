@@ -12,20 +12,13 @@
   template <typename T, typename std::enable_if<std::is_same<T, type_raw>::value, int>::type = 0> \
   serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {                                  \
     t = {};                                                                                       \
-    memcpy(&t, ia.data_, detail::min<size_t>(sizeof(t), type_size));                              \
-    ia.data_ += type_size;                                                                        \
-    ia.size_ -= type_size;                                                                        \
+    memcpy(&t, ia.data, detail::min<size_t>(sizeof(t), type_size));                               \
+    ia.data += type_size;                                                                         \
+    ia.size -= type_size;                                                                         \
     return ia;                                                                                    \
   }
 
 namespace RPC_CORE_NAMESPACE {
-
-namespace detail {
-template <typename T>
-constexpr const T& min(const T& a, const T& b) {
-  return a < b ? a : b;
-}
-}  // namespace detail
 
 RPC_CORE_DETAIL_DEFINE_RAW_TYPE(bool, 1);
 RPC_CORE_DETAIL_DEFINE_RAW_TYPE(char, 1);

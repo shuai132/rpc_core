@@ -23,8 +23,8 @@ serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
     serialize_iarchive tmp;
     ia >> tmp;
     tmp >> item;
-    if (tmp.error_) {
-      ia.error_ = true;
+    if (tmp.error) {
+      ia.error = true;
       break;
     }
     t.emplace(std::move(item));

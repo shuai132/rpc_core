@@ -22,12 +22,12 @@ template <typename T, typename std::enable_if<std::is_base_of<::flatbuffers::Nat
 serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
   using TableType = typename T::TableType;
 
-  flatbuffers::Verifier verifier((uint8_t*)ia.data_, ia.size_);
+  flatbuffers::Verifier verifier((uint8_t*)ia.data, ia.size);
   bool ok = verifier.VerifyBuffer<TableType>();
   if (!ok) {
-    ia.error_ = true;
+    ia.error = true;
   }
-  flatbuffers::GetRoot<TableType>(ia.data_)->UnPackTo(&t);
+  flatbuffers::GetRoot<TableType>(ia.data)->UnPackTo(&t);
   return ia;
 }
 

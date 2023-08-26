@@ -22,7 +22,7 @@ serialize_oarchive& operator<<(rpc_core::serialize_oarchive& oa, T&& t) {
 
 template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
 inline serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
-  t = std::string(ia.data_, ia.size_);
+  t = std::string(ia.data, ia.size);
   return ia;
 }
 
