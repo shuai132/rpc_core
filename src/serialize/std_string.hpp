@@ -4,13 +4,23 @@
 
 namespace RPC_CORE_NAMESPACE {
 
-template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
+namespace detail {
+
+template <typename T>
+struct is_std_basic_string : std::false_type {};
+
+template <typename... Args>
+struct is_std_basic_string<std::basic_string<Args...>> : std::true_type {};
+
+}  // namespace detail
+
+template <typename T, typename std::enable_if<detail::is_std_basic_string<T>::value, int>::type = 0>
 inline serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
   oa.data.append(t);
   return oa;
 }
 
-template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
+template <typename T, typename std::enable_if<detail::is_std_basic_string<T>::value, int>::type = 0>
 serialize_oarchive& operator<<(rpc_core::serialize_oarchive& oa, T&& t) {
   if (oa.data.empty()) {
     oa.data = std::forward<T>(t);
