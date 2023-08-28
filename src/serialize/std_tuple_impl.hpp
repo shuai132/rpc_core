@@ -29,15 +29,15 @@ template <typename Tuple, std::size_t I>
 struct tuple_serialize_helper_impl<Tuple, I, tuple_serialize_type::Normal> {
   static void serialize(const Tuple& t, serialize_oarchive& oa) {
     serialize_oarchive tmp;
-    tmp << std::get<I>(t);
-    oa << tmp;
+    std::get<I>(t) >> tmp;
+    tmp >> oa;
   }
 };
 
 template <typename Tuple, std::size_t I>
 struct tuple_serialize_helper_impl<Tuple, I, tuple_serialize_type::RawType> {
   static void serialize(const Tuple& t, serialize_oarchive& oa) {
-    oa << std::get<I>(t);
+    std::get<I>(t) >> oa;
   }
 };
 
@@ -73,15 +73,15 @@ template <typename Tuple, std::size_t I>
 struct tuple_de_serialize_helper_impl<Tuple, I, tuple_serialize_type::Normal> {
   static void de_serialize(Tuple& t, serialize_iarchive& ia) {
     serialize_iarchive tmp;
-    ia >> tmp;
-    tmp >> std::get<I>(t);
+    tmp << ia;
+    std::get<I>(t) << tmp;
   }
 };
 
 template <typename Tuple, std::size_t I>
 struct tuple_de_serialize_helper_impl<Tuple, I, tuple_serialize_type::RawType> {
   static void de_serialize(Tuple& t, serialize_iarchive& ia) {
-    ia >> std::get<I>(t);
+    std::get<I>(t) << ia;
   }
 };
 
@@ -114,13 +114,13 @@ void tuple_de_serialize(std::tuple<Args...>& t, serialize_iarchive& ia) {
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_tuple<T>::value, int>::type>
-serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   detail::tuple_serialize(t, oa);
   return oa;
 }
 
 template <typename T, typename std::enable_if<detail::is_tuple<T>::value, int>::type>
-serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   detail::tuple_de_serialize(t, ia);
   return ia;
 }

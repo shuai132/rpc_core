@@ -19,9 +19,9 @@ struct is_set_like<std::unordered_set<Args...>> : std::true_type {};
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type = 0>
-serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t);
+serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa);
 
 template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type = 0>
-serialize_iarchive& operator>>(serialize_iarchive& ia, T& t);
+serialize_iarchive& operator<<(T& t, serialize_iarchive& ia);
 
 }  // namespace RPC_CORE_NAMESPACE

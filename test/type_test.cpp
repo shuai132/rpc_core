@@ -172,6 +172,18 @@ void TypeTest() {
     ASSERT(a.c2.id2 == b.c2.id2);
     ASSERT(a.c2.id3 == b.c2.id3);
   }
+  {
+    RPC_CORE_LOGI("custom type(inner)...");
+    test::CustomTypeNest2 a;
+    a.c2.id1 = 1;
+    a.c2.id2 = 2;
+    a.c2.id3 = 3;
+    test::CustomTypeNest2 b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a.c2.id1 == b.c2.id1);
+    ASSERT(a.c2.id2 == b.c2.id2);
+    ASSERT(a.c2.id3 == b.c2.id3);
+  }
 
   /// misc types
   {

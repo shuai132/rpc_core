@@ -6,7 +6,7 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_base_of<::flatbuffers::NativeTable, T>::value, int>::type = 0>
-serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   using TableType = typename T::TableType;
 
   flatbuffers::FlatBufferBuilder fbb(1024);
@@ -19,7 +19,7 @@ serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
 }
 
 template <typename T, typename std::enable_if<std::is_base_of<::flatbuffers::NativeTable, T>::value, int>::type = 0>
-serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   using TableType = typename T::TableType;
 
   flatbuffers::Verifier verifier((uint8_t*)ia.data, ia.size);

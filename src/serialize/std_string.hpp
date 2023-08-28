@@ -15,7 +15,7 @@ struct is_std_basic_string<std::basic_string<Args...>> : std::true_type {};
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_std_basic_string<T>::value, int>::type = 0>
-inline serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   oa.data.append(t);
   return oa;
 }
@@ -30,8 +30,8 @@ serialize_oarchive& operator<<(rpc_core::serialize_oarchive& oa, T&& t) {
   return oa;
 }
 
-template <typename T, typename std::enable_if<std::is_same<T, std::string>::value, int>::type = 0>
-inline serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+template <typename T, typename std::enable_if<detail::is_std_basic_string<T>::value, int>::type = 0>
+inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   t = std::string(ia.data, ia.size);
   return ia;
 }

@@ -7,13 +7,13 @@
 namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::value, int>::type = 0>
-serialize_oarchive& operator<<(serialize_oarchive& oa, const T& t) {
+serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   oa << t.dump();
   return oa;
 }
 
 template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::value, int>::type = 0>
-serialize_iarchive& operator>>(serialize_iarchive& ia, T& t) {
+serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   try {
     nlohmann::json::parse(ia.data, ia.data + ia.size).swap(t);
   } catch (std::exception& e) {

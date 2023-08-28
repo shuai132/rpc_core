@@ -13,14 +13,14 @@ struct serialize_oarchive : detail::noncopyable {
   std::string data;
 };
 
-inline serialize_oarchive& operator<<(serialize_oarchive& oa, const serialize_oarchive& t) {
+inline serialize_oarchive& operator>>(const serialize_oarchive& t, serialize_oarchive& oa) {
   uint32_t size = t.data.size();
   oa.data.append((char*)&size, sizeof(uint32_t));
   oa.data.append(t.data);
   return oa;
 }
 
-inline serialize_oarchive& operator<<(serialize_oarchive& oa, serialize_oarchive&& t) {
+inline serialize_oarchive& operator>>(serialize_oarchive&& t, serialize_oarchive& oa) {
   if (oa.data.empty()) {
     oa.data = std::move(t.data);
     return oa;
@@ -40,7 +40,7 @@ struct serialize_iarchive : detail::noncopyable {
   bool error = false;
 };
 
-inline serialize_iarchive& operator>>(serialize_iarchive& ia, serialize_iarchive& t) {
+inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive& ia) {
   uint32_t size = *(uint32_t*)ia.data;
   ia.data += sizeof(uint32_t);
   t.data = ia.data;
@@ -53,14 +53,14 @@ inline serialize_iarchive& operator>>(serialize_iarchive& ia, serialize_iarchive
 template <typename T>
 inline std::string serialize(const T& t) {
   serialize_oarchive ar;
-  ar << t;
+  t >> ar;
   return std::move(ar.data);
 }
 
 template <typename T>
 inline bool deserialize(const detail::string_view& data, T& t) {
   serialize_iarchive ar(data);
-  ar >> t;
+  t << ar;
   return !ar.error;
 }
 

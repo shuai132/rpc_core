@@ -41,4 +41,14 @@ struct CustomTypeNest {
   CustomTypeNest* ptr{};
 };
 RPC_CORE_DEFINE_TYPE(test::CustomTypeNest, c2, c3, ptr);
+
+// 内部定义
+struct CustomTypeNest2 {
+  // can be private
+  CustomType2 c2{};
+  CustomType3 c3{};
+  CustomTypeNest* ptr{};
+  RPC_CORE_DEFINE_TYPE_INNER(c2, c3, ptr);
+};
+
 }  // namespace test

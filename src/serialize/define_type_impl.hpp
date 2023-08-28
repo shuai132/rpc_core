@@ -4,22 +4,22 @@ namespace RPC_CORE_NAMESPACE {
 
 template <typename T, typename std::enable_if<std::is_fundamental<T>::value, int>::type>
 inline serialize_oarchive& operator&(serialize_oarchive& oa, const T& t) {
-  oa << t;
+  t >> oa;
   return oa;
 }
 
 template <typename T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type>
 inline serialize_oarchive& operator&(serialize_oarchive& oa, const T& t) {
   serialize_oarchive tmp;
-  tmp << t;
-  oa << tmp;
+  t >> tmp;
+  tmp >> oa;
   return oa;
 }
 
 template <class T, typename std::enable_if<std::is_fundamental<T>::value, int>::type>
 inline serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   if (ia.error) return ia;
-  ia >> t;
+  t << ia;
   return ia;
 }
 
@@ -30,7 +30,7 @@ serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   ia.data += sizeof(uint32_t);
 
   serialize_iarchive tmp(detail::string_view(ia.data, size));
-  tmp >> t;
+  t << tmp;
   ia.error = tmp.error;
 
   ia.data += size;
