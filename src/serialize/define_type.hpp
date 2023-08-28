@@ -162,4 +162,4 @@ serialize_iarchive& operator&(serialize_iarchive& ia, T& t);
   }                                                                                     \
   inline void operator>>(::RPC_CORE_NAMESPACE::serialize_iarchive& ar, Type& t) {       \
     RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__)       \
-  }\
+  }
