@@ -15,13 +15,13 @@
 #include "serialize/ptr_type.hpp"
 #include "serialize/raw_type.hpp"
 #include "serialize/std_array.hpp"
+#include "serialize/std_basic_string.hpp"
 #include "serialize/std_shared_ptr.hpp"
-#include "serialize/std_string.hpp"
 #include "serialize/std_unique_ptr.hpp"
 #include "serialize/void.hpp"
 
 // container interface
-#include "serialize/list_like.hpp"
+#include "serialize/std_list_like.hpp"
 #include "serialize/std_map.hpp"
 #include "serialize/std_pair.hpp"
 #include "serialize/std_set.hpp"
