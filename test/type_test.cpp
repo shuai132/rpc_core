@@ -110,6 +110,15 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::forward_list
+  {
+    RPC_CORE_LOGI("std::forward_list...");
+    std::forward_list<uint32_t> a{1, 2, 3};
+    std::forward_list<uint32_t> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// std::set
   {
     RPC_CORE_LOGI("std::set...");

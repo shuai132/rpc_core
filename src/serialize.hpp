@@ -18,6 +18,7 @@
 #include "serialize/std_basic_string.hpp"
 #include "serialize/std_chrono.hpp"
 #include "serialize/std_complex.hpp"
+#include "serialize/std_forward_list.hpp"
 #include "serialize/std_shared_ptr.hpp"
 #include "serialize/std_unique_ptr.hpp"
 #include "serialize/void.hpp"
