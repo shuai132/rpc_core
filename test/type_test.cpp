@@ -171,6 +171,33 @@ void TypeTest() {
     }
   }
 
+  /// std::complex
+  {
+    RPC_CORE_LOGI("std::complex...");
+    {
+      std::complex<float> a;
+      a.real(1.23f);
+      a.imag(3.21f);
+      std::complex<float> b;
+      SERIALIZE_AND_ASSERT(a, b);
+      ASSERT(a == b);
+    }
+    {
+      std::complex<CustomType> a;
+      {
+        CustomType t;
+        t.id = 1;
+        t.ids = {1, 2, 3};
+        t.name = "test";
+        a.real(t);
+        a.imag(t);
+      }
+      std::complex<CustomType> b;
+      SERIALIZE_AND_ASSERT(a, b);
+      ASSERT(a == b);
+    }
+  }
+
   /// custom class/struct
   {
     RPC_CORE_LOGI("custom type...");
