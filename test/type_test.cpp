@@ -1,3 +1,5 @@
+#include <codecvt>
+
 // include first
 #include "type/CustomType.h"
 
@@ -59,6 +61,15 @@ void TypeTest() {
     RPC_CORE_LOGI("std::string...");
     std::string a = "test";
     std::string b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(b == a);
+  }
+
+  /// std::wstring
+  {
+    RPC_CORE_LOGI("std::wstring...");
+    std::wstring a = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes("你好，世界！");
+    std::wstring b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(b == a);
   }
