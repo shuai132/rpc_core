@@ -198,6 +198,15 @@ void TypeTest() {
     }
   }
 
+  /// std::duration
+  {
+    RPC_CORE_LOGI("std::duration...");
+    std::chrono::seconds a(123);
+    std::chrono::seconds b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// custom class/struct
   {
     RPC_CORE_LOGI("custom type...");
