@@ -15,6 +15,17 @@ struct CustomType {
 };
 RPC_CORE_DEFINE_TYPE(CustomType, id, ids, name);
 
+// 指针
+struct CustomTypePtr {
+  int* int_n;
+  int* int_v;
+  std::unique_ptr<int> unique_ptr_n;
+  std::unique_ptr<int> unique_ptr_v;
+  std::shared_ptr<int> shared_ptr_n;
+  std::shared_ptr<int> shared_ptr_v;
+};
+RPC_CORE_DEFINE_TYPE(CustomTypePtr, int_n, int_v, unique_ptr_n, unique_ptr_v, shared_ptr_n, shared_ptr_v);
+
 #pragma pack(push, 1)
 struct CustomType2 {
   uint8_t id1{};

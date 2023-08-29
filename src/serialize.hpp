@@ -15,7 +15,9 @@
 #include "serialize/ptr_type.hpp"
 #include "serialize/raw_type.hpp"
 #include "serialize/std_array.hpp"
+#include "serialize/std_shared_ptr.hpp"
 #include "serialize/std_string.hpp"
+#include "serialize/std_unique_ptr.hpp"
 #include "serialize/void.hpp"
 
 // container interface

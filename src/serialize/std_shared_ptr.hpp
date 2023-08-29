@@ -1,0 +1,40 @@
+#pragma once
+
+#include <memory>
+
+namespace RPC_CORE_NAMESPACE {
+
+namespace detail {
+
+template <typename T>
+struct is_std_shared_ptr : std::false_type {};
+
+template <typename... Args>
+struct is_std_shared_ptr<std::shared_ptr<Args...>> : std::true_type {};
+
+}  // namespace detail
+
+template <typename T, typename std::enable_if<detail::is_std_shared_ptr<T>::value, int>::type = 0>
+inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
+  if (t != nullptr) {
+    true >> oa;
+    *t >> oa;
+  } else {
+    false >> oa;
+  }
+  return oa;
+}
+
+template <typename T, typename std::enable_if<detail::is_std_shared_ptr<T>::value, int>::type = 0>
+inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
+  bool notnull;
+  notnull << ia;
+  if (notnull) {
+    using Type = typename T::element_type;
+    t = std::make_shared<Type>();
+    *t << ia;
+  }
+  return ia;
+}
+
+}  // namespace RPC_CORE_NAMESPACE

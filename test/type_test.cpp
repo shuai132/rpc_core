@@ -137,6 +137,40 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::shared_ptr
+  {
+    RPC_CORE_LOGI("std::shared_ptr...");
+    {
+      std::shared_ptr<std::string> a = std::make_shared<std::string>("test");
+      std::shared_ptr<std::string> b;
+      SERIALIZE_AND_ASSERT(a, b);
+      ASSERT(*a == *b);
+    }
+    {
+      std::shared_ptr<std::string> a = nullptr;
+      std::shared_ptr<std::string> b;
+      SERIALIZE_AND_ASSERT(a, b);
+      ASSERT(a == b);
+    }
+  }
+
+  /// std::unique_ptr
+  {
+    RPC_CORE_LOGI("std::unique_ptr...");
+    {
+      std::unique_ptr<std::string> a = std::unique_ptr<std::string>(new std::string("test"));
+      std::unique_ptr<std::string> b;
+      SERIALIZE_AND_ASSERT(a, b);
+      ASSERT(*a == *b);
+    }
+    {
+      std::unique_ptr<std::string> a = nullptr;
+      std::unique_ptr<std::string> b;
+      SERIALIZE_AND_ASSERT(a, b);
+      ASSERT(a == b);
+    }
+  }
+
   /// custom class/struct
   {
     RPC_CORE_LOGI("custom type...");
@@ -148,6 +182,26 @@ void TypeTest() {
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
+
+  {
+    RPC_CORE_LOGI("custom ptr...");
+    CustomTypePtr a;
+    a.int_n = nullptr;
+    a.int_v = (int*)1;
+    a.unique_ptr_n = nullptr;
+    a.unique_ptr_v = std::unique_ptr<int>(new int(1));
+    a.shared_ptr_n = nullptr;
+    a.shared_ptr_v = std::make_shared<int>(1);
+    CustomTypePtr b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(b.int_n == nullptr);
+    ASSERT(b.int_v == (int*)1);
+    ASSERT(b.unique_ptr_n == nullptr);
+    ASSERT(*b.unique_ptr_v == 1);
+    ASSERT(b.shared_ptr_n == nullptr);
+    ASSERT(*b.shared_ptr_v == 1);
+  }
+
   {
     RPC_CORE_LOGI("custom type(different alignas)...");
     CustomType2 a;
