@@ -16,6 +16,12 @@ struct is_set_like<std::set<Args...>> : std::true_type {};
 template <typename... Args>
 struct is_set_like<std::unordered_set<Args...>> : std::true_type {};
 
+template <typename... Args>
+struct is_set_like<std::multiset<Args...>> : std::true_type {};
+
+template <typename... Args>
+struct is_set_like<std::unordered_multiset<Args...>> : std::true_type {};
+
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_set_like<T>::value, int>::type = 0>

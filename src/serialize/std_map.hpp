@@ -16,6 +16,12 @@ struct is_map_like<std::map<Args...>> : std::true_type {};
 template <typename... Args>
 struct is_map_like<std::unordered_map<Args...>> : std::true_type {};
 
+template <typename... Args>
+struct is_map_like<std::multimap<Args...>> : std::true_type {};
+
+template <typename... Args>
+struct is_map_like<std::unordered_multimap<Args...>> : std::true_type {};
+
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_map_like<T>::value, int>::type = 0>

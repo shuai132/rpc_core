@@ -128,6 +128,24 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::multiset
+  {
+    RPC_CORE_LOGI("std::multiset...");
+    std::multiset<uint32_t> a{1, 2, 3};
+    std::multiset<uint32_t> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
+  /// std::unordered_multiset
+  {
+    RPC_CORE_LOGI("std::unordered_multiset...");
+    std::unordered_multiset<uint32_t> a{1, 2, 3};
+    std::unordered_multiset<uint32_t> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// std::map
   {
     RPC_CORE_LOGI("std::map...");
@@ -142,6 +160,24 @@ void TypeTest() {
     RPC_CORE_LOGI("std::unordered_map...");
     std::unordered_map<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
     std::unordered_map<std::string, std::string> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
+  /// std::multimap
+  {
+    RPC_CORE_LOGI("std::multimap...");
+    std::multimap<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
+    std::multimap<std::string, std::string> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
+  /// std::unordered_multimap
+  {
+    RPC_CORE_LOGI("std::unordered_multimap...");
+    std::unordered_multimap<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
+    std::unordered_multimap<std::string, std::string> b;
     SERIALIZE_AND_ASSERT(a, b);
     ASSERT(a == b);
   }
