@@ -207,6 +207,15 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::time_point
+  {
+    RPC_CORE_LOGI("std::time_point...");
+    std::chrono::time_point<std::chrono::steady_clock> a = std::chrono::steady_clock::now();
+    std::chrono::time_point<std::chrono::steady_clock> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// custom class/struct
   {
     RPC_CORE_LOGI("custom type...");
