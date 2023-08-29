@@ -121,6 +121,16 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std::bitset
+  {
+    RPC_CORE_LOGI("std::bitset...");
+    std::bitset<8> a;
+    a.set();
+    std::bitset<8> b;
+    SERIALIZE_AND_ASSERT(a, b);
+    ASSERT(a == b);
+  }
+
   /// std::forward_list
   {
     RPC_CORE_LOGI("std::forward_list...");

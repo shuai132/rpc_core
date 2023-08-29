@@ -16,6 +16,7 @@
 #include "serialize/raw_type.hpp"
 #include "serialize/std_array.hpp"
 #include "serialize/std_basic_string.hpp"
+#include "serialize/std_bitset.hpp"
 #include "serialize/std_chrono.hpp"
 #include "serialize/std_complex.hpp"
 #include "serialize/std_forward_list.hpp"
