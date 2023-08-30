@@ -26,6 +26,7 @@ serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   bool ok = verifier.VerifyBuffer<TableType>();
   if (!ok) {
     ia.error = true;
+    return ia;
   }
   flatbuffers::GetRoot<TableType>(ia.data)->UnPackTo(&t);
   return ia;

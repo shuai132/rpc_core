@@ -12,7 +12,7 @@ namespace rpc_core_test {
 template <typename T, typename R>
 void serialize_test(const T& a, R& b) {
   std::string data = RPC_CORE_NAMESPACE::serialize(a);
-  RPC_CORE_LOGD("size: %zu", data.size());
+  RPC_CORE_LOGI("  size: %zu", data.size());
   bool ret = RPC_CORE_NAMESPACE::deserialize(data, b);
   ASSERT(ret);
 }
@@ -24,11 +24,7 @@ void raw_type_test() {
   T b;
   serialize_test(a, b);
   auto ok = (0 == memcmp(&a, &b, sizeof(T)));  // NOLINT
-  if (ok) {
-    RPC_CORE_LOGI("  => ok! ");
-  } else {
-    RPC_CORE_LOGE("  => type will lose precision... ");
-  }
+  ASSERT(ok);
 }
 
 #define RAW_TYPE_TEST(t)       \
