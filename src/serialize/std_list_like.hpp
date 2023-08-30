@@ -2,7 +2,6 @@
 
 #include <deque>
 #include <list>
-#include <queue>
 #include <vector>
 
 namespace RPC_CORE_NAMESPACE {

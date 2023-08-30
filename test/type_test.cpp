@@ -130,6 +130,42 @@ void TypeTest() {
     ASSERT(a == b);
   }
 
+  /// std container adaptors
+  {
+    RPC_CORE_LOGI("std::stack...");
+    std::stack<uint32_t> a;
+    a.push(1);
+    a.push(2);
+    a.push(3);
+    std::stack<uint32_t> b;
+    serialize_test(a, b);
+    ASSERT(a == b);
+  }
+  {
+    RPC_CORE_LOGI("std::queue...");
+    std::queue<uint32_t> a;
+    a.push(1);
+    a.push(2);
+    a.push(3);
+    std::queue<uint32_t> b;
+    serialize_test(a, b);
+    ASSERT(a == b);
+  }
+  {
+    RPC_CORE_LOGI("std::priority_queue...");
+    std::priority_queue<uint32_t> a;
+    a.push(1);
+    a.push(2);
+    a.push(3);
+    std::priority_queue<uint32_t> b;
+    serialize_test(a, b);
+    for (int i = 0; i < a.size(); ++i) {
+      ASSERT(a.top() == b.top());
+      a.pop();
+      b.pop();
+    }
+  }
+
   /// std::bitset
   {
     RPC_CORE_LOGI("std::bitset...");
