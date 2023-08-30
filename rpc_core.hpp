@@ -8,4 +8,3 @@
 #include "src/dispose.hpp"
 #include "src/request.hpp"
 #include "src/rpc.hpp"
-#include "src/serialize_impl.hpp"
