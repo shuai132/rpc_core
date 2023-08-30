@@ -9,10 +9,13 @@
 
 namespace rpc_core_test {
 
+static size_t last_serialize_size = 0;
+
 template <typename T, typename R>
 void serialize_test(const T& a, R& b) {
   std::string data = RPC_CORE_NAMESPACE::serialize(a);
-  RPC_CORE_LOGI("  size: %zu", data.size());
+  last_serialize_size = data.size();
+  RPC_CORE_LOGI("  size: %zu", last_serialize_size);
   bool ret = RPC_CORE_NAMESPACE::deserialize(data, b);
   ASSERT(ret);
 }
@@ -31,6 +34,8 @@ void raw_type_test() {
   RPC_CORE_LOGI("  <" #t ">"); \
   raw_type_test<t>();
 
+#define ASSERT_SERIALIZE_SIZE(x) ASSERT(last_serialize_size == x)
+
 static bool is_little_endian() {
   int x = 1;
   return *(char*)&x != 0;
@@ -43,17 +48,29 @@ void TypeTest() {
   {
     RPC_CORE_LOGI("raw type test...");
     RAW_TYPE_TEST(char);
+    ASSERT_SERIALIZE_SIZE(1);
     RAW_TYPE_TEST(signed char);
+    ASSERT_SERIALIZE_SIZE(1);
     RAW_TYPE_TEST(unsigned char);
+    ASSERT_SERIALIZE_SIZE(1);
     RAW_TYPE_TEST(int);
+    ASSERT_SERIALIZE_SIZE(4);
     RAW_TYPE_TEST(unsigned int);
+    ASSERT_SERIALIZE_SIZE(4);
     RAW_TYPE_TEST(long int);
+    ASSERT_SERIALIZE_SIZE(8);
     RAW_TYPE_TEST(unsigned long int);
+    ASSERT_SERIALIZE_SIZE(8);
     RAW_TYPE_TEST(long long int);
+    ASSERT_SERIALIZE_SIZE(8);
     RAW_TYPE_TEST(unsigned long long int);
+    ASSERT_SERIALIZE_SIZE(8);
     RAW_TYPE_TEST(float);
+    ASSERT_SERIALIZE_SIZE(4);
     RAW_TYPE_TEST(double);
+    ASSERT_SERIALIZE_SIZE(8);
     RAW_TYPE_TEST(long double);
+    ASSERT_SERIALIZE_SIZE(16);
   }
 
   /// std::array
@@ -63,6 +80,7 @@ void TypeTest() {
     std::array<uint32_t, 3> b{};
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(16);
   }
 
   /// std::string
@@ -72,6 +90,7 @@ void TypeTest() {
     std::string b;
     serialize_test(a, b);
     ASSERT(b == a);
+    ASSERT_SERIALIZE_SIZE(a.size());
   }
 
   /// std::wstring
@@ -81,6 +100,7 @@ void TypeTest() {
     std::wstring b;
     serialize_test(a, b);
     ASSERT(b == a);
+    ASSERT_SERIALIZE_SIZE(a.size() * sizeof(wchar_t));
   }
 
   /// std::tuple
@@ -96,6 +116,7 @@ void TypeTest() {
     ASSERT(std::get<1>(b) == msg2);
     ASSERT(std::get<2>(b) == msg3);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE((1) + (4) + (4 + msg3.size()));
   }
 
   /// std::pair
@@ -105,6 +126,7 @@ void TypeTest() {
     std::pair<std::string, std::string> b;
     serialize_test(a, b);
     ASSERT(b == a);
+    ASSERT_SERIALIZE_SIZE((4 + 3) * 2);
   }
 
   /// list_like type
@@ -114,6 +136,7 @@ void TypeTest() {
     std::vector<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
   {
     RPC_CORE_LOGI("std::list...");
@@ -128,6 +151,7 @@ void TypeTest() {
     std::deque<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
 
   /// std container adaptors
@@ -140,6 +164,7 @@ void TypeTest() {
     std::stack<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
   {
     RPC_CORE_LOGI("std::queue...");
@@ -150,6 +175,7 @@ void TypeTest() {
     std::queue<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
   {
     RPC_CORE_LOGI("std::priority_queue...");
@@ -159,11 +185,12 @@ void TypeTest() {
     a.push(3);
     std::priority_queue<uint32_t> b;
     serialize_test(a, b);
-    for (int i = 0; i < a.size(); ++i) {
+    for (uint32_t i = 0; i < a.size(); ++i) {
       ASSERT(a.top() == b.top());
       a.pop();
       b.pop();
     }
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
 
   /// std::bitset
@@ -174,6 +201,7 @@ void TypeTest() {
     std::bitset<8> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(8);
   }
 
   /// std::forward_list
@@ -183,6 +211,7 @@ void TypeTest() {
     std::forward_list<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
 
   /// std::set
@@ -192,6 +221,7 @@ void TypeTest() {
     std::set<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
 
   /// std::multiset
@@ -201,6 +231,7 @@ void TypeTest() {
     std::multiset<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
 
   /// std::unordered_multiset
@@ -210,6 +241,7 @@ void TypeTest() {
     std::unordered_multiset<uint32_t> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + 4 * 3);
   }
 
   /// std::map
@@ -219,6 +251,7 @@ void TypeTest() {
     std::map<std::string, std::string> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + (4 /*std::pair*/ + (4 + 3) * 2) * 3);
   }
 
   /// std::unordered_map
@@ -228,6 +261,7 @@ void TypeTest() {
     std::unordered_map<std::string, std::string> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + (4 /*std::pair*/ + (4 + 3) * 2) * 3);
   }
 
   /// std::multimap
@@ -237,6 +271,7 @@ void TypeTest() {
     std::multimap<std::string, std::string> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + (4 /*std::pair*/ + (4 + 3) * 2) * 3);
   }
 
   /// std::unordered_multimap
@@ -246,6 +281,7 @@ void TypeTest() {
     std::unordered_multimap<std::string, std::string> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*size*/ + (4 /*std::pair*/ + (4 + 3) * 2) * 3);
   }
 
   /// std::shared_ptr
@@ -256,12 +292,14 @@ void TypeTest() {
       std::shared_ptr<std::string> b;
       serialize_test(a, b);
       ASSERT(*a == *b);
+      ASSERT_SERIALIZE_SIZE(1 /*flag*/ + a->size());
     }
     {
       std::shared_ptr<std::string> a = nullptr;
       std::shared_ptr<std::string> b;
       serialize_test(a, b);
       ASSERT(a == b);
+      ASSERT_SERIALIZE_SIZE(1 /*flag*/);
     }
   }
 
@@ -273,12 +311,14 @@ void TypeTest() {
       std::unique_ptr<std::string> b;
       serialize_test(a, b);
       ASSERT(*a == *b);
+      ASSERT_SERIALIZE_SIZE(1 /*flag*/ + a->size());
     }
     {
       std::unique_ptr<std::string> a = nullptr;
       std::unique_ptr<std::string> b;
       serialize_test(a, b);
       ASSERT(a == b);
+      ASSERT_SERIALIZE_SIZE(1 /*flag*/);
     }
   }
 
@@ -292,6 +332,7 @@ void TypeTest() {
       std::complex<float> b;
       serialize_test(a, b);
       ASSERT(a == b);
+      ASSERT_SERIALIZE_SIZE(4 /*float*/ * 2);
     }
     {
       std::complex<CustomType> a;
@@ -306,7 +347,10 @@ void TypeTest() {
       std::complex<CustomType> b;
       serialize_test(a, b);
       ASSERT(a == b);
+      ASSERT_SERIALIZE_SIZE(72);
     }
+    static_assert(std::is_fundamental<uint32_t>::value, "");
+    static_assert(sizeof(uint32_t) == 4, "");
   }
 
   /// std::duration
@@ -316,6 +360,7 @@ void TypeTest() {
     std::chrono::seconds b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(8);
   }
 
   /// std::time_point
@@ -325,6 +370,7 @@ void TypeTest() {
     std::chrono::time_point<std::chrono::steady_clock> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(8);
   }
 
   /// custom class/struct
@@ -337,6 +383,7 @@ void TypeTest() {
     CustomType b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(32);
   }
 
   {
@@ -356,6 +403,7 @@ void TypeTest() {
     ASSERT(*b.unique_ptr_v == 1);
     ASSERT(b.shared_ptr_n == nullptr);
     ASSERT(*b.shared_ptr_v == 1);
+    ASSERT_SERIALIZE_SIZE(52);
   }
 
   {
@@ -369,6 +417,7 @@ void TypeTest() {
     ASSERT(a.id1 == b.id1);
     ASSERT(a.id2 == b.id2);
     ASSERT(a.id3 == b.id3);
+    ASSERT_SERIALIZE_SIZE(6);
   }
   {
     RPC_CORE_LOGI("custom type(nest define)...");
@@ -381,6 +430,7 @@ void TypeTest() {
     ASSERT(a.c2.id1 == b.c2.id1);
     ASSERT(a.c2.id2 == b.c2.id2);
     ASSERT(a.c2.id3 == b.c2.id3);
+    ASSERT_SERIALIZE_SIZE(32);
   }
   {
     RPC_CORE_LOGI("custom type(inner)...");
@@ -393,6 +443,7 @@ void TypeTest() {
     ASSERT(a.c2.id1 == b.c2.id1);
     ASSERT(a.c2.id2 == b.c2.id2);
     ASSERT(a.c2.id3 == b.c2.id3);
+    ASSERT_SERIALIZE_SIZE(32);
   }
 
   /// misc types
@@ -406,6 +457,7 @@ void TypeTest() {
     std::tuple<bool, std::vector<std::tuple<uint32_t>>, std::string, CustomType> b;
     serialize_test(a, b);
     ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(69);
   }
 }
 
