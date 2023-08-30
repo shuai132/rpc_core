@@ -4,6 +4,7 @@ project(rpc_core CXX)
 
 option(RPC_CORE_BUILD_TEST "" OFF)
 option(RPC_CORE_TEST_PLUGIN "" OFF)
+option(RPC_CORE_TEST_LINK_PTHREAD "" OFF)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(RPC_CORE_BUILD_TEST ON)
@@ -25,7 +26,11 @@ if (RPC_CORE_BUILD_TEST)
     set(TARGET_NAME ${PROJECT_NAME}_test)
     file(GLOB SRCS test/main.cpp test/rpc_test.cpp test/type_test.cpp)
     add_executable(${TARGET_NAME})
-    target_link_libraries(${TARGET_NAME} ${PROJECT_NAME})
+    if (RPC_CORE_TEST_LINK_PTHREAD)
+        # some linux platform need link -pthread for std::future api
+        set(LIBRARIES -pthread)
+    endif ()
+    target_link_libraries(${TARGET_NAME} ${PROJECT_NAME} ${LIBRARIES})
     target_compile_definitions(${TARGET_NAME} PRIVATE ${EXAMPLE_COMPILE_DEFINE})
 
     if (RPC_CORE_TEST_PLUGIN)

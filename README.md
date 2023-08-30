@@ -2,7 +2,8 @@
 
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/build/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=build)
 
-a tiny rpc library, support all platforms, even microchips.
+a tiny c++11 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
+Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
 

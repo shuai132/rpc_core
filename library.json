@@ -1,6 +1,6 @@
 {
   "name": "rpc_core",
-  "description": "rpc core library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (Arduino, STM32, ESP32/ESP8266, etc.)",
+  "description": "a tiny c++11 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (Arduino, STM32, ESP32/ESP8266, etc.)",
   "keywords": "rpc",
   "authors": {
     "name": "shuai132",
