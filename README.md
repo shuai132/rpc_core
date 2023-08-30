@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/build/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=build)
 
-a tiny rpc library, support all platform, even microchips.
+a tiny rpc library, support all platforms, even microchips.
 
 ## Introduction
 

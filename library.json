@@ -1,6 +1,6 @@
 {
   "name": "rpc_core",
-  "description": "rpc core library, designed for IOT, support most microchip(Arduino、STM32、ESP32/ESP8266...)",
+  "description": "rpc core library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (Arduino, STM32, ESP32/ESP8266, etc.)",
   "keywords": "rpc",
   "authors": {
     "name": "shuai132",
@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/shuai132/rpc_core.git"
   },
-  "version": "1.1.0",
+  "version": "2.0.0",
   "build": {
     "srcDir": "_",
     "flags": [

@@ -7,21 +7,27 @@
 #include "assert_def.h"
 #include "rpc_core.hpp"
 
-#define SERIALIZE_AND_ASSERT(a, b) ASSERT(RPC_CORE_NAMESPACE::deserialize(RPC_CORE_NAMESPACE::serialize(a), b))
-
 namespace rpc_core_test {
+
+template <typename T, typename R>
+void serialize_test(const T& a, R& b) {
+  std::string data = RPC_CORE_NAMESPACE::serialize(a);
+  RPC_CORE_LOGD("size: %zu", data.size());
+  bool ret = RPC_CORE_NAMESPACE::deserialize(data, b);
+  ASSERT(ret);
+}
 
 template <typename T>
 void raw_type_test() {
   T a;
   memset(&a, 0xFF, sizeof(T));
   T b;
-  SERIALIZE_AND_ASSERT(a, b);
+  serialize_test(a, b);
   auto ok = (0 == memcmp(&a, &b, sizeof(T)));  // NOLINT
   if (ok) {
     RPC_CORE_LOGI("  => ok! ");
   } else {
-    RPC_CORE_LOGI("  => type will lose precision... ");
+    RPC_CORE_LOGE("  => type will lose precision... ");
   }
 }
 
@@ -29,7 +35,14 @@ void raw_type_test() {
   RPC_CORE_LOGI("  <" #t ">"); \
   raw_type_test<t>();
 
+static bool is_little_endian() {
+  int x = 1;
+  return *(char*)&x != 0;
+}
+
 void TypeTest() {
+  ASSERT(is_little_endian());
+
   /// raw type
   {
     RPC_CORE_LOGI("raw type test...");
@@ -52,7 +65,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::array...");
     std::array<uint32_t, 3> a{1, 2, 3};
     std::array<uint32_t, 3> b{};
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -61,7 +74,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::string...");
     std::string a = "test";
     std::string b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(b == a);
   }
 
@@ -70,7 +83,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::wstring...");
     std::wstring a = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes("你好，世界！");
     std::wstring b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(b == a);
   }
 
@@ -82,7 +95,7 @@ void TypeTest() {
     std::string msg3 = "test";
     std::tuple<bool, uint32_t, std::string> a(msg1, msg2, msg3);
     std::tuple<bool, uint32_t, std::string> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(std::get<0>(b) == msg1);
     ASSERT(std::get<1>(b) == msg2);
     ASSERT(std::get<2>(b) == msg3);
@@ -94,7 +107,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::pair...");
     std::pair<std::string, std::string> a{"k:1", "v:1"};
     std::pair<std::string, std::string> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(b == a);
   }
 
@@ -103,21 +116,21 @@ void TypeTest() {
     RPC_CORE_LOGI("std::vector...");
     std::vector<uint32_t> a{1, 2, 3};
     std::vector<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
   {
     RPC_CORE_LOGI("std::list...");
     std::list<uint32_t> a{1, 2, 3};
     std::list<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
   {
     RPC_CORE_LOGI("std::deque...");
     std::deque<uint32_t> a{1, 2, 3};
     std::deque<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -127,7 +140,7 @@ void TypeTest() {
     std::bitset<8> a;
     a.set();
     std::bitset<8> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -136,7 +149,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::forward_list...");
     std::forward_list<uint32_t> a{1, 2, 3};
     std::forward_list<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -145,7 +158,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::set...");
     std::set<uint32_t> a{1, 2, 3};
     std::set<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -154,7 +167,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::multiset...");
     std::multiset<uint32_t> a{1, 2, 3};
     std::multiset<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -163,7 +176,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::unordered_multiset...");
     std::unordered_multiset<uint32_t> a{1, 2, 3};
     std::unordered_multiset<uint32_t> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -172,7 +185,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::map...");
     std::map<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
     std::map<std::string, std::string> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -181,7 +194,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::unordered_map...");
     std::unordered_map<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
     std::unordered_map<std::string, std::string> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -190,7 +203,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::multimap...");
     std::multimap<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
     std::multimap<std::string, std::string> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -199,7 +212,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::unordered_multimap...");
     std::unordered_multimap<std::string, std::string> a{{"k:1", "v:1"}, {"k:2", "v:2"}, {"k:3", "v:3"}};
     std::unordered_multimap<std::string, std::string> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -209,13 +222,13 @@ void TypeTest() {
     {
       std::shared_ptr<std::string> a = std::make_shared<std::string>("test");
       std::shared_ptr<std::string> b;
-      SERIALIZE_AND_ASSERT(a, b);
+      serialize_test(a, b);
       ASSERT(*a == *b);
     }
     {
       std::shared_ptr<std::string> a = nullptr;
       std::shared_ptr<std::string> b;
-      SERIALIZE_AND_ASSERT(a, b);
+      serialize_test(a, b);
       ASSERT(a == b);
     }
   }
@@ -226,13 +239,13 @@ void TypeTest() {
     {
       std::unique_ptr<std::string> a = std::unique_ptr<std::string>(new std::string("test"));
       std::unique_ptr<std::string> b;
-      SERIALIZE_AND_ASSERT(a, b);
+      serialize_test(a, b);
       ASSERT(*a == *b);
     }
     {
       std::unique_ptr<std::string> a = nullptr;
       std::unique_ptr<std::string> b;
-      SERIALIZE_AND_ASSERT(a, b);
+      serialize_test(a, b);
       ASSERT(a == b);
     }
   }
@@ -245,7 +258,7 @@ void TypeTest() {
       a.real(1.23f);
       a.imag(3.21f);
       std::complex<float> b;
-      SERIALIZE_AND_ASSERT(a, b);
+      serialize_test(a, b);
       ASSERT(a == b);
     }
     {
@@ -259,7 +272,7 @@ void TypeTest() {
         a.imag(t);
       }
       std::complex<CustomType> b;
-      SERIALIZE_AND_ASSERT(a, b);
+      serialize_test(a, b);
       ASSERT(a == b);
     }
   }
@@ -269,7 +282,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::duration...");
     std::chrono::seconds a(123);
     std::chrono::seconds b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -278,7 +291,7 @@ void TypeTest() {
     RPC_CORE_LOGI("std::time_point...");
     std::chrono::time_point<std::chrono::steady_clock> a = std::chrono::steady_clock::now();
     std::chrono::time_point<std::chrono::steady_clock> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -290,7 +303,7 @@ void TypeTest() {
     a.ids = {1, 2, 3};
     a.name = "test";
     CustomType b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 
@@ -304,7 +317,7 @@ void TypeTest() {
     a.shared_ptr_n = nullptr;
     a.shared_ptr_v = std::make_shared<int>(1);
     CustomTypePtr b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(b.int_n == nullptr);
     ASSERT(b.int_v == (int*)1);
     ASSERT(b.unique_ptr_n == nullptr);
@@ -320,7 +333,7 @@ void TypeTest() {
     a.id2 = 2;
     a.id3 = 3;
     CustomType3 b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a.id1 == b.id1);
     ASSERT(a.id2 == b.id2);
     ASSERT(a.id3 == b.id3);
@@ -332,7 +345,7 @@ void TypeTest() {
     a.c2.id2 = 2;
     a.c2.id3 = 3;
     test::CustomTypeNest b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a.c2.id1 == b.c2.id1);
     ASSERT(a.c2.id2 == b.c2.id2);
     ASSERT(a.c2.id3 == b.c2.id3);
@@ -344,7 +357,7 @@ void TypeTest() {
     a.c2.id2 = 2;
     a.c2.id3 = 3;
     test::CustomTypeNest2 b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a.c2.id1 == b.c2.id1);
     ASSERT(a.c2.id2 == b.c2.id2);
     ASSERT(a.c2.id3 == b.c2.id3);
@@ -359,7 +372,7 @@ void TypeTest() {
     customType.name = "test";
     std::tuple<bool, std::vector<std::tuple<uint32_t>>, std::string, CustomType> a{true, {{1}, {2}}, "test", customType};
     std::tuple<bool, std::vector<std::tuple<uint32_t>>, std::string, CustomType> b;
-    SERIALIZE_AND_ASSERT(a, b);
+    serialize_test(a, b);
     ASSERT(a == b);
   }
 }
