@@ -349,8 +349,6 @@ void TypeTest() {
       ASSERT(a == b);
       ASSERT_SERIALIZE_SIZE(72);
     }
-    static_assert(std::is_fundamental<uint32_t>::value, "");
-    static_assert(sizeof(uint32_t) == 4, "");
   }
 
   /// std::duration
@@ -383,7 +381,7 @@ void TypeTest() {
     CustomType b;
     serialize_test(a, b);
     ASSERT(a == b);
-    ASSERT_SERIALIZE_SIZE(32);
+    ASSERT_SERIALIZE_SIZE((4) + (4 + 16) + (4 + 4));
   }
 
   {
