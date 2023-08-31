@@ -5,6 +5,7 @@
 // RPC_CORE_LOG_LINE_END_CRLF        默认是\n结尾 添加此宏将以\r\n结尾
 // RPC_CORE_LOG_FOR_MCU              更适用于MCU环境
 // RPC_CORE_LOG_NOT_EXIT_ON_FATAL    FATAL默认退出程序 添加此宏将不退出
+// RPC_CORE_LOG_DISABLE_ALL          关闭所有日志
 //
 // c++11环境默认打开以下内容
 // RPC_CORE_LOG_ENABLE_THREAD_SAFE   线程安全
@@ -37,6 +38,19 @@
 
 // 在库中使用时需取消注释
 #define RPC_CORE_LOG_IN_LIB
+
+#ifdef RPC_CORE_LOG_DISABLE_ALL
+
+#define RPC_CORE_LOG(fmt, ...)           ((void)0)
+#define RPC_CORE_LOGT(tag, fmt, ...)     ((void)0)
+#define RPC_CORE_LOGI(fmt, ...)          ((void)0)
+#define RPC_CORE_LOGW(fmt, ...)          ((void)0)
+#define RPC_CORE_LOGE(fmt, ...)          ((void)0)
+#define RPC_CORE_LOGF(fmt, ...)          ((void)0)
+#define RPC_CORE_LOGD(fmt, ...)          ((void)0)
+#define RPC_CORE_LOGV(fmt, ...)          ((void)0)
+
+#else
 
 #ifdef __cplusplus
 #include <cstring>
@@ -129,7 +143,10 @@
 #include <mutex>
 struct RPC_CORE_LOG_Mutex {
 static std::mutex& mutex() {
-static std::mutex mutex;
+// 1. never delete, avoid destroy before user log
+// 2. static memory, avoid memory fragmentation
+static char memory[sizeof(std::mutex)];
+static std::mutex& mutex = *(new (memory) std::mutex());
 return mutex;
 }
 };
@@ -204,4 +221,6 @@ return ss.str();
 #define RPC_CORE_LOGV(fmt, ...)          do{ RPC_CORE_LOG_PRINTF_IMPL(RPC_CORE_LOG_COLOR_DEFAULT RPC_CORE_LOG_TIME_LABEL RPC_CORE_LOG_THREAD_LABEL "[V]: %s:%d "       fmt RPC_CORE_LOG_END RPC_CORE_LOG_TIME_VALUE RPC_CORE_LOG_THREAD_VALUE, RPC_CORE_LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
 #else
 #define RPC_CORE_LOGV(fmt, ...)          ((void)0)
+#endif
+
 #endif
