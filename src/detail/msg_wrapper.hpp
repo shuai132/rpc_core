@@ -12,11 +12,11 @@ namespace detail {
 
 struct msg_wrapper : copyable {  // NOLINT
   enum msg_type : uint8_t {
-    COMMAND = 1 << 0,
-    RESPONSE = 1 << 1,
-    NEED_RSP = 1 << 2,
-    PING = 1 << 3,
-    PONG = 1 << 4,
+    command = 1 << 0,
+    response = 1 << 1,
+    need_rsp = 1 << 2,
+    ping = 1 << 3,
+    pong = 1 << 4,
   };
 
   seq_type seq;
@@ -31,7 +31,7 @@ struct msg_wrapper : copyable {  // NOLINT
   }
 
   template <typename T>
-  std::pair<bool, T> unpackAs() const {
+  std::pair<bool, T> unpack_as() const {
     T message;
     bool ok = deserialize(data, message);
     if (not ok) {
@@ -42,7 +42,7 @@ struct msg_wrapper : copyable {  // NOLINT
 
   static msg_wrapper make_cmd(cmd_type cmd, seq_type seq, bool is_ping, bool need_rsp, std::string data) {
     msg_wrapper msg;
-    msg.type = static_cast<msg_type>(msg_wrapper::COMMAND | (is_ping ? msg_wrapper::PING : 0) | (need_rsp ? msg_wrapper::NEED_RSP : 0));
+    msg.type = static_cast<msg_type>(msg_wrapper::command | (is_ping ? msg_wrapper::ping : 0) | (need_rsp ? msg_wrapper::need_rsp : 0));
     msg.cmd = std::move(cmd);
     msg.seq = seq;
     msg.data = std::move(data);
@@ -52,7 +52,7 @@ struct msg_wrapper : copyable {  // NOLINT
   template <typename T>
   static std::pair<bool, msg_wrapper> make_rsp(seq_type seq, T* t = nullptr, bool success = true) {
     msg_wrapper msg;
-    msg.type = msg_wrapper::RESPONSE;
+    msg.type = msg_wrapper::response;
     msg.seq = seq;
     if (success && t != nullptr) {
       msg.data = serialize(*t);

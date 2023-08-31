@@ -52,7 +52,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   }
 
   inline void unsubscribe(const cmd_type& cmd) {
-    dispatcher_.unsubscribeCmd(cmd);
+    dispatcher_.unsubscribe_cmd(cmd);
   }
 
  public:
@@ -76,7 +76,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   void send_request(const request_s& request) override {
     const bool need_rsp = request->need_rsp();
     if (need_rsp) {
-      dispatcher_.subscribeRsp(request->seq(), request->rsp_handle(), request->timeoutCb_, request->timeout_ms(), request->is_ping_);
+      dispatcher_.subscribe_rsp(request->seq(), request->rsp_handle(), request->timeoutCb_, request->timeout_ms(), request->is_ping_);
     }
     auto msg = detail::msg_wrapper::make_cmd(request->cmd(), request->seq(), request->is_ping_, need_rsp, request->payload());
     conn_->send_package_impl(detail::coder::serialize(msg));
@@ -89,11 +89,11 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   template <typename F>
   struct subscribe_helper<F, false, false> {
     void operator()(const cmd_type& cmd, RPC_CORE_MOVE_PARAM(F) handle, detail::msg_dispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
+      dispatcher->subscribe_cmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
         using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
         using F_Return = detail::remove_cvref_t<typename detail::callable_traits<F>::return_type>;
 
-        auto r = msg.unpackAs<F_Param>();
+        auto r = msg.unpack_as<F_Param>();
         F_Return ret;
         if (r.first) {
           ret = handle(std::move(r.second));
@@ -106,10 +106,10 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   template <typename F>
   struct subscribe_helper<F, true, false> {
     void operator()(const cmd_type& cmd, RPC_CORE_MOVE_PARAM(F) handle, detail::msg_dispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
+      dispatcher->subscribe_cmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
         using F_Param = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
 
-        auto r = msg.unpackAs<F_Param>();
+        auto r = msg.unpack_as<F_Param>();
         if (r.first) {
           handle(std::move(r.second));
         }
@@ -121,7 +121,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   template <typename F>
   struct subscribe_helper<F, false, true> {
     void operator()(const cmd_type& cmd, RPC_CORE_MOVE_PARAM(F) handle, detail::msg_dispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
+      dispatcher->subscribe_cmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
         using F_Return = typename detail::callable_traits<F>::return_type;
 
         F_Return ret = handle();
@@ -133,7 +133,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   template <typename F>
   struct subscribe_helper<F, true, true> {
     void operator()(const cmd_type& cmd, RPC_CORE_MOVE_PARAM(F) handle, detail::msg_dispatcher* dispatcher) {
-      dispatcher->subscribeCmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
+      dispatcher->subscribe_cmd(cmd, [RPC_CORE_MOVE_LAMBDA(handle)](const detail::msg_wrapper& msg) {
         handle();
         return detail::msg_wrapper::make_rsp<uint8_t>(msg.seq, nullptr, true);
       });

@@ -19,7 +19,7 @@
 
 namespace RPC_CORE_NAMESPACE {
 
-#define RPC_CORE_request_MAKE_PROP_PUBLIC(type, name) \
+#define RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(type, name) \
  public:                                              \
   inline std::shared_ptr<request> name(type name) {   \
     name##_ = std::move(name);                        \
@@ -64,7 +64,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     virtual void remove(const request_s& request) = 0;
   };
 
-  enum class finally_type {
+  enum class finally_t {
     normal,
     timeout,
     canceled,
@@ -83,9 +83,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return request;
   }
 
-  RPC_CORE_request_MAKE_PROP_PUBLIC(cmd_type, cmd);
-  RPC_CORE_request_MAKE_PROP_PUBLIC(uint32_t, timeout_ms);
-  RPC_CORE_request_MAKE_PROP_PUBLIC(std::function<void(finally_type)>, finally);
+  RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(cmd_type, cmd);
+  RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(uint32_t, timeout_ms);
+  RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(std::function<void(finally_t)>, finally);
 
  public:
   request_s ping() {
@@ -113,14 +113,14 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     auto self = shared_from_this();
     this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb), self](detail::msg_wrapper msg) {
       if (canceled()) {
-        on_finish(finally_type::canceled);
+        on_finish(finally_t::canceled);
         return true;
       }
 
-      auto rsp = msg.unpackAs<T>();
+      auto rsp = msg.unpack_as<T>();
       if (rsp.first) {
         cb(std::move(rsp.second));
-        on_finish(finally_type::normal);
+        on_finish(finally_t::normal);
         return true;
       }
       return false;
@@ -134,11 +134,11 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     auto self = shared_from_this();
     this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb), self](const detail::msg_wrapper& msg) {
       if (canceled()) {
-        on_finish(finally_type::canceled);
+        on_finish(finally_t::canceled);
         return true;
       }
       cb();
-      on_finish(finally_type::normal);
+      on_finish(finally_t::normal);
       return true;
     };
     return self;
@@ -151,7 +151,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     if (rpc) {
       rpc_ = rpc;
     } else if (rpc_.expired()) {
-      on_finish(finally_type::rpc_expired);
+      on_finish(finally_t::rpc_expired);
       return;
     }
     waiting_rsp_ = true;
@@ -159,7 +159,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     seq_ = r->make_seq();
     r->send_request(self);
     if (!need_rsp_) {
-      on_finish(finally_type::no_need_rsp);
+      on_finish(finally_t::no_need_rsp);
     }
   }
 
@@ -189,7 +189,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         retry_count_--;
         call();
       } else {
-        on_finish(finally_type::timeout);
+        on_finish(finally_t::timeout);
       }
     };
     return shared_from_this();
@@ -204,7 +204,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   request_s cancel() {
     canceled(true);
     if (waiting_rsp_) {
-      on_finish(finally_type::canceled);
+      on_finish(finally_t::canceled);
     }
     return shared_from_this();
   }
@@ -245,7 +245,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     timeout(nullptr);
   }
 
-  void on_finish(finally_type type) {
+  void on_finish(finally_t type) {
     assert(waiting_rsp_);
     waiting_rsp_ = false;
     RPC_CORE_LOGD("on_finish: cmd:%s, type: %d, %p", cmd().c_str(), (int)type, this);
@@ -265,7 +265,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   RPC_CORE_request_MAKE_PROP_PRIVATE(bool, canceled);
 
  private:
-  finally_type finallyType_;
+  finally_t finallyType_;
   std::function<void()> timeoutCb_;
 
  private:
@@ -277,23 +277,23 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 #ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
 template <typename T>
 struct request::future_ret {
-  finally_type type;
+  finally_t type;
   T data;
 };
 
 template <>
 struct request::future_ret<void> {
-  finally_type type;
+  finally_t type;
 };
 
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
 std::future<request::future_ret<R>> request::future(const request::send_proto_s& rpc) {
   auto promise = std::make_shared<std::promise<future_ret<R>>>();
   rsp([promise](R r) {
-    promise->set_value({finally_type::normal, std::move(r)});
+    promise->set_value({finally_t::normal, std::move(r)});
   });
-  finally([promise](finally_type type) {
-    if (type != finally_type::normal) {
+  finally([promise](finally_t type) {
+    if (type != finally_t::normal) {
       promise->set_value({type, {}});
     }
   });
@@ -305,10 +305,10 @@ template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>
 std::future<request::future_ret<void>> request::future(const request::send_proto_s& rpc) {
   auto promise = std::make_shared<std::promise<request::future_ret<void>>>();
   rsp([promise] {
-    promise->set_value({request::finally_type::normal});
+    promise->set_value({request::finally_t::normal});
   });
-  finally([promise](request::finally_type type) {
-    if (type != request::finally_type::normal) {
+  finally([promise](request::finally_t type) {
+    if (type != request::finally_t::normal) {
       promise->set_value({type});
     }
   });
@@ -319,6 +319,6 @@ std::future<request::future_ret<void>> request::future(const request::send_proto
 
 using request_s = request::request_s;
 using request_w = request::request_w;
-using finish_type = request::finally_type;
+using finally_t = request::finally_t;
 
 }  // namespace RPC_CORE_NAMESPACE

@@ -40,12 +40,12 @@ class msg_dispatcher : noncopyable {
 
  private:
   void dispatch(msg_wrapper msg) {
-    switch (msg.type & (msg_wrapper::COMMAND | msg_wrapper::RESPONSE)) {
-      case msg_wrapper::COMMAND: {
+    switch (msg.type & (msg_wrapper::command | msg_wrapper::response)) {
+      case msg_wrapper::command: {
         // PING
-        const bool is_ping = msg.type & msg_wrapper::PING;
+        const bool is_ping = msg.type & msg_wrapper::ping;
         if (is_ping) {
-          msg.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::RESPONSE | msg_wrapper::PONG);
+          msg.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::response | msg_wrapper::pong);
           conn_->send_package_impl(coder::serialize(msg));
           return;
         }
@@ -60,16 +60,16 @@ class msg_dispatcher : noncopyable {
           return;
         }
         const auto& fn = it->second;
-        const bool need_rsp = msg.type & msg_wrapper::NEED_RSP;
+        const bool need_rsp = msg.type & msg_wrapper::need_rsp;
         auto resp = fn(std::move(msg));
         if (need_rsp && resp.first) {
           conn_->send_package_impl(coder::serialize(resp.second));
         }
       } break;
 
-      case msg_wrapper::RESPONSE: {
+      case msg_wrapper::response: {
         // PONG or RESPONSE
-        const bool isPong = msg.type & msg_wrapper::PONG;
+        const bool isPong = msg.type & msg_wrapper::pong;
         const auto handleMap = isPong ? &pong_handle_map_ : &rsp_handle_map_;
 
         RPC_CORE_LOGD("dispatch rsp: seq=%d, conn:%p", msg.seq, conn_.get());
@@ -97,12 +97,12 @@ class msg_dispatcher : noncopyable {
   }
 
  public:
-  inline void subscribeCmd(const cmd_type& cmd, cmd_handle handle) {
-    RPC_CORE_LOGD("subscribeCmd cmd:%s, conn:%p, handle:%p", cmd.c_str(), conn_.get(), &handle);
+  inline void subscribe_cmd(const cmd_type& cmd, cmd_handle handle) {
+    RPC_CORE_LOGD("subscribe_cmd cmd:%s, conn:%p, handle:%p", cmd.c_str(), conn_.get(), &handle);
     cmd_handle_map_[cmd] = std::move(handle);
   }
 
-  void unsubscribeCmd(const cmd_type& cmd) {
+  void unsubscribe_cmd(const cmd_type& cmd) {
     auto it = cmd_handle_map_.find(cmd);
     if (it != cmd_handle_map_.cend()) {
       RPC_CORE_LOGD("erase cmd: %s", cmd.c_str());
@@ -112,8 +112,8 @@ class msg_dispatcher : noncopyable {
     }
   }
 
-  void subscribeRsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeoutCb, uint32_t timeout_ms, bool is_ping) {
-    RPC_CORE_LOGD("subscribeRsp seq:%d, handle:%p", seq, &handle);
+  void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeoutCb, uint32_t timeout_ms, bool is_ping) {
+    RPC_CORE_LOGD("subscribe_rsp seq:%d, handle:%p", seq, &handle);
     if (handle == nullptr) return;
     const auto handleMap = is_ping ? &pong_handle_map_ : &rsp_handle_map_;
 

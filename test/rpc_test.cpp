@@ -66,7 +66,7 @@ void RpcTest() {
                        ->timeout([] {
                          RPC_CORE_LOGI("超时");
                        })
-                       ->finally([](finish_type type) {
+                       ->finally([](finally_t type) {
                          RPC_CORE_LOGI("完成: type:%d", (int)type);
                        });
     RPC_CORE_LOGI("执行请求");
@@ -170,8 +170,8 @@ void RpcTest() {
           ASSERT(rsp == "test");
           pass = true;
         })
-        ->finally([&](finish_type type) {
-          ASSERT(type == finish_type::normal);
+        ->finally([&](finally_t type) {
+          ASSERT(type == finally_t::normal);
           ASSERT(!pass_finally);
           pass_finally = true;
         })
@@ -182,8 +182,8 @@ void RpcTest() {
     pass_finally = false;
     rpc->cmd("cmd4")
         ->msg(std::string("test"))
-        ->finally([&](finish_type type) {
-          ASSERT(type == finish_type::no_need_rsp);
+        ->finally([&](finally_t type) {
+          ASSERT(type == finally_t::no_need_rsp);
           ASSERT(!pass_finally);
           pass_finally = true;
         })
@@ -271,7 +271,7 @@ void RpcTest() {
                        ->rsp([&](const std::string& payload) {
                          ASSERT(false);
                        })
-                       ->finally([&](finish_type type) {
+                       ->finally([&](finally_t type) {
                          // 在call之前已取消 不会触发
                          ASSERT(false);
                        });
@@ -287,12 +287,12 @@ void RpcTest() {
   {
     {
       auto result = rpc->ping("ping")->future<std::string>().get();
-      ASSERT(result.type == finish_type::normal);
+      ASSERT(result.type == finally_t::normal);
       ASSERT(result.data == "ping");
     }
     {
       auto result = rpc->ping()->future<void>().get();
-      ASSERT(result.type == finish_type::normal);
+      ASSERT(result.type == finally_t::normal);
     }
   }
 #endif
