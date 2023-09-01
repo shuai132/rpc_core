@@ -73,6 +73,20 @@ void TypeTest() {
     ASSERT_SERIALIZE_SIZE(16);
   }
 
+  /// enum
+  {
+    enum class Enum : uint8_t {
+      k_0,
+      k_1,
+    };
+    RPC_CORE_LOGI("enum...");
+    Enum a = Enum::k_1;
+    Enum b;
+    serialize_test(a, b);
+    ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(sizeof(uint8_t));
+  }
+
   /// std::array
   {
     RPC_CORE_LOGI("std::array...");
