@@ -18,7 +18,7 @@ struct is_std_forward_list<std::forward_list<Args...>> : std::true_type {};
 
 template <typename T, typename std::enable_if<detail::is_std_forward_list<T>::value, int>::type = 0>
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
-  uint32_t size = std::distance(t.cbegin(), t.cend());
+  detail::size_type size(std::distance(t.cbegin(), t.cend()));
   size >> oa;
   for (auto& item : t) {
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
@@ -34,9 +34,9 @@ serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<detail::is_std_forward_list<T>::value, int>::type = 0>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
-  uint32_t size;
+  detail::size_type size;
   size << ia;
-  for (uint32_t i = 0; i < size; ++i) {
+  for (uint32_t i = 0; i < size.size; ++i) {
     typename T::value_type item;
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
       item << ia;

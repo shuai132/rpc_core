@@ -6,6 +6,7 @@
 // include
 #include "detail/noncopyable.hpp"
 #include "detail/string_view.hpp"
+#include "src/detail/size_type.hpp"
 
 namespace RPC_CORE_NAMESPACE {
 
@@ -14,8 +15,7 @@ struct serialize_oarchive : detail::noncopyable {
 };
 
 inline serialize_oarchive& operator>>(const serialize_oarchive& t, serialize_oarchive& oa) {
-  uint32_t size = t.data.size();
-  oa.data.append((char*)&size, sizeof(uint32_t));
+  oa.data.append(detail::size_type(t.data.size()).serialize());
   oa.data.append(t.data);
   return oa;
 }
@@ -25,8 +25,7 @@ inline serialize_oarchive& operator>>(serialize_oarchive&& t, serialize_oarchive
     oa.data = std::move(t.data);
     return oa;
   }
-  uint32_t size = t.data.size();
-  oa.data.append((char*)&size, sizeof(uint32_t));
+  oa.data.append(detail::size_type(t.data.size()).serialize());
   oa.data.append(t.data);
   return oa;
 }
@@ -41,12 +40,13 @@ struct serialize_iarchive : detail::noncopyable {
 };
 
 inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive& ia) {
-  uint32_t size = *(uint32_t*)ia.data;
-  ia.data += sizeof(uint32_t);
+  detail::size_type size;
+  int cost = size.deserialize(ia.data);
+  ia.data += cost;
   t.data = ia.data;
-  t.size = size;
-  ia.data += size;
-  ia.size -= sizeof(uint32_t) + size;
+  t.size = size.size;
+  ia.data += size.size;
+  ia.size -= cost + size.size;
   return ia;
 }
 
@@ -62,6 +62,18 @@ inline bool deserialize(const detail::string_view& data, T& t) {
   serialize_iarchive ar(data);
   t << ar;
   return !ar.error;
+}
+
+inline serialize_oarchive& operator>>(const detail::size_type& t, serialize_oarchive& oa) {
+  oa.data.append(t.serialize());
+  return oa;
+}
+
+inline serialize_iarchive& operator<<(detail::size_type& t, serialize_iarchive& ia) {
+  int cost = t.deserialize((uint8_t*)ia.data);
+  ia.data += cost;
+  ia.size -= cost;
+  return ia;
 }
 
 }  // namespace RPC_CORE_NAMESPACE
