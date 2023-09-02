@@ -24,7 +24,7 @@ if (RPC_CORE_BUILD_TEST)
             )
 
     set(TARGET_NAME ${PROJECT_NAME}_test)
-    file(GLOB SRCS test/main.cpp test/rpc_test.cpp test/type_test.cpp)
+    file(GLOB SRCS test/main.cpp test/test_rpc.cpp test/test_type.cpp test/test_data_packer.cpp)
     add_executable(${TARGET_NAME})
     if (RPC_CORE_TEST_LINK_PTHREAD)
         # some linux platform need link -pthread for std::future api
@@ -34,7 +34,7 @@ if (RPC_CORE_BUILD_TEST)
     target_compile_definitions(${TARGET_NAME} PRIVATE ${EXAMPLE_COMPILE_DEFINE})
 
     if (RPC_CORE_TEST_PLUGIN)
-        list(APPEND SRCS test/plugin_test.cpp)
+        list(APPEND SRCS test/test_plugin.cpp)
         target_compile_definitions(${TARGET_NAME} PRIVATE "RPC_CORE_TEST_PLUGIN")
         add_custom_target(${TARGET_NAME}_init
                 # clear dir

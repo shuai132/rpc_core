@@ -9,6 +9,10 @@ int main() {
   RPC_CORE_LOG("test_type...");
   test_type();
 
+  printf("\n");
+  RPC_CORE_LOG("test_data_packer...");
+  test_data_packer();
+
 #ifdef RPC_CORE_TEST_PLUGIN
   printf("\n");
   RPC_CORE_LOG("test_plugin...");

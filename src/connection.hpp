@@ -8,6 +8,7 @@
 #include "config.hpp"
 
 // include
+#include "detail/data_packer.hpp"
 #include "detail/noncopyable.hpp"
 
 namespace RPC_CORE_NAMESPACE {
@@ -17,7 +18,7 @@ namespace RPC_CORE_NAMESPACE {
  * Usage:
  * 1. Both sending and receiving should ensure that a complete package of data is sent/received.
  * 2. Call on_recv_package when a package of data is actually received.
- * 3. Provides the implementation of sending data, send_package_impl.
+ * 3. Provide the implementation of sending data, send_package_impl.
  */
 struct connection : detail::noncopyable {
   std::function<void(std::string)> send_package_impl;
@@ -33,6 +34,39 @@ struct loopback_connection : public connection {
       on_recv_package(std::move(payload));
     };
   }
+};
+
+/**
+ * Stream connection
+ * for bytes stream: tcp socket, serial port, etc.
+ */
+struct stream_connection : private connection {
+  explicit stream_connection(uint32_t max_body_size = UINT32_MAX) : data_packer_(max_body_size) {
+    send_package_impl = [this](const std::string &package) {
+      auto payload = data_packer_.pack(package);
+      send_bytes_impl(std::move(payload));
+    };
+    data_packer_.on_data = [this](std::string payload) {
+      send_package_impl(std::move(payload));
+    };
+    on_recv_bytes = [this](const void *data, size_t size) {
+      data_packer_.feed(data, size);
+    };
+  }
+
+  /**
+   * should call on connected or disconnected
+   */
+  void reset() {
+    data_packer_.reset();
+  }
+
+ public:
+  std::function<void(std::string)> send_bytes_impl;
+  std::function<void(const void *data, size_t size)> on_recv_bytes;
+
+ private:
+  detail::data_packer data_packer_;
 };
 
 }  // namespace RPC_CORE_NAMESPACE
