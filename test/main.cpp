@@ -6,18 +6,18 @@
 using namespace rpc_core_test;
 
 int main() {
-  RPC_CORE_LOG("TypeTest...");
-  TypeTest();
+  RPC_CORE_LOG("test_type...");
+  test_type();
 
 #ifdef RPC_CORE_TEST_PLUGIN
   printf("\n");
-  RPC_CORE_LOG("PluginTest...");
-  PluginTest();
+  RPC_CORE_LOG("test_plugin...");
+  test_plugin();
 #endif
 
   printf("\n");
-  RPC_CORE_LOG("RpcTest...");
-  RpcTest();
+  RPC_CORE_LOG("test_rpc...");
+  test_rpc();
 
   return 0;
 }

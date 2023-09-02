@@ -64,7 +64,7 @@ static void test_size_type() {
   test(0xffffffff, 5);
 }
 
-void TypeTest() {
+void test_type() {
   ASSERT(is_little_endian());
 
   /// size_type

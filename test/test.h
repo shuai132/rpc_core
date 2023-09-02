@@ -2,10 +2,10 @@
 
 namespace rpc_core_test {
 
-void TypeTest();
+void test_type();
 
-void RpcTest();
+void test_rpc();
 
-void PluginTest();
+void test_plugin();
 
 }  // namespace rpc_core_test

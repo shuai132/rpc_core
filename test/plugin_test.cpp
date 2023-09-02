@@ -12,7 +12,7 @@
 
 namespace rpc_core_test {
 
-void PluginTest() {
+void test_plugin() {
   using namespace RPC_CORE_NAMESPACE;
   {
     RPC_CORE_LOGI("RawType...");
