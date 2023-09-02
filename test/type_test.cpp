@@ -47,7 +47,7 @@ static void test_size_type() {
     RPC_CORE_LOGI("value: 0x%zx, except: %d", value, except_size);
     size_type a(value);
     std::string payload = a.serialize();
-    ASSERT(payload.size() == except_size);
+    ASSERT(payload.size() == (size_t)except_size);
     size_type b;
     int cost = b.deserialize(payload.data());
     ASSERT(cost = except_size);

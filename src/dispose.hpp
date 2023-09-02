@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <string>
-#include <utility>
 #include <vector>
 
 // #define RPC_CORE_LOG_SHOW_VERBOSE
@@ -19,11 +17,8 @@ namespace RPC_CORE_NAMESPACE {
 
 class dispose : detail::noncopyable, public request::dispose_proto {
  public:
-  explicit dispose(std::string name = "") : name_(std::move(name)) {
-    RPC_CORE_LOGD("new dispose: %p %s", this, name_.c_str());
-  }
-  static std::shared_ptr<dispose> create(const std::string& name = "") {
-    return std::make_shared<dispose>(name);
+  static std::shared_ptr<dispose> create() {
+    return std::make_shared<dispose>();
   }
 
  public:
@@ -53,13 +48,12 @@ class dispose : detail::noncopyable, public request::dispose_proto {
   }
 
   ~dispose() override {
-    RPC_CORE_LOGD("~dispose: size:%zu \t%s", requests_.size(), name_.c_str());
+    RPC_CORE_LOGD("~dispose: size:%zu", requests_.size());
     dismiss();
   }
 
  private:
   std::vector<request_w> requests_;
-  std::string name_;
 };
 
 using dispose_s = std::shared_ptr<dispose>;

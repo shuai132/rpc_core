@@ -19,33 +19,35 @@
 
 namespace RPC_CORE_NAMESPACE {
 
-#define RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(type, name) \
- public:                                              \
-  inline std::shared_ptr<request> name(type name) {   \
-    name##_ = std::move(name);                        \
-    return shared_from_this();                        \
-  }                                                   \
-                                                      \
- private:                                             \
-  type name##_;                                       \
-  inline type name() {                                \
-    return name##_;                                   \
+#define RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(type, name) \
+ public:                                                     \
+  inline std::shared_ptr<request> name(type name) {          \
+    name##_ = std::move(name);                               \
+    return shared_from_this();                               \
+  }                                                          \
+                                                             \
+ private:                                                    \
+  type name##_;                                              \
+  inline type name() {                                       \
+    return name##_;                                          \
   }
 
-#define RPC_CORE_request_MAKE_PROP_PRIVATE(type, name) \
- private:                                              \
-  inline type name() {                                 \
-    return name##_;                                    \
-  }                                                    \
-  inline std::shared_ptr<request> name(type name) {    \
-    name##_ = std::move(name);                         \
-    return shared_from_this();                         \
-  }                                                    \
-                                                       \
- private:                                              \
+#define RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(type, name) \
+ private:                                                     \
+  inline type name() {                                        \
+    return name##_;                                           \
+  }                                                           \
+  inline std::shared_ptr<request> name(type name) {           \
+    name##_ = std::move(name);                                \
+    return shared_from_this();                                \
+  }                                                           \
+                                                              \
+ private:                                                     \
   type name##_;
 
 class request : detail::noncopyable, public std::enable_shared_from_this<request> {
+  friend class rpc;
+
  public:
   using request_s = std::shared_ptr<request>;
   using request_w = std::weak_ptr<request>;
@@ -83,9 +85,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return request;
   }
 
-  RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(cmd_type, cmd);
-  RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(uint32_t, timeout_ms);
-  RPC_CORE_REQUEST_MAKE_PROP_PUBLIC(std::function<void(finally_t)>, finally);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(cmd_type, cmd);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(uint32_t, timeout_ms);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(std::function<void(finally_t)>, finally);
 
  public:
   request_s ping() {
@@ -255,14 +257,12 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     }
   }
 
-  friend class dispose;
-  friend class rpc;
-  RPC_CORE_request_MAKE_PROP_PRIVATE(send_proto_w, rpc);
-  RPC_CORE_request_MAKE_PROP_PRIVATE(seq_type, seq);
-  RPC_CORE_request_MAKE_PROP_PRIVATE(std::function<bool(detail::msg_wrapper)>, rsp_handle);
-  RPC_CORE_request_MAKE_PROP_PRIVATE(std::string, payload);
-  RPC_CORE_request_MAKE_PROP_PRIVATE(bool, need_rsp);
-  RPC_CORE_request_MAKE_PROP_PRIVATE(bool, canceled);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(send_proto_w, rpc);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(seq_type, seq);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(std::function<bool(detail::msg_wrapper)>, rsp_handle);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(std::string, payload);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(bool, need_rsp);
+  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(bool, canceled);
 
  private:
   finally_t finallyType_;
