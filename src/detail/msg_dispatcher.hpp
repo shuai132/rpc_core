@@ -112,7 +112,7 @@ class msg_dispatcher : noncopyable {
     }
   }
 
-  void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeoutCb, uint32_t timeout_ms, bool is_ping) {
+  void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeout_cb, uint32_t timeout_ms, bool is_ping) {
     RPC_CORE_LOGD("subscribe_rsp seq:%d, handle:%p", seq, &handle);
     if (handle == nullptr) return;
     const auto handleMap = is_ping ? &pong_handle_map_ : &rsp_handle_map_;
@@ -124,15 +124,15 @@ class msg_dispatcher : noncopyable {
     }
 
     auto alive = std::weak_ptr<void>(is_alive_);
-    timer_impl_(timeout_ms, [handleMap, seq, RPC_CORE_MOVE_LAMBDA(timeoutCb), RPC_CORE_MOVE_LAMBDA(alive)] {
+    timer_impl_(timeout_ms, [handleMap, seq, RPC_CORE_MOVE_LAMBDA(timeout_cb), RPC_CORE_MOVE_LAMBDA(alive)] {
       if (alive.expired()) {
         RPC_CORE_LOGD("timeout after destroy, ignore it!");
         return;
       }
       auto it = handleMap->find(seq);
       if (it != handleMap->cend()) {
-        if (timeoutCb) {
-          timeoutCb();
+        if (timeout_cb) {
+          timeout_cb();
         }
         handleMap->erase(seq);
         RPC_CORE_LOGV("Timeout seq=%d, handleMap.size=%zu", seq, handleMap->size());

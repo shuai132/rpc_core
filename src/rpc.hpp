@@ -74,11 +74,10 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   }
 
   void send_request(const request_s& request) override {
-    const bool need_rsp = request->need_rsp();
-    if (need_rsp) {
-      dispatcher_.subscribe_rsp(request->seq(), request->rsp_handle(), request->timeoutCb_, request->timeout_ms(), request->is_ping_);
+    if (request->need_rsp_) {
+      dispatcher_.subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_, request->is_ping_);
     }
-    auto msg = detail::msg_wrapper::make_cmd(request->cmd(), request->seq(), request->is_ping_, need_rsp, request->payload());
+    auto msg = detail::msg_wrapper::make_cmd(request->cmd_, request->seq_, request->is_ping_, request->need_rsp_, request->payload_);
     conn_->send_package_impl(detail::coder::serialize(msg));
   }
 

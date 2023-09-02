@@ -19,32 +19,6 @@
 
 namespace RPC_CORE_NAMESPACE {
 
-#define RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(type, name) \
- public:                                                     \
-  inline std::shared_ptr<request> name(type name) {          \
-    name##_ = std::move(name);                               \
-    return shared_from_this();                               \
-  }                                                          \
-                                                             \
- private:                                                    \
-  type name##_;                                              \
-  inline type name() {                                       \
-    return name##_;                                          \
-  }
-
-#define RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(type, name) \
- private:                                                     \
-  inline type name() {                                        \
-    return name##_;                                           \
-  }                                                           \
-  inline std::shared_ptr<request> name(type name) {           \
-    name##_ = std::move(name);                                \
-    return shared_from_this();                                \
-  }                                                           \
-                                                              \
- private:                                                     \
-  type name##_;
-
 class request : detail::noncopyable, public std::enable_shared_from_this<request> {
   friend class rpc;
 
@@ -85,25 +59,21 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return request;
   }
 
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(cmd_type, cmd);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(uint32_t, timeout_ms);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PUBLIC(std::function<void(finally_t)>, finally);
-
  public:
-  request_s ping() {
-    is_ping_ = true;
+  std::shared_ptr<request> cmd(cmd_type cmd) {
+    cmd_ = std::move(cmd);
     return shared_from_this();
   }
 
   template <class T>
   request_s msg(const T& message) {
-    this->payload(serialize(message));
+    this->payload_ = serialize(message);
     return shared_from_this();
   }
 
   template <class T>
   request_s msg(T&& message) {
-    this->payload(serialize(std::forward<T>(message)));
+    this->payload_ = serialize(std::forward<T>(message));
     return shared_from_this();
   }
 
@@ -114,7 +84,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     need_rsp_ = true;
     auto self = shared_from_this();
     this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb), self](detail::msg_wrapper msg) {
-      if (canceled()) {
+      if (canceled_) {
         on_finish(finally_t::canceled);
         return true;
       }
@@ -135,7 +105,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     need_rsp_ = true;
     auto self = shared_from_this();
     this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb), self](const detail::msg_wrapper& msg) {
-      if (canceled()) {
+      if (canceled_) {
         on_finish(finally_t::canceled);
         return true;
       }
@@ -146,8 +116,13 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return self;
   }
 
+  std::shared_ptr<request> finally(std::function<void(finally_t)> finally) {
+    finally_ = std::move(finally);
+    return shared_from_this();
+  }
+
   void call(const send_proto_s& rpc = nullptr) {
-    if (canceled()) return;
+    if (canceled_) return;
 
     auto self = shared_from_this();
     if (rpc) {
@@ -165,25 +140,20 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     }
   }
 
-#ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
-  /**
-   * Future pattern
-   * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
-   */
-  template <typename T>
-  struct future_ret;
+  request_s ping() {
+    is_ping_ = true;
+    return shared_from_this();
+  }
 
-  template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  std::future<future_ret<R>> future(const send_proto_s& rpc = nullptr);
+  std::shared_ptr<request> timeout_ms(uint32_t timeout_ms) {
+    timeout_ms_ = timeout_ms;
+    return shared_from_this();
+  }
 
-  template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  std::future<future_ret<void>> future(const send_proto_s& rpc = nullptr);
-#endif
-
-  std::shared_ptr<request> timeout(RPC_CORE_MOVE_PARAM(std::function<void()>) timeoutCb) {
-    timeoutCb_ = [this, RPC_CORE_MOVE_LAMBDA(timeoutCb)] {
-      if (timeoutCb) {
-        timeoutCb();
+  std::shared_ptr<request> timeout(RPC_CORE_MOVE_PARAM(std::function<void()>) timeout_cb) {
+    timeout_cb_ = [this, RPC_CORE_MOVE_LAMBDA(timeout_cb)] {
+      if (timeout_cb) {
+        timeout_cb();
       }
       if (retry_count_ == -1) {
         call();
@@ -228,47 +198,77 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   /**
    * Force to ignore `rsp` callback.
    */
-  request_s disableRsp() {
+  request_s disable_rsp() {
     need_rsp_ = false;
     return shared_from_this();
   }
 
+  std::shared_ptr<request> rpc(send_proto_w rpc) {
+    rpc_ = std::move(rpc);
+    return shared_from_this();
+  }
+
+  send_proto_w rpc() {
+    return rpc_;
+  }
+
+  bool canceled() const {
+    return canceled_;
+  }
+
+  std::shared_ptr<request> canceled(bool canceled) {
+    canceled_ = canceled;
+    return shared_from_this();
+  }
+
+#ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
+  /**
+   * Future pattern
+   * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
+   */
+  template <typename T>
+  struct future_ret;
+
+  template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
+  std::future<future_ret<R>> future(const send_proto_s& rpc = nullptr);
+
+  template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
+  std::future<future_ret<void>> future(const send_proto_s& rpc = nullptr);
+#endif
+
  private:
-  explicit request(const send_proto_s& rpc = nullptr) : rpc_(rpc) {}  // NOLINT(cppcoreguidelines-pro-type-member-init)
+  explicit request(const send_proto_s& rpc = nullptr) : rpc_(rpc) {}
   ~request() {
     RPC_CORE_LOGD("~request: cmd:%s, %p", cmd_.c_str(), this);
   }
 
  private:
   void init() {
-    need_rsp(false);
-    canceled(false);
-    timeout_ms(3000);
     timeout(nullptr);
   }
 
   void on_finish(finally_t type) {
     assert(waiting_rsp_);
     waiting_rsp_ = false;
-    RPC_CORE_LOGD("on_finish: cmd:%s, type: %d, %p", cmd().c_str(), (int)type, this);
-    finallyType_ = type;
+    RPC_CORE_LOGD("on_finish: cmd:%s, type: %d, %p", cmd_.c_str(), (int)type, this);
+    finally_type_ = type;
     if (finally_) {
-      finally_(finallyType_);
+      finally_(finally_type_);
     }
   }
 
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(send_proto_w, rpc);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(seq_type, seq);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(std::function<bool(detail::msg_wrapper)>, rsp_handle);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(std::string, payload);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(bool, need_rsp);
-  RPC_CORE_DETAIL_REQUEST_MAKE_PROP_PRIVATE(bool, canceled);
-
  private:
-  finally_t finallyType_;
-  std::function<void()> timeoutCb_;
-
- private:
+  send_proto_w rpc_;
+  seq_type seq_{};
+  cmd_type cmd_;
+  std::string payload_;
+  bool need_rsp_ = false;
+  bool canceled_ = false;
+  std::function<bool(detail::msg_wrapper)> rsp_handle_;
+  uint32_t timeout_ms_ = 3000;
+  std::function<void()> timeout_cb_;
+  finally_t finally_type_ = finally_t::no_need_rsp;
+  std::function<void(finally_t)> finally_;
   int retry_count_ = 0;
   bool waiting_rsp_ = false;
   bool is_ping_ = false;
