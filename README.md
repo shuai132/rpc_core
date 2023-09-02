@@ -8,11 +8,10 @@ Arduino, STM32, ESP32/ESP8266, etc.)
 ## Introduction
 
 The complete rpc frameworks (such as `gRPC` and `brpc`) have complex functions
-and are not practical for use in embedded platforms.
+and are not practical on embedded platforms.
 
 This project offers a lightweight and user-friendly implementation that is better suited for one-to-one rpc calls.
-
-It supports a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
+It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 
 Note:
 This project solely offers the protocol layer and API,
@@ -23,23 +22,21 @@ For TCP-based implementations, please refer to the [Links](#Links) section.
 
 * Header-Only
 * No schema
-* Support performance-limited platforms, including MCUs
-* Compatible with any connection type (serial port, TCP, etc.)
+* Support performance-limited platforms, including microchips
+* Compatible with any connection type (`tcp socket`, `serial port`, etc.)
+* Serialization for primitive types, most STL containers, and user struct/class
+* Serialization plugins implementations for `flatbuffers` and `nlohmann::json`
 * RAII-based `dispose` for automatic request cancellation
 * Timeout and retry settings
 * Support `std::future` interface
-* Customizable message types with implementations for `flatbuffers` and `json`
-* Support automatic serialization of primitive types and most STL containers, and custom types by `RPC_CORE_DEFINE_TYPE`
 
 ## Requirements
 
 * C++11
-* Complete data packets are required for data transmission, such as WebSocket.  
-  If using socket/serial port, etc.,
-  message packing and unpacking need to be implemented by yourself. You can use:
-  [PacketProcessor](https://github.com/shuai132/PacketProcessor)
-  or
-  [data_packer.hpp](https://github.com/shuai132/esp_rpc/blob/main/data_packer.hpp)
+* Provide your connection implementation: [connection](src/connection.hpp)  
+  NOTICE: complete data packets are required for data transmission, such as `websocket`.  
+  If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented by yourself.
+  Or you can use [stream_connection](src/connection.hpp).
 
 ## Usage
 
@@ -59,9 +56,40 @@ rpc->cmd("cmd")
     ->call();
 ```
 
-Detailed initialization process and unit tests can be found at: [rpc_test.cpp](test/rpc_test.cpp)
+`msg` and `rsp` support any serializable type, see [Serialization](#Serialization).
+
+Detailed initialization process and unit tests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
 
 ## Serialization
+
+High-performance and memory-saving binary serialization.
+
+For example, user data:
+
+```c++
+struct Type {
+  uint8_t id = 1;
+  uint8_t age = 18;
+  std::string name = "test";
+};
+```
+
+json:
+
+```json
+{
+  "id": 1,
+  "age": 18,
+  "name": "test"
+}
+```
+
+| library     | bytes |
+|-------------|:-----:|
+| json        |  31   |
+| flatbuffers |  44   |
+| msgpack     |   8   |
+| rpc_core    |   8   |
 
 - [x] [std::string](https://en.cppreference.com/w/cpp/string/basic_string)
 - [x] [std::wstring](https://en.cppreference.com/w/cpp/string/basic_string)
@@ -120,7 +148,7 @@ Detailed initialization process and unit tests can be found at: [rpc_test.cpp](t
 ## Links
 
 * Implementation based on asio: [asio_net](https://github.com/shuai132/asio_net)  
-  Can be used on MCUs that support asio, such as ESP32.
+  support macOS, Linux, Windows, iOS, Android, etc. and can be used on MCUs that support asio, such as ESP32.
 
 
 * Implementation suitable for ESP8266: [esp_rpc](https://github.com/shuai132/esp_rpc)
