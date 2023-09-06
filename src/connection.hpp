@@ -40,14 +40,14 @@ struct loopback_connection : public connection {
  * Stream connection
  * for bytes stream: tcp socket, serial port, etc.
  */
-struct stream_connection : private connection {
+struct stream_connection : public connection {
   explicit stream_connection(uint32_t max_body_size = UINT32_MAX) : data_packer_(max_body_size) {
     send_package_impl = [this](const std::string &package) {
       auto payload = data_packer_.pack(package);
       send_bytes_impl(std::move(payload));
     };
     data_packer_.on_data = [this](std::string payload) {
-      send_package_impl(std::move(payload));
+      on_recv_package(std::move(payload));
     };
     on_recv_bytes = [this](const void *data, size_t size) {
       data_packer_.feed(data, size);
