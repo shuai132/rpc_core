@@ -2,7 +2,7 @@
 
 namespace RPC_CORE_NAMESPACE {
 
-template <typename T, typename std::enable_if<detail::is_map_like<T>::value, int>::type>
+template <typename T, typename std::enable_if<detail::is_std_map_like<T>::value, int>::type>
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   detail::size_type size(t.size());
   size >> oa;
@@ -14,7 +14,7 @@ serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   return oa;
 }
 
-template <typename T, typename std::enable_if<detail::is_map_like<T>::value, int>::type>
+template <typename T, typename std::enable_if<detail::is_std_map_like<T>::value, int>::type>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   detail::size_type size;
   size << ia;

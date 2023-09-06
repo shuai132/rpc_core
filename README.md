@@ -74,20 +74,13 @@ struct Type {
 };
 ```
 
-json:
-
-```json
-{
-  "id": 1,
-  "age": 18,
-  "name": "test"
-}
-```
+json: `{"id":1,"age":18,"name":"test"}`
 
 | library     | bytes |
 |-------------|:-----:|
 | json        |  31   |
 | flatbuffers |  44   |
+| protobuf    |  10   |
 | msgpack     |   8   |
 | rpc_core    |   8   |
 
