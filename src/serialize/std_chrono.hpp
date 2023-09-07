@@ -23,13 +23,14 @@ struct is_std_chrono_time_point<std::chrono::time_point<Args...>> : std::true_ty
 
 template <typename T, typename std::enable_if<detail::is_std_chrono_duration<T>::value, int>::type = 0>
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
-  t.count() >> oa;
+  int64_t count = t.count();
+  count >> oa;
   return oa;
 }
 
 template <typename T, typename std::enable_if<detail::is_std_chrono_duration<T>::value, int>::type = 0>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
-  typename T::rep rep;
+  int64_t rep;
   rep << ia;
   t = T(rep);
   return ia;
