@@ -82,6 +82,7 @@ class data_packer : detail::noncopyable {
 
   void reset() {
     buffer_.clear();
+    buffer_.shrink_to_fit();
     header_len_now_ = 0;
     body_size_ = 0;
   }
