@@ -1,11 +1,8 @@
-#include <codecvt>
+#include <codecvt>  // std::wstring_convert
 
-// include first
-#include "type/CustomType.h"
-
-// include other
 #include "assert_def.h"
 #include "rpc_core.hpp"
+#include "serialize/CustomType.h"
 
 namespace rpc_core_test {
 

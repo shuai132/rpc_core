@@ -1,12 +1,9 @@
-// include first
+#include "assert_def.h"
 #include "plugin/JsonType.h"
 #include "plugin/RawType.h"
 #include "plugin/fb/FbMsg_generated.h"
 #include "plugin/flatbuffers.hpp"
 #include "plugin/json.hpp"
-
-// include other
-#include "assert_def.h"
 #include "rpc_core.hpp"
 #include "test.h"
 

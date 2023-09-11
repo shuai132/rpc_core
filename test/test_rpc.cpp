@@ -1,13 +1,7 @@
-#include <cinttypes>
-
-// should include before "rpc_core.hpp"
-#include "type/TestStruct.h"
-
-// normal include
 #include "assert_def.h"
 #include "rpc_core.hpp"
+#include "serialize/CustomType.h"
 #include "test.h"
-#include "test/type/CustomType.h"
 
 namespace rpc_core_test {
 

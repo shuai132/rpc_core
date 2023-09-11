@@ -24,7 +24,7 @@ if (RPC_CORE_BUILD_TEST)
             )
 
     set(TARGET_NAME ${PROJECT_NAME}_test)
-    file(GLOB SRCS test/main.cpp test/test_rpc.cpp test/test_type.cpp test/test_data_packer.cpp)
+    file(GLOB SRCS test/main.cpp test/test_rpc.cpp test/test_serialize.cpp test/test_data_packer.cpp)
     add_executable(${TARGET_NAME})
     if (RPC_CORE_TEST_LINK_PTHREAD)
         # some linux platform need link -pthread for std::future api
