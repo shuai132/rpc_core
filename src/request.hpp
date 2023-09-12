@@ -51,12 +51,11 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
  public:
   template <typename... Args>
   static request_s create(Args&&... args) {
-    auto request = std::shared_ptr<RPC_CORE_NAMESPACE::request>(new RPC_CORE_NAMESPACE::request(std::forward<Args>(args)...),
-                                                                [](RPC_CORE_NAMESPACE::request* p) {
-                                                                  delete p;
-                                                                });
-    request->init();
-    return request;
+    auto r = std::shared_ptr<request>(new request(std::forward<Args>(args)...), [](request* p) {
+      delete p;
+    });
+    r->init();
+    return r;
   }
 
  public:
