@@ -6,6 +6,7 @@
 // RPC_CORE_LOG_FOR_MCU              更适用于MCU环境
 // RPC_CORE_LOG_NOT_EXIT_ON_FATAL    FATAL默认退出程序 添加此宏将不退出
 // RPC_CORE_LOG_DISABLE_ALL          关闭所有日志
+// L_O_G_DISABLE_ALL(关闭所有日志 包含所有库)
 //
 // c++11环境默认打开以下内容
 // RPC_CORE_LOG_ENABLE_THREAD_SAFE   线程安全
@@ -22,7 +23,7 @@
 //
 // 在库中使用时
 // 1. 修改此文件中的`RPC_CORE_LOG`以包含库名前缀（全部替换即可）
-// 2. 取消这行注释: #define RPC_CORE_LOG_IN_LIB
+// 2. 取消这行注释（以屏蔽DEBUG日志）: #define RPC_CORE_LOG_IN_LIB
 // 库中可配置项
 // RPC_CORE_LOG_SHOW_DEBUG           开启RPC_CORE_LOGD的输出
 //
@@ -39,7 +40,7 @@
 // 在库中使用时需取消注释
 #define RPC_CORE_LOG_IN_LIB
 
-#ifdef RPC_CORE_LOG_DISABLE_ALL
+#if defined(RPC_CORE_LOG_DISABLE_ALL) || defined(L_O_G_DISABLE_ALL)
 
 #define RPC_CORE_LOG(fmt, ...)           ((void)0)
 #define RPC_CORE_LOGT(tag, fmt, ...)     ((void)0)
@@ -91,7 +92,11 @@
 #endif
 #endif
 
+#ifdef __FILE_NAME__
+#define RPC_CORE_LOG_BASE_FILENAME       (__FILE_NAME__)
+#else
 #define RPC_CORE_LOG_BASE_FILENAME       (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#endif
 
 #define RPC_CORE_LOG_WITH_COLOR
 
@@ -140,19 +145,24 @@
 #endif
 
 #ifdef RPC_CORE_LOG_ENABLE_THREAD_SAFE
+#ifndef L_O_G_NS_MUTEX
+#define L_O_G_NS_MUTEX L_O_G_NS_MUTEX
 #include <mutex>
-struct RPC_CORE_LOG_Mutex {
+// 1. struct instead of namespace, ensure single instance
+struct L_O_G_NS_MUTEX {
 static std::mutex& mutex() {
-// 1. never delete, avoid destroy before user log
-// 2. static memory, avoid memory fragmentation
-static char memory[sizeof(std::mutex)];
-static std::mutex& mutex = *(new (memory) std::mutex());
-return mutex;
+  // 2. never delete, avoid destroy before user log
+  // 3. static memory, avoid memory fragmentation
+  static char memory[sizeof(std::mutex)];
+  static std::mutex& mutex = *(new (memory) std::mutex());
+  return mutex;
 }
 };
-#define RPC_CORE_LOG_PRINTF_IMPL(...)    \
-std::lock_guard<std::mutex> lock(RPC_CORE_LOG_Mutex::mutex()); \
-RPC_CORE_LOG_PRINTF(__VA_ARGS__)
+#endif
+#define RPC_CORE_LOG_PRINTF_IMPL(...) { \
+  std::lock_guard<std::mutex> lock(L_O_G_NS_MUTEX::mutex()); \
+  RPC_CORE_LOG_PRINTF(__VA_ARGS__); \
+}
 #else
 #define RPC_CORE_LOG_PRINTF_IMPL(...)    RPC_CORE_LOG_PRINTF(__VA_ARGS__)
 #endif
@@ -162,18 +172,37 @@ extern int RPC_CORE_LOG_PRINTF_IMPL(const char *fmt, ...);
 #endif
 
 #ifdef RPC_CORE_LOG_ENABLE_THREAD_ID
-#include <thread>
-#include <sstream>
-#include <string>
-namespace RPC_CORE_LOG {
-inline std::string get_thread_id() {
-std::stringstream ss;
-ss << std::this_thread::get_id();
-return ss.str();
+#ifndef L_O_G_NS_GET_TID
+#define L_O_G_NS_GET_TID L_O_G_NS_GET_TID
+#include <cstdint>
+#ifdef _WIN32
+#include <processthreadsapi.h>
+struct L_O_G_NS_GET_TID {
+static inline uint32_t get_tid() {
+  return GetCurrentThreadId();
 }
+};
+#elif defined(__linux__)
+#include <sys/syscall.h>
+#include <unistd.h>
+struct L_O_G_NS_GET_TID {
+static inline uint32_t get_tid() {
+  return syscall(SYS_gettid);
 }
-#define RPC_CORE_LOG_THREAD_LABEL "%s "
-#define RPC_CORE_LOG_THREAD_VALUE ,RPC_CORE_LOG::get_thread_id().c_str()
+};
+#else /* for mac, bsd.. */
+#include <pthread.h>
+struct L_O_G_NS_GET_TID {
+static inline uint32_t get_tid() {
+  uint64_t x;
+  pthread_threadid_np(nullptr, &x);
+  return (uint32_t)x;
+}
+};
+#endif
+#endif
+#define RPC_CORE_LOG_THREAD_LABEL "%u "
+#define RPC_CORE_LOG_THREAD_VALUE ,L_O_G_NS_GET_TID::get_tid()
 #else
 #define RPC_CORE_LOG_THREAD_LABEL
 #define RPC_CORE_LOG_THREAD_VALUE
@@ -182,19 +211,22 @@ return ss.str();
 #ifdef RPC_CORE_LOG_ENABLE_DATE_TIME
 #include <chrono>
 #include <sstream>
-#include <iomanip>
-namespace RPC_CORE_LOG {
-inline std::string get_time() {
-auto now = std::chrono::system_clock::now();
-std::time_t time = std::chrono::system_clock::to_time_t(now);
-auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-std::stringstream ss;
-ss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << '.' << std::setw(3) << std::setfill('0') << ms.count();
-return ss.str();
+#include <iomanip> // std::put_time
+#ifndef L_O_G_NS_GET_TIME
+#define L_O_G_NS_GET_TIME L_O_G_NS_GET_TIME
+struct L_O_G_NS_GET_TIME {
+static inline std::string get_time() {
+  auto now = std::chrono::system_clock::now();
+  std::time_t time = std::chrono::system_clock::to_time_t(now);
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << '.' << std::setw(3) << std::setfill('0') << ms.count();
+  return ss.str();
 }
-}
+};
+#endif
 #define RPC_CORE_LOG_TIME_LABEL "%s "
-#define RPC_CORE_LOG_TIME_VALUE ,RPC_CORE_LOG::get_time().c_str()
+#define RPC_CORE_LOG_TIME_VALUE ,L_O_G_NS_GET_TIME::get_time().c_str()
 #else
 #define RPC_CORE_LOG_TIME_LABEL
 #define RPC_CORE_LOG_TIME_VALUE
