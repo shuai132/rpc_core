@@ -121,6 +121,7 @@ class msg_dispatcher : noncopyable {
 
     if (timer_impl_ == nullptr) {
       RPC_CORE_LOGW("no timeout will cause memory leak!");
+      return;
     }
 
     auto alive = std::weak_ptr<void>(is_alive_);

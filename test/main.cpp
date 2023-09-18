@@ -1,11 +1,15 @@
 #include <cstdio>
 
+#include "rpc_core.hpp"
 #include "rpc_core/detail/log.h"
 #include "test.h"
 
 using namespace rpc_core_test;
 
 int main() {
+  RPC_CORE_LOG("version: %d", RPC_CORE_VERSION);
+
+  printf("\n");
   RPC_CORE_LOG("test_type...");
   test_type();
 
