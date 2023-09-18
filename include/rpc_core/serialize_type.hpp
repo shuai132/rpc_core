@@ -5,8 +5,8 @@
 
 // include
 #include "detail/noncopyable.hpp"
+#include "detail/size_type.hpp"
 #include "detail/string_view.hpp"
-#include "src/detail/size_type.hpp"
 
 namespace rpc_core {
 

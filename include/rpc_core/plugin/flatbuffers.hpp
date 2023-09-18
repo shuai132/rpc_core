@@ -1,7 +1,7 @@
 #pragma once
 
 #include "flatbuffers/flatbuffers.h"
-#include "src/serialize.hpp"
+#include "rpc_core/serialize.hpp"
 
 namespace rpc_core {
 

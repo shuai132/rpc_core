@@ -1,7 +1,7 @@
 #pragma once
 
 #include "nlohmann/json.hpp"
-#include "plugin/json_msg.hpp"
+#include "rpc_core/plugin/json_msg.hpp"
 
 struct JsonType {
   int id = 0;

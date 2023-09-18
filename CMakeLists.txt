@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_compile_options(-Wall)
 
 add_library(${PROJECT_NAME} INTERFACE)
-target_include_directories(${PROJECT_NAME} INTERFACE .)
+target_include_directories(${PROJECT_NAME} INTERFACE include)
 
 if (RPC_CORE_BUILD_TEST)
     set(EXAMPLE_COMPILE_DEFINE

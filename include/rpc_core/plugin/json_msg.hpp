@@ -1,11 +1,11 @@
 #pragma once
 
 #include "nlohmann/json.hpp"
-#include "src/detail/log.h"
-#include "src/serialize.hpp"
+#include "rpc_core/detail/log.h"
+#include "rpc_core/serialize.hpp"
 
 #define DEFINE_JSON_CLASS(CLASS)                                                               \
-  namespace rpc_core {                                                               \
+  namespace rpc_core {                                                                         \
   template <typename T, typename std::enable_if<std::is_same<CLASS, T>::value, int>::type = 0> \
   serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {                         \
     oa.data.append(nlohmann::json(t).dump(-1));                                                \

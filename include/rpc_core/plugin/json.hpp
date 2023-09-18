@@ -1,8 +1,8 @@
 #pragma once
 
 #include "nlohmann/json.hpp"
-#include "src/detail/log.h"
-#include "src/serialize.hpp"
+#include "rpc_core/detail/log.h"
+#include "rpc_core/serialize.hpp"
 
 namespace rpc_core {
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/serialize.hpp"
+#include "rpc_core/serialize.hpp"
 
 struct TestStruct {
   uint8_t a;

@@ -14,7 +14,7 @@
   "build": {
     "srcDir": "_",
     "flags": [
-      "-I ."
+      "-I include"
     ]
   }
 }

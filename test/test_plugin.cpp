@@ -2,9 +2,8 @@
 #include "plugin/JsonType.h"
 #include "plugin/RawType.h"
 #include "plugin/fb/FbMsg_generated.h"
-#include "plugin/flatbuffers.hpp"
-#include "plugin/json.hpp"
-#include "rpc_core.hpp"
+#include "rpc_core/plugin/flatbuffers.hpp"
+#include "rpc_core/plugin/json.hpp"
 #include "test.h"
 
 namespace rpc_core_test {

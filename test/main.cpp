@@ -1,7 +1,7 @@
 #include <cstdio>
 
-#include "src/detail/log.h"
-#include "test/test.h"
+#include "rpc_core/detail/log.h"
+#include "test.h"
 
 using namespace rpc_core_test;
 
