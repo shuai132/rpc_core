@@ -1,5 +1,7 @@
 #pragma once
 
+#include "msg_wrapper.hpp"
+
 namespace rpc_core {
 namespace detail {
 

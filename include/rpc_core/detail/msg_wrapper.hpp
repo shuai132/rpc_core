@@ -6,6 +6,7 @@
 #include "../type.hpp"
 #include "copyable.hpp"
 #include "log.h"
+#include "msg_wrapper.hpp"
 
 namespace rpc_core {
 namespace detail {
