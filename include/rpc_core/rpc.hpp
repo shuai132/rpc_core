@@ -28,7 +28,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   }
 
  private:
-  explicit rpc(std::shared_ptr<connection> conn = std::make_shared<connection>()) : conn_(conn), dispatcher_(std::move(conn)) {}
+  explicit rpc(std::shared_ptr<connection> conn = std::make_shared<default_connection>()) : conn_(conn), dispatcher_(std::move(conn)) {}
 
   ~rpc() override {
     RPC_CORE_LOGD("~rpc");

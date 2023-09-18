@@ -26,6 +26,20 @@ struct connection : detail::noncopyable {
 };
 
 /**
+ * Default connection avoid crash
+ */
+struct default_connection : connection {
+  default_connection() {
+    send_package_impl = [](const std::string &payload) {
+      RPC_CORE_LOGE("need send_package_impl: %zu", payload.size());
+    };
+    on_recv_package = [](const std::string &payload) {
+      RPC_CORE_LOGE("need on_recv_package: %zu", payload.size());
+    };
+  }
+};
+
+/**
  * Loopback connection for testing
  */
 struct loopback_connection : public connection {
