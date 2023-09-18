@@ -1,6 +1,6 @@
 #pragma once
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 class noncopyable {
@@ -14,4 +14,4 @@ class noncopyable {
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

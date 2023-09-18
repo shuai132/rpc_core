@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 namespace detail {
 
@@ -55,4 +55,4 @@ struct types_has<Q, T, Ts...> : types_has<Q, Ts...> {};
 
 }  // namespace detail
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

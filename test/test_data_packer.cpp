@@ -8,7 +8,7 @@
 static void test_simple() {
   RPC_CORE_LOGI();
   RPC_CORE_LOGI("test_simple...");
-  RPC_CORE_NAMESPACE::detail::data_packer packer;
+  rpc_core::detail::data_packer packer;
   std::string testData = "hello world";
   std::string packedData;
 
@@ -50,7 +50,7 @@ static void test_random() {
   RPC_CORE_LOGI("data generated, size:%zu", TEST_PAYLOAD.size());
   ASSERT(TEST_PAYLOAD.size() == TestAddCount * 10);
 
-  RPC_CORE_NAMESPACE::detail::data_packer packer;
+  rpc_core::detail::data_packer packer;
   packer.on_data = [&](const std::string &data) {
     size_t size = data.size();
     RPC_CORE_LOGI("get payload size:%zu", size);

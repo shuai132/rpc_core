@@ -2,7 +2,7 @@
 
 #include <type_traits>
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 template <typename Base, typename T, typename... Args>
@@ -21,4 +21,4 @@ constexpr const T& min(const T& a, const T& b) {
 }
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

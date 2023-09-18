@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <string>
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 class string_view {
@@ -23,4 +23,4 @@ class string_view {
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

@@ -11,7 +11,7 @@
 #include "detail/data_packer.hpp"
 #include "detail/noncopyable.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 /**
  * Defines interfaces for sending and receiving messages
@@ -69,4 +69,4 @@ struct stream_connection : public connection {
   detail::data_packer data_packer_;
 };
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

@@ -10,7 +10,7 @@
 namespace rpc_core_test {
 
 void test_plugin() {
-  using namespace RPC_CORE_NAMESPACE;
+  using namespace rpc_core;
   {
     RPC_CORE_LOGI("RawType...");
     RawType a;

@@ -8,7 +8,7 @@
 #include "helpers.hpp"
 #include "member_function.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 // There are three basic kinds of callable types
 // function types
@@ -55,4 +55,4 @@ std::function<typename callable_traits<Callable>::function_type> to_stdfunction(
   return stdfun;
 }
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

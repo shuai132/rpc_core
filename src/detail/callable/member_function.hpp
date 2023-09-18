@@ -2,7 +2,7 @@
 
 #include "helpers.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 namespace detail {
 
@@ -136,4 +136,4 @@ struct member_function_traits<Ret (Class::*)(Args...) const volatile && noexcept
 template <typename MemFunPtr>
 struct member_function_traits : detail::member_function_traits<detail::remove_cvref_t<MemFunPtr>> {};
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

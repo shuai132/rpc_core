@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 namespace detail {
 
@@ -37,4 +37,4 @@ inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   return ia;
 }
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

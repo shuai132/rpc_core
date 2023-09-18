@@ -9,7 +9,7 @@
 #include "log.h"
 #include "noncopyable.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 class msg_dispatcher : noncopyable {
@@ -154,4 +154,4 @@ class msg_dispatcher : noncopyable {
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

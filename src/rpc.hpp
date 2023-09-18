@@ -13,7 +13,7 @@
 #include "detail/noncopyable.hpp"
 #include "request.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, public request::rpc_proto {
  public:
@@ -145,4 +145,4 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   seq_type seq_{0};
 };
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

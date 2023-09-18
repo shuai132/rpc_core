@@ -17,7 +17,7 @@
 #include "detail/noncopyable.hpp"
 #include "serialize.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 class request : detail::noncopyable, public std::enable_shared_from_this<request> {
   friend class rpc;
@@ -320,4 +320,4 @@ using request_s = request::request_s;
 using request_w = request::request_w;
 using finally_t = request::finally_t;
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

@@ -17,7 +17,7 @@
     return ia;                                                                       \
   }
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 RPC_CORE_DETAIL_DEFINE_RAW_TYPE(bool, 1);
 RPC_CORE_DETAIL_DEFINE_RAW_TYPE(char, 1);
@@ -34,4 +34,4 @@ RPC_CORE_DETAIL_DEFINE_RAW_TYPE(float, 4);
 RPC_CORE_DETAIL_DEFINE_RAW_TYPE(double, 8);
 RPC_CORE_DETAIL_DEFINE_RAW_TYPE(long double, 16);
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

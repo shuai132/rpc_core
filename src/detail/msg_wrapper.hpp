@@ -7,7 +7,7 @@
 #include "copyable.hpp"
 #include "log.h"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 struct msg_wrapper : copyable {  // NOLINT
@@ -62,4 +62,4 @@ struct msg_wrapper : copyable {  // NOLINT
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

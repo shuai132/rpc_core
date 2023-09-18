@@ -8,7 +8,7 @@
 #include "detail/string_view.hpp"
 #include "src/detail/size_type.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 struct serialize_oarchive : detail::noncopyable {
   std::string data;
@@ -76,4 +76,4 @@ inline serialize_iarchive& operator<<(detail::size_type& t, serialize_iarchive& 
   return ia;
 }
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

@@ -10,10 +10,10 @@ static size_t last_serialize_size = 0;
 
 template <typename T, typename R>
 void serialize_test(const T& a, R& b) {
-  std::string data = RPC_CORE_NAMESPACE::serialize(a);
+  std::string data = rpc_core::serialize(a);
   last_serialize_size = data.size();
   RPC_CORE_LOGI("  size: %zu", last_serialize_size);
-  bool ret = RPC_CORE_NAMESPACE::deserialize(data, b);
+  bool ret = rpc_core::deserialize(data, b);
   ASSERT(ret);
 }
 

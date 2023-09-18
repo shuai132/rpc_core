@@ -6,7 +6,7 @@
 namespace rpc_core_test {
 
 void test_rpc() {
-  using namespace RPC_CORE_NAMESPACE;
+  using namespace rpc_core;
 
   // 此示例使用回环连接 实际使用时需自定义连接
   auto connection = std::make_shared<loopback_connection>();

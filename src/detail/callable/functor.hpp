@@ -4,7 +4,7 @@
 #include "helpers.hpp"
 #include "member_function.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 namespace detail {
 
@@ -22,4 +22,4 @@ struct functor_traits : function_traits<typename call_operator_traits<Class>::fu
 template <typename Class>
 struct functor_traits : detail::functor_traits<detail::remove_cvref_t<Class>> {};
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

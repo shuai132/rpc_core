@@ -5,7 +5,7 @@
 #include "src/serialize.hpp"
 
 #define DEFINE_JSON_CLASS(CLASS)                                                               \
-  namespace RPC_CORE_NAMESPACE {                                                               \
+  namespace rpc_core {                                                               \
   template <typename T, typename std::enable_if<std::is_same<CLASS, T>::value, int>::type = 0> \
   serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {                         \
     oa.data.append(nlohmann::json(t).dump(-1));                                                \
@@ -21,4 +21,4 @@
     }                                                                                          \
     return ia;                                                                                 \
   }                                                                                            \
-  }  // namespace RPC_CORE_NAMESPACE
+  }  // namespace rpc_core

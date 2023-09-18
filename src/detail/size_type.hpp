@@ -5,7 +5,7 @@
 #include <cstring>
 #include <string>
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 struct size_type {
@@ -44,4 +44,4 @@ struct size_type {
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

@@ -6,7 +6,7 @@
 // config
 #include "config.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 #if __cplusplus >= 201402L
 #define RPC_CORE_MOVE_LAMBDA(arg) arg = std::move(arg)
@@ -20,4 +20,4 @@ using cmd_type = std::string;
 
 using seq_type = uint32_t;
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

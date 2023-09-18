@@ -13,7 +13,7 @@
 #include "detail/noncopyable.hpp"
 #include "request.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 class dispose : detail::noncopyable, public request::dispose_proto {
  public:
@@ -58,4 +58,4 @@ class dispose : detail::noncopyable, public request::dispose_proto {
 
 using dispose_s = std::shared_ptr<dispose>;
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

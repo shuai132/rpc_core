@@ -8,7 +8,7 @@
 #include "log.h"
 #include "noncopyable.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 class data_packer : detail::noncopyable {
@@ -117,4 +117,4 @@ class data_packer : detail::noncopyable {
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core

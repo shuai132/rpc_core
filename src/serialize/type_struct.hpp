@@ -141,7 +141,7 @@
 #include "../detail/noncopyable.hpp"
 #include "../detail/string_view.hpp"
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 
 template <typename T, typename std::enable_if<std::is_fundamental<T>::value, int>::type = 0>
 inline serialize_oarchive& operator&(serialize_oarchive& oa, const T& t) {
@@ -180,21 +180,21 @@ serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   return ia;
 }
 
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core
 
-#define RPC_CORE_DEFINE_TYPE(Type, ...)                                                 \
-  inline void operator>>(const Type& t, ::RPC_CORE_NAMESPACE::serialize_oarchive& ar) { \
-    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__)       \
-  }                                                                                     \
-  inline void operator<<(Type& t, ::RPC_CORE_NAMESPACE::serialize_iarchive& ar) {       \
-    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__)       \
+#define RPC_CORE_DEFINE_TYPE(Type, ...)                                           \
+  inline void operator>>(const Type& t, ::rpc_core::serialize_oarchive& ar) {     \
+    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__) \
+  }                                                                               \
+  inline void operator<<(Type& t, ::rpc_core::serialize_iarchive& ar) {           \
+    RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD, __VA_ARGS__) \
   }
 
 #define RPC_CORE_DEFINE_TYPE_INNER(...)                                                 \
  public:                                                                                \
-  void operator>>(::RPC_CORE_NAMESPACE::serialize_oarchive& ar) const {                 \
+  void operator>>(::rpc_core::serialize_oarchive& ar) const {                           \
     RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD_INNER, __VA_ARGS__) \
   }                                                                                     \
-  void operator<<(::RPC_CORE_NAMESPACE::serialize_iarchive& ar) {                       \
+  void operator<<(::rpc_core::serialize_iarchive& ar) {                                 \
     RPC_CORE_DETAIL_SERIALIZE_PASTE(RPC_CORE_DETAIL_SERIALIZE_FIELD_INNER, __VA_ARGS__) \
   }

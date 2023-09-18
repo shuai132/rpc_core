@@ -1,6 +1,6 @@
 #pragma once
 
-namespace RPC_CORE_NAMESPACE {
+namespace rpc_core {
 namespace detail {
 
 class coder {
@@ -47,4 +47,4 @@ class coder {
 };
 
 }  // namespace detail
-}  // namespace RPC_CORE_NAMESPACE
+}  // namespace rpc_core
