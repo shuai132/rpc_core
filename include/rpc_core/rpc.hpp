@@ -43,6 +43,10 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
     dispatcher_.set_timer_impl(std::move(timer_impl));
   }
 
+  inline void set_ready(bool ready) {
+    is_ready_ = ready;
+  }
+
  public:
   template <typename F>
   void subscribe(const cmd_type& cmd, RPC_CORE_MOVE_PARAM(F) handle) {
@@ -64,7 +68,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
     return create_request()->cmd(std::move(cmd));
   }
 
-  inline request_s ping(std::string payload = "") {
+  inline request_s ping(std::string payload = {}) {  // NOLINT
     return create_request()->ping()->msg(std::move(payload));
   }
 
@@ -79,6 +83,10 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
     }
     auto msg = detail::msg_wrapper::make_cmd(request->cmd_, request->seq_, request->is_ping_, request->need_rsp_, request->payload_);
     conn_->send_package_impl(detail::coder::serialize(msg));
+  }
+
+  inline bool is_ready() const override {
+    return is_ready_;
   }
 
  private:
@@ -143,6 +151,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   std::shared_ptr<connection> conn_;
   detail::msg_dispatcher dispatcher_;
   seq_type seq_{0};
+  bool is_ready_ = false;
 };
 
 }  // namespace rpc_core

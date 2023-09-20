@@ -18,6 +18,9 @@ void test_rpc() {
   // 此示例使用回环连接 不做超时测试
   rpc->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {});
 
+  // 已连接时设置ready
+  rpc->set_ready(true);
+
   /**
    * 简单示例
    * 以收发`std::string`为例，支持结构体和绝大多数STL容器（见序列化章节）。
@@ -240,19 +243,21 @@ void test_rpc() {
 
   RPC_CORE_LOG("6. dispose测试");
   {
+    bool pass = false;
     auto request = rpc->ping("test")
                        ->rsp([&](const std::string& payload) {
                          ASSERT(false);
                        })
                        ->finally([&](finally_t type) {
-                         // 在call之前已取消 不会触发
-                         ASSERT(false);
+                         ASSERT(type == finally_t::canceled);
+                         pass = true;
                        });
     {
       dispose dispose;
       request->add_to(dispose);
     }
     request->call();
+    ASSERT(pass);
   }
 
 #ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
@@ -269,6 +274,21 @@ void test_rpc() {
     }
   }
 #endif
+
+  RPC_CORE_LOG("8. 未ready的rpc对象");
+  {
+    bool pass = false;
+    auto rpc_tmp = rpc::create(connection);
+    rpc_tmp->cmd("cmd")->call();  // should not crash
+    rpc_tmp->cmd("cmd")
+        ->finally([&](finally_t type) {
+          RPC_CORE_LOG("finally: %d", type);
+          ASSERT(type == finally_t::rpc_not_ready);
+          pass = true;
+        })
+        ->call();
+    ASSERT(pass);
+  }
 }
 
 }  // namespace rpc_core_test

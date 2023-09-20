@@ -30,6 +30,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     virtual ~rpc_proto() = default;
     virtual seq_type make_seq() = 0;
     virtual void send_request(const request_s&) = 0;
+    virtual bool is_ready() const = 0;
   };
   using send_proto_s = std::shared_ptr<rpc_proto>;
   using send_proto_w = std::weak_ptr<rpc_proto>;
@@ -40,12 +41,13 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     virtual void remove(const request_s& request) = 0;
   };
 
-  enum class finally_t {
-    normal,
-    timeout,
-    canceled,
-    rpc_expired,
-    no_need_rsp,
+  enum class finally_t : int {
+    normal = 0,
+    no_need_rsp = 1,
+    timeout = 2,
+    canceled = 3,
+    rpc_expired = 4,
+    rpc_not_ready = 5,
   };
 
  public:
@@ -115,13 +117,30 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return self;
   }
 
+  /**
+   * one call, one finally
+   * @param finally
+   * @return
+   */
   std::shared_ptr<request> finally(std::function<void(finally_t)> finally) {
     finally_ = std::move(finally);
     return shared_from_this();
   }
 
+  std::shared_ptr<request> finally(RPC_CORE_MOVE_PARAM(std::function<void()>) finally) {
+    finally_ = [RPC_CORE_MOVE_LAMBDA(finally)](finally_t t) {
+      finally();
+    };
+    return shared_from_this();
+  }
+
   void call(const send_proto_s& rpc = nullptr) {
-    if (canceled_) return;
+    waiting_rsp_ = true;
+
+    if (canceled_) {
+      on_finish(finally_t::canceled);
+      return;
+    }
 
     auto self = shared_from_this();
     if (rpc) {
@@ -130,8 +149,12 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
       on_finish(finally_t::rpc_expired);
       return;
     }
-    waiting_rsp_ = true;
+
     auto r = rpc_.lock();
+    if (!r->is_ready()) {
+      on_finish(finally_t::rpc_not_ready);
+      return;
+    }
     seq_ = r->make_seq();
     r->send_request(self);
     if (!need_rsp_) {
@@ -174,9 +197,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
   request_s cancel() {
     canceled(true);
-    if (waiting_rsp_) {
-      on_finish(finally_t::canceled);
-    }
+    on_finish(finally_t::canceled);
     return shared_from_this();
   }
 
@@ -247,7 +268,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   void on_finish(finally_t type) {
-    assert(waiting_rsp_);
+    if (!waiting_rsp_) return;
     waiting_rsp_ = false;
     RPC_CORE_LOGD("on_finish: cmd:%s, type: %d, %p", cmd_.c_str(), (int)type, this);
     finally_type_ = type;
