@@ -42,13 +42,13 @@ static void test_size_type() {
   using namespace rpc_core::detail;
   auto test = [](size_t value, int except_size) {
     RPC_CORE_LOGI("value: 0x%zx, except: %d", value, except_size);
-    size_type a(value);
+    auto_size a(value);
     std::string payload = a.serialize();
     ASSERT(payload.size() == (size_t)except_size);
-    size_type b;
+    auto_size b;
     int cost = b.deserialize(payload.data());
     ASSERT(cost = except_size);
-    ASSERT(value == b.size);
+    ASSERT(value == b.value);
   };
   test(0x00, 1);
   test(0x01, 2);
@@ -64,7 +64,7 @@ static void test_size_type() {
 void test_type() {
   ASSERT(is_little_endian());
 
-  /// size_type
+  /// auto_size
   test_size_type();
 
   /// raw type
@@ -396,17 +396,17 @@ void test_type() {
     std::chrono::seconds b;
     serialize_test(a, b);
     ASSERT(a == b);
-    ASSERT_SERIALIZE_SIZE(8);
+    ASSERT_SERIALIZE_SIZE(2);  // auto size
   }
 
   /// std::time_point
   {
     RPC_CORE_LOGI("std::time_point...");
-    std::chrono::time_point<std::chrono::steady_clock> a = std::chrono::steady_clock::now();
+    std::chrono::time_point<std::chrono::steady_clock> a = std::chrono::time_point<std::chrono::steady_clock>::max();
     std::chrono::time_point<std::chrono::steady_clock> b;
     serialize_test(a, b);
     ASSERT(a == b);
-    ASSERT_SERIALIZE_SIZE(8);
+    ASSERT_SERIALIZE_SIZE(9);
   }
 
   /// custom class/struct

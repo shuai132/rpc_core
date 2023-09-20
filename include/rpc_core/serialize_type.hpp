@@ -5,8 +5,8 @@
 
 // include
 #include "detail/noncopyable.hpp"
-#include "detail/size_type.hpp"
 #include "detail/string_view.hpp"
+#include "serialize/detail/auto_size.hpp"
 
 namespace rpc_core {
 
@@ -15,7 +15,7 @@ struct serialize_oarchive : detail::noncopyable {
 };
 
 inline serialize_oarchive& operator>>(const serialize_oarchive& t, serialize_oarchive& oa) {
-  oa.data.append(detail::size_type(t.data.size()).serialize());
+  oa.data.append(detail::auto_size(t.data.size()).serialize());
   oa.data.append(t.data);
   return oa;
 }
@@ -25,7 +25,7 @@ inline serialize_oarchive& operator>>(serialize_oarchive&& t, serialize_oarchive
     oa.data = std::move(t.data);
     return oa;
   }
-  oa.data.append(detail::size_type(t.data.size()).serialize());
+  oa.data.append(detail::auto_size(t.data.size()).serialize());
   oa.data.append(t.data);
   return oa;
 }
@@ -40,13 +40,13 @@ struct serialize_iarchive : detail::noncopyable {
 };
 
 inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive& ia) {
-  detail::size_type size;
+  detail::auto_size size;
   int cost = size.deserialize(ia.data);
   ia.data += cost;
   t.data = ia.data;
-  t.size = size.size;
-  ia.data += size.size;
-  ia.size -= cost + size.size;
+  t.size = size.value;
+  ia.data += size.value;
+  ia.size -= cost + size.value;
   return ia;
 }
 
@@ -64,12 +64,14 @@ inline bool deserialize(const detail::string_view& data, T& t) {
   return !ar.error;
 }
 
-inline serialize_oarchive& operator>>(const detail::size_type& t, serialize_oarchive& oa) {
+template <typename T, typename std::enable_if<detail::is_auto_size_type<T>::value, int>::type = 0>
+inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   oa.data.append(t.serialize());
   return oa;
 }
 
-inline serialize_iarchive& operator<<(detail::size_type& t, serialize_iarchive& ia) {
+template <typename T, typename std::enable_if<detail::is_auto_size_type<T>::value, int>::type = 0>
+inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   int cost = t.deserialize((uint8_t*)ia.data);
   ia.data += cost;
   ia.size -= cost;

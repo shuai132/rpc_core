@@ -26,7 +26,7 @@ struct is_std_map_like<std::unordered_multimap<Args...>> : std::true_type {};
 
 template <typename T, typename std::enable_if<detail::is_std_map_like<T>::value, int>::type = 0>
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
-  detail::size_type size(t.size());
+  detail::auto_size size(t.size());
   size >> oa;
   for (auto& item : t) {
     serialize_oarchive tmp;
@@ -38,9 +38,9 @@ serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<detail::is_std_map_like<T>::value, int>::type = 0>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
-  detail::size_type size;
+  detail::auto_size size;
   size << ia;
-  for (size_t i = 0; i < size.size; ++i) {
+  for (size_t i = 0; i < size.value; ++i) {
     typename T::value_type item;
     serialize_iarchive tmp;
     tmp << ia;

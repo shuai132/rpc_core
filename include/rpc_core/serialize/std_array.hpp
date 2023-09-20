@@ -11,14 +11,14 @@ namespace detail {
 template <typename T>
 struct is_std_array : std::false_type {};
 
-template <class T, size_t Size>
+template <typename T, size_t Size>
 struct is_std_array<std::array<T, Size>> : std::true_type {};
 
 }  // namespace detail
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
-  detail::size_type size(t.size());
+  detail::auto_size size(t.size());
   size >> oa;
   for (auto& item : t) {
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
@@ -34,9 +34,9 @@ serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<detail::is_std_array<T>::value, int>::type = 0>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
-  detail::size_type size;
+  detail::auto_size size;
   size << ia;
-  for (size_t i = 0; i < size.size; ++i) {
+  for (size_t i = 0; i < size.value; ++i) {
     typename T::value_type item;
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
       item << ia;

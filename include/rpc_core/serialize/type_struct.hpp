@@ -157,19 +157,19 @@ inline serialize_oarchive& operator&(serialize_oarchive& oa, const T& t) {
   return oa;
 }
 
-template <class T, typename std::enable_if<std::is_fundamental<T>::value, int>::type = 0>
+template <typename T, typename std::enable_if<std::is_fundamental<T>::value, int>::type = 0>
 inline serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   if (ia.error) return ia;
   t << ia;
   return ia;
 }
 
-template <class T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type = 0>
+template <typename T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type = 0>
 serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   if (ia.error) return ia;
-  detail::size_type size_type;
-  int cost = size_type.deserialize(ia.data);
-  uint32_t size = size_type.size;
+  detail::auto_size auto_size;
+  int cost = auto_size.deserialize(ia.data);
+  uint32_t size = auto_size.value;
   ia.data += cost;
 
   serialize_iarchive tmp(detail::string_view(ia.data, size));
