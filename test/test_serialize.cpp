@@ -1,3 +1,4 @@
+#include <cinttypes>
 #include <codecvt>  // std::wstring_convert
 
 #include "assert_def.h"
@@ -38,10 +39,10 @@ static bool is_little_endian() {
   return *(char*)&x != 0;
 }
 
-static void test_size_type() {
+static void test_auto_size() {
   using namespace rpc_core::detail;
-  auto test = [](size_t value, int except_size) {
-    RPC_CORE_LOGI("value: 0x%zx, except: %d", value, except_size);
+  auto test_auto_size = [](size_t value, int except_size) {
+    RPC_CORE_LOGI("value: 0x%" PRIxMAX "(%" PRIiMAX ") except: %d", value, value, except_size);
     auto_size a(value);
     std::string payload = a.serialize();
     ASSERT(payload.size() == (size_t)except_size);
@@ -50,22 +51,59 @@ static void test_size_type() {
     ASSERT(cost = except_size);
     ASSERT(value == b.value);
   };
-  test(0x00, 1);
-  test(0x01, 2);
-  test(0xff, 2);
-  test(0xfff, 3);
-  test(0xffff, 3);
-  test(0xfffff, 4);
-  test(0xffffff, 4);
-  test(0xfffffff, 5);
-  test(0xffffffff, 5);
+  test_auto_size(0x00, 1);
+  test_auto_size(0x01, 2);
+  test_auto_size(0xff, 2);
+  test_auto_size(0xfff, 3);
+  test_auto_size(0xffff, 3);
+  test_auto_size(0xfffff, 4);
+  test_auto_size(0xffffff, 4);
+  test_auto_size(0xfffffff, 5);
+  test_auto_size(0xffffffff, 5);
+
+  auto test_auto_int = [](intmax_t value, int except_size) {
+    RPC_CORE_LOGI("value: 0x%" PRIxMAX "(%" PRIiMAX ") except: %d", value, value, except_size);
+    auto_intmax a(value);
+    std::string payload = a.serialize();
+    ASSERT(payload.size() == (size_t)except_size);
+    auto_intmax b;
+    int cost = b.deserialize(payload.data());
+    ASSERT(cost = except_size);
+    ASSERT(value == b.value);
+  };
+  test_auto_int(0x00, 1);
+  test_auto_int(0xff, 2);
+  test_auto_int(-0xff, 2);
+  test_auto_int(0xffff, 3);
+  test_auto_int(-0xffff, 3);
+  test_auto_int(0xffffff, 4);
+  test_auto_int(-0xffffff, 4);
+  test_auto_int(intmax_t(0xffffffff), 5);
+  test_auto_int(-(intmax_t(0xffffffff)), 5);
+
+  auto test_auto_uint = [](uintmax_t value, int except_size) {
+    RPC_CORE_LOGI("value: 0x%" PRIxMAX "(%" PRIiMAX ") except: %d", value, value, except_size);
+    auto_uintmax a(value);
+    std::string payload = a.serialize();
+    ASSERT(payload.size() == (size_t)except_size);
+    auto_uintmax b;
+    int cost = b.deserialize(payload.data());
+    ASSERT(cost = except_size);
+    ASSERT(value == b.value);
+  };
+  test_auto_uint(0x00, 1);
+  test_auto_uint(0xff, 2);
+  test_auto_uint(0xffff, 3);
+  test_auto_uint(0xffffff, 4);
+  test_auto_uint(uintmax_t(0xffffffff), 5);
 }
 
-void test_type() {
+void test_serialize() {
+  /// only support little endian
   ASSERT(is_little_endian());
 
   /// auto_size
-  test_size_type();
+  test_auto_size();
 
   /// raw type
   {

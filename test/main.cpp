@@ -10,8 +10,8 @@ int main() {
   RPC_CORE_LOG("version: %d", RPC_CORE_VERSION);
 
   printf("\n");
-  RPC_CORE_LOG("test_type...");
-  test_type();
+  RPC_CORE_LOG("test_serialize...");
+  test_serialize();
 
   printf("\n");
   RPC_CORE_LOG("test_data_packer...");
