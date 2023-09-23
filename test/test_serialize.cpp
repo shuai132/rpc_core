@@ -1,5 +1,4 @@
 #include <cinttypes>
-#include <codecvt>  // std::wstring_convert
 
 #include "assert_def.h"
 #include "rpc_core.hpp"
@@ -171,7 +170,7 @@ void test_serialize() {
   /// std::wstring
   {
     RPC_CORE_LOGI("std::wstring...");
-    std::wstring a = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes("你好，世界！");
+    std::wstring a = L"中文";
     std::wstring b;
     serialize_test(a, b);
     ASSERT(b == a);
