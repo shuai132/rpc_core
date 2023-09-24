@@ -110,6 +110,7 @@ json: `{"id":1,"age":18,"name":"test"}`
 - [x] [std::chrono::time_point](https://en.cppreference.com/w/cpp/chrono/time_point)
 - [x] [std::unique_ptr](https://en.cppreference.com/w/cpp/memory/unique_ptr)
 - [x] [std::shared_ptr](https://en.cppreference.com/w/cpp/memory/shared_ptr)
+- [x] [rpc_core::binary](include/rpc_core/serialize/type_binary.hpp)
 - [x] [custom struct/class](test/serialize/CustomType.h)
   ```c++
   #include "rpc_core/serialize.hpp"

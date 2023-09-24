@@ -27,6 +27,7 @@
 #include "serialize/std_shared_ptr.hpp"
 #include "serialize/std_tuple.hpp"
 #include "serialize/std_unique_ptr.hpp"
+#include "serialize/type_binary.hpp"
 #include "serialize/type_enum.hpp"
 #include "serialize/type_ptr.hpp"
 #include "serialize/type_struct.hpp"

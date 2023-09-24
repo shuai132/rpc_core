@@ -365,6 +365,29 @@ void test_serialize() {
     ASSERT_SERIALIZE_SIZE(2 /*size*/ + (2 /*std::pair*/ + (2 + 3) * 2) * 3);
   }
 
+  /// ptr
+  {
+    RPC_CORE_LOGI("ptr...");
+    int* a = (int*)123;
+    int* b = nullptr;
+    serialize_test(a, b);
+    ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(2);  // auto size
+  }
+
+  /// binary
+  {
+    RPC_CORE_LOGI("binary...");
+    std::vector<int> data = {1, 2, 3};
+    size_t data_bytes = data.size() * sizeof(int);
+    rpc_core::binary a(data.data(), data_bytes);
+    rpc_core::binary b;
+    serialize_test(a, b);
+    ASSERT(b.size == data_bytes);
+    ASSERT(0 == memcmp(data.data(), b.data, data_bytes));
+    ASSERT_SERIALIZE_SIZE(2 /*size*/ + data_bytes);
+  }
+
   /// std::shared_ptr
   {
     RPC_CORE_LOGI("std::shared_ptr...");
