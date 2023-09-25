@@ -375,17 +375,37 @@ void test_serialize() {
     ASSERT_SERIALIZE_SIZE(2);  // auto size
   }
 
-  /// binary
+  /// binary_wrap
   {
-    RPC_CORE_LOGI("binary...");
-    std::vector<int> data = {1, 2, 3};
-    size_t data_bytes = data.size() * sizeof(int);
-    rpc_core::binary a(data.data(), data_bytes);
-    rpc_core::binary b;
-    serialize_test(a, b);
-    ASSERT(b.size == data_bytes);
-    ASSERT(0 == memcmp(data.data(), b.data, data_bytes));
-    ASSERT_SERIALIZE_SIZE(2 /*size*/ + data_bytes);
+    RPC_CORE_LOGI("binary_wrap...");
+    {
+      uint8_t array[] = {1, 2, 3};
+      size_t data_bytes = sizeof(array);
+      rpc_core::binary_wrap a(array, data_bytes);
+      rpc_core::binary_wrap b;
+      serialize_test(a, b);
+      ASSERT(b.size == data_bytes);
+      ASSERT(b.data != array);
+      ASSERT(0 == memcmp(array, b.data, data_bytes));
+      ASSERT_SERIALIZE_SIZE(2 /*size*/ + data_bytes);
+    }
+    {
+      uint8_t array[] = {1, 2, 3};
+      struct Test {
+        uint8_t* ptr = nullptr;
+        rpc_core::binary_wrap bin;
+        RPC_CORE_DEFINE_TYPE_INNER(ptr, bin);
+      };
+      Test a;
+      a.ptr = array;
+      a.bin = {array, sizeof(array)};
+      Test b;
+      serialize_test(a, b);
+      ASSERT(b.ptr == array);
+      ASSERT(b.bin.size == sizeof(array));
+      ASSERT(b.bin.data != array);
+      ASSERT(0 == memcmp(array, b.bin.data, sizeof(array)));
+    }
   }
 
   /// std::shared_ptr

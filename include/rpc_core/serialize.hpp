@@ -13,6 +13,7 @@
 #include "serialize/type_raw.hpp"
 
 // other types
+#include "serialize/binary_wrap.hpp"
 #include "serialize/std_array.hpp"
 #include "serialize/std_basic_string.hpp"
 #include "serialize/std_bitset.hpp"
@@ -27,7 +28,6 @@
 #include "serialize/std_shared_ptr.hpp"
 #include "serialize/std_tuple.hpp"
 #include "serialize/std_unique_ptr.hpp"
-#include "serialize/type_binary.hpp"
 #include "serialize/type_enum.hpp"
 #include "serialize/type_ptr.hpp"
 #include "serialize/type_struct.hpp"

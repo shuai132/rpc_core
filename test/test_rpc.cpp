@@ -282,7 +282,7 @@ void test_rpc() {
     rpc_tmp->cmd("cmd")->call();  // should not crash
     rpc_tmp->cmd("cmd")
         ->finally([&](finally_t type) {
-          RPC_CORE_LOG("finally: %d", type);
+          RPC_CORE_LOG("finally: %d", (int)type);
           ASSERT(type == finally_t::rpc_not_ready);
           pass = true;
         })
