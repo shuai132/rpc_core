@@ -25,7 +25,7 @@ class msg_dispatcher : noncopyable {
     auto alive = std::weak_ptr<void>(is_alive_);
     conn_->on_recv_package = ([this, RPC_CORE_MOVE_LAMBDA(alive)](const std::string& payload) {
       if (alive.expired()) {
-        RPC_CORE_LOGD("on_recv_package: msg_dispatcher destroyed!");
+        RPC_CORE_LOGD("msg_dispatcher expired");
         return;
       }
       bool success;
@@ -42,18 +42,18 @@ class msg_dispatcher : noncopyable {
   void dispatch(msg_wrapper msg) {
     switch (msg.type & (msg_wrapper::command | msg_wrapper::response)) {
       case msg_wrapper::command: {
-        // PING
+        // ping
         const bool is_ping = msg.type & msg_wrapper::ping;
         if (is_ping) {
+          RPC_CORE_LOGD("<= seq:%u, type:%s", msg.seq, "ping");
           msg.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::response | msg_wrapper::pong);
+          RPC_CORE_LOGD("=> seq:%u, type:%s", msg.seq, "pong");
           conn_->send_package_impl(coder::serialize(msg));
           return;
         }
 
-        // COMMAND
+        // command
         const auto& cmd = msg.cmd;
-        RPC_CORE_LOGD("dispatch cmd:%s, seq:%d, conn:%p", cmd.c_str(), msg.seq, conn_.get());
-
         auto it = cmd_handle_map_.find(cmd);
         if (it == cmd_handle_map_.cend()) {
           RPC_CORE_LOGD("not register cmd for: %s", cmd.c_str());
@@ -68,11 +68,11 @@ class msg_dispatcher : noncopyable {
       } break;
 
       case msg_wrapper::response: {
-        // PONG or RESPONSE
+        // pong or response
         const bool isPong = msg.type & msg_wrapper::pong;
         const auto handleMap = isPong ? &pong_handle_map_ : &rsp_handle_map_;
 
-        RPC_CORE_LOGD("dispatch rsp: seq=%d, conn:%p", msg.seq, conn_.get());
+        RPC_CORE_LOGD("<= seq:%u, type:%s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::pong) ? "pong" : "rsp");
         auto it = handleMap->find(msg.seq);
         if (it == handleMap->cend()) {
           RPC_CORE_LOGD("not register callback for response");
@@ -92,20 +92,20 @@ class msg_dispatcher : noncopyable {
       } break;
 
       default:
-        RPC_CORE_LOGE("unknown message type:%d, conn:%p", msg.type, conn_.get());
+        RPC_CORE_LOGE("unknown type");
     }
   }
 
  public:
   inline void subscribe_cmd(const cmd_type& cmd, cmd_handle handle) {
-    RPC_CORE_LOGD("subscribe_cmd cmd:%s, conn:%p, handle:%p", cmd.c_str(), conn_.get(), &handle);
+    RPC_CORE_LOGD("subscribe_cmd cmd:%s", cmd.c_str());
     cmd_handle_map_[cmd] = std::move(handle);
   }
 
   void unsubscribe_cmd(const cmd_type& cmd) {
     auto it = cmd_handle_map_.find(cmd);
     if (it != cmd_handle_map_.cend()) {
-      RPC_CORE_LOGD("erase cmd: %s", cmd.c_str());
+      RPC_CORE_LOGD("erase cmd:%s", cmd.c_str());
       cmd_handle_map_.erase(it);
     } else {
       RPC_CORE_LOGD("not register cmd for: %s", cmd.c_str());
@@ -113,7 +113,7 @@ class msg_dispatcher : noncopyable {
   }
 
   void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeout_cb, uint32_t timeout_ms, bool is_ping) {
-    RPC_CORE_LOGD("subscribe_rsp seq:%d, handle:%p", seq, &handle);
+    RPC_CORE_LOGD("subscribe_rsp seq:%u", seq);
     if (handle == nullptr) return;
     const auto handleMap = is_ping ? &pong_handle_map_ : &rsp_handle_map_;
 
@@ -127,7 +127,7 @@ class msg_dispatcher : noncopyable {
     auto alive = std::weak_ptr<void>(is_alive_);
     timer_impl_(timeout_ms, [handleMap, seq, RPC_CORE_MOVE_LAMBDA(timeout_cb), RPC_CORE_MOVE_LAMBDA(alive)] {
       if (alive.expired()) {
-        RPC_CORE_LOGD("timeout after destroy, ignore it!");
+        RPC_CORE_LOGD("seq:%u timeout after destroy", seq);
         return;
       }
       auto it = handleMap->find(seq);

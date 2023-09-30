@@ -48,6 +48,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     canceled = 3,
     rpc_expired = 4,
     rpc_not_ready = 5,
+    rsp_serialize_error = 6,
   };
 
  public:
@@ -84,7 +85,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb), self](detail::msg_wrapper msg) {
+    this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb)](detail::msg_wrapper msg) {
       if (canceled_) {
         on_finish(finally_t::canceled);
         return true;
@@ -95,8 +96,10 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         cb(std::move(rsp.second));
         on_finish(finally_t::normal);
         return true;
+      } else {
+        on_finish(finally_t::rsp_serialize_error);
+        return false;
       }
-      return false;
     };
     return self;
   }
@@ -105,7 +108,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   request_s rsp(RPC_CORE_MOVE_PARAM(F) cb) {
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb), self](const detail::msg_wrapper& msg) {
+    this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb)](const detail::msg_wrapper& msg) {
       if (canceled_) {
         on_finish(finally_t::canceled);
         return true;
@@ -142,7 +145,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
       return;
     }
 
-    auto self = shared_from_this();
+    self_keeper_ = shared_from_this();
     if (rpc) {
       rpc_ = rpc;
     } else if (rpc_.expired()) {
@@ -156,7 +159,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
       return;
     }
     seq_ = r->make_seq();
-    r->send_request(self);
+    r->send_request(self_keeper_);
     if (!need_rsp_) {
       on_finish(finally_t::no_need_rsp);
     }
@@ -172,6 +175,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
+  /**
+   * timeout callback for wait `rsp`
+   */
   std::shared_ptr<request> timeout(RPC_CORE_MOVE_PARAM(std::function<void()>) timeout_cb) {
     timeout_cb_ = [this, RPC_CORE_MOVE_LAMBDA(timeout_cb)] {
       if (timeout_cb) {
@@ -257,9 +263,11 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 #endif
 
  private:
-  explicit request(const send_proto_s& rpc = nullptr) : rpc_(rpc) {}
+  explicit request(const send_proto_s& rpc = nullptr) : rpc_(rpc) {
+    RPC_CORE_LOGD("request: %p", this);
+  }
   ~request() {
-    RPC_CORE_LOGD("~request: cmd:%s, %p", cmd_.c_str(), this);
+    RPC_CORE_LOGD("~request: %p", this);
   }
 
  private:
@@ -270,15 +278,17 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   void on_finish(finally_t type) {
     if (!waiting_rsp_) return;
     waiting_rsp_ = false;
-    RPC_CORE_LOGD("on_finish: cmd:%s, type: %d, %p", cmd_.c_str(), (int)type, this);
+    RPC_CORE_LOGD("on_finish: cmd:%s, type:%d", cmd_.c_str(), (int)type);
     finally_type_ = type;
     if (finally_) {
       finally_(finally_type_);
     }
+    self_keeper_ = nullptr;
   }
 
  private:
   send_proto_w rpc_;
+  request_s self_keeper_;
   seq_type seq_{};
   cmd_type cmd_;
   std::string payload_;
