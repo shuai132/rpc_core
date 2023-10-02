@@ -33,7 +33,7 @@ class msg_dispatcher : noncopyable {
       if (success) {
         this->dispatch(std::move(msg));
       } else {
-        RPC_CORE_LOGE("payload can not be parsed, msg info");
+        RPC_CORE_LOGE("payload deserialize error");
       }
     });
   }
@@ -45,24 +45,26 @@ class msg_dispatcher : noncopyable {
         // ping
         const bool is_ping = msg.type & msg_wrapper::ping;
         if (is_ping) {
-          RPC_CORE_LOGD("<= seq:%u, type:%s", msg.seq, "ping");
+          RPC_CORE_LOGD("<= seq:%u type:ping", msg.seq);
           msg.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::response | msg_wrapper::pong);
-          RPC_CORE_LOGD("=> seq:%u, type:%s", msg.seq, "pong");
+          RPC_CORE_LOGD("=> seq:%u type:pong", msg.seq);
           conn_->send_package_impl(coder::serialize(msg));
           return;
         }
 
         // command
+        RPC_CORE_LOGD("<= seq:%u cmd:%s", msg.seq, msg.cmd.c_str());
         const auto& cmd = msg.cmd;
         auto it = cmd_handle_map_.find(cmd);
         if (it == cmd_handle_map_.cend()) {
-          RPC_CORE_LOGD("not register cmd for: %s", cmd.c_str());
+          RPC_CORE_LOGD("not subscribe cmd for: %s", cmd.c_str());
           return;
         }
         const auto& fn = it->second;
         const bool need_rsp = msg.type & msg_wrapper::need_rsp;
-        auto resp = fn(std::move(msg));
+        auto resp = fn(msg);
         if (need_rsp && resp.first) {
+          RPC_CORE_LOGD("=> seq:%u type:rsp", msg.seq);
           conn_->send_package_impl(coder::serialize(resp.second));
         }
       } break;
@@ -72,15 +74,15 @@ class msg_dispatcher : noncopyable {
         const bool isPong = msg.type & msg_wrapper::pong;
         const auto handleMap = isPong ? &pong_handle_map_ : &rsp_handle_map_;
 
-        RPC_CORE_LOGD("<= seq:%u, type:%s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::pong) ? "pong" : "rsp");
+        RPC_CORE_LOGD("<= seq:%u type:%s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::pong) ? "pong" : "rsp");
         auto it = handleMap->find(msg.seq);
         if (it == handleMap->cend()) {
-          RPC_CORE_LOGD("not register callback for response");
+          RPC_CORE_LOGD("no rsp for seq:%u", msg.seq);
           break;
         }
         const auto& cb = it->second;
         if (not cb) {
-          RPC_CORE_LOGE("rsp handle can not be null");
+          RPC_CORE_LOGE("rsp can not be null");
           return;
         }
         if (cb(std::move(msg))) {
@@ -98,7 +100,7 @@ class msg_dispatcher : noncopyable {
 
  public:
   inline void subscribe_cmd(const cmd_type& cmd, cmd_handle handle) {
-    RPC_CORE_LOGD("subscribe_cmd cmd:%s", cmd.c_str());
+    RPC_CORE_LOGD("subscribe cmd:%s", cmd.c_str());
     cmd_handle_map_[cmd] = std::move(handle);
   }
 
@@ -108,7 +110,7 @@ class msg_dispatcher : noncopyable {
       RPC_CORE_LOGD("erase cmd:%s", cmd.c_str());
       cmd_handle_map_.erase(it);
     } else {
-      RPC_CORE_LOGD("not register cmd for: %s", cmd.c_str());
+      RPC_CORE_LOGD("not subscribe cmd for: %s", cmd.c_str());
     }
   }
 

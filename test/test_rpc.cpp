@@ -64,10 +64,10 @@ void test_rpc() {
                          pass = true;
                        })
                        ->timeout([] {
-                         RPC_CORE_LOGI("超时");
+                         RPC_CORE_LOGI("timeout");
                        })
                        ->finally([](finally_t type) {
-                         RPC_CORE_LOGI("完成: type:%d", (int)type);
+                         RPC_CORE_LOGI("finally: type:%s", rpc_core::request::finally_t_str(type));
                        });
     RPC_CORE_LOGI("执行请求");
     ASSERT(!pass);

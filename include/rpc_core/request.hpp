@@ -50,6 +50,26 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     rpc_not_ready = 5,
     rsp_serialize_error = 6,
   };
+  static inline const char* finally_t_str(finally_t t) {
+    switch (t) {
+      case finally_t::normal:
+        return "normal";
+      case finally_t::no_need_rsp:
+        return "no_need_rsp";
+      case finally_t::timeout:
+        return "timeout";
+      case finally_t::canceled:
+        return "canceled";
+      case finally_t::rpc_expired:
+        return "rpc_expired";
+      case finally_t::rpc_not_ready:
+        return "rpc_not_ready";
+      case finally_t::rsp_serialize_error:
+        return "rsp_serialize_error";
+      default:
+        return "unknown";
+    }
+  }
 
  public:
   template <typename... Args>
@@ -278,7 +298,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   void on_finish(finally_t type) {
     if (!waiting_rsp_) return;
     waiting_rsp_ = false;
-    RPC_CORE_LOGD("on_finish: cmd:%s, type:%d", cmd_.c_str(), (int)type);
+    RPC_CORE_LOGD("on_finish: cmd:%s type:%s", cmd_.c_str(), finally_t_str(type));
     finally_type_ = type;
     if (finally_) {
       finally_(finally_type_);

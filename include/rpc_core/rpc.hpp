@@ -84,7 +84,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
       dispatcher_.subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_, request->is_ping_);
     }
     auto msg = detail::msg_wrapper::make_cmd(request->cmd_, request->seq_, request->is_ping_, request->need_rsp_, request->payload_);
-    RPC_CORE_LOGD("=> seq:%u, type:%s %s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::ping) ? "ping" : "cmd", msg.cmd.c_str());
+    RPC_CORE_LOGD("=> seq:%u type:%s %s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::ping) ? "ping" : "cmd", msg.cmd.c_str());
     conn_->send_package_impl(detail::coder::serialize(msg));
   }
 
