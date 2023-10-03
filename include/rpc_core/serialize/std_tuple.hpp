@@ -56,7 +56,10 @@ struct tuple_serialize_helper_impl<Tuple, I, tuple_serialize_type::RawType> {
 
 template <typename Tuple, std::size_t I>
 struct tuple_serialize_helper_impl<Tuple, I, tuple_serialize_type::Ignore> {
-  static void serialize(const Tuple& t, serialize_oarchive& oa) {}
+  static void serialize(const Tuple& t, serialize_oarchive& oa) {
+    RPC_CORE_UNUSED(t);
+    RPC_CORE_UNUSED(oa);
+  }
 };
 
 template <typename Tuple, std::size_t N>
@@ -100,7 +103,10 @@ struct tuple_de_serialize_helper_impl<Tuple, I, tuple_serialize_type::RawType> {
 
 template <typename Tuple, std::size_t I>
 struct tuple_de_serialize_helper_impl<Tuple, I, tuple_serialize_type::Ignore> {
-  static void de_serialize(Tuple& t, serialize_iarchive& ia) {}
+  static void de_serialize(Tuple& t, serialize_iarchive& ia) {
+    RPC_CORE_UNUSED(t);
+    RPC_CORE_UNUSED(ia);
+  }
 };
 
 template <typename Tuple, std::size_t N>

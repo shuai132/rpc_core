@@ -129,6 +129,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     need_rsp_ = true;
     auto self = shared_from_this();
     this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb)](const detail::msg_wrapper& msg) {
+      RPC_CORE_UNUSED(msg);
       if (canceled_) {
         on_finish(finally_t::canceled);
         return true;
@@ -152,6 +153,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
   std::shared_ptr<request> finally(RPC_CORE_MOVE_PARAM(std::function<void()>) finally) {
     finally_ = [RPC_CORE_MOVE_LAMBDA(finally)](finally_t t) {
+      RPC_CORE_UNUSED(t);
       finally();
     };
     return shared_from_this();

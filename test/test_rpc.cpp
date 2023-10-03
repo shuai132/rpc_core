@@ -16,7 +16,10 @@ void test_rpc() {
 
   // 定时器实现 应配合当前应用的事件循环 以确保消息收发和超时回调在同一个线程
   // 此示例使用回环连接 不做超时测试
-  rpc->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {});
+  rpc->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {
+    RPC_CORE_UNUSED(ms);
+    RPC_CORE_UNUSED(cb);
+  });
 
   // 已连接时设置ready
   rpc->set_ready(true);
@@ -246,6 +249,7 @@ void test_rpc() {
     bool pass = false;
     auto request = rpc->ping("test")
                        ->rsp([&](const std::string& payload) {
+                         RPC_CORE_UNUSED(payload);
                          ASSERT(false);
                        })
                        ->finally([&](finally_t type) {

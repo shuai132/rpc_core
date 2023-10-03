@@ -7,6 +7,7 @@
 #include "detail/noncopyable.hpp"
 #include "detail/string_view.hpp"
 #include "serialize/detail/auto_size.hpp"
+#include "type.hpp"
 
 namespace rpc_core {
 
