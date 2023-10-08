@@ -82,22 +82,27 @@ void test_rpc() {
     pass = false;
     request->call();
     ASSERT(pass);
-    RPC_CORE_LOGI("可以取消");
+
+    RPC_CORE_LOGI("测试取消");
     pass = false;
     request->cancel();
     request->call();
     ASSERT(!pass);
+
     RPC_CORE_LOGI("恢复取消");
     request->reset_cancel();
     request->call();
     ASSERT(pass);
+
     RPC_CORE_LOGI("添加到dispose");
     pass = false;
-    dispose dispose;
-    request->add_to(dispose);
-    dispose.dismiss();
+    {  // RAII dispose
+      dispose dispose;
+      request->add_to(dispose);
+    }
     request->call();
     ASSERT(!pass);
+
     RPC_CORE_LOGI("先创建request");
     pass = false;
     request::create()
@@ -105,6 +110,21 @@ void test_rpc() {
         ->msg(std::string("test"))
         ->rsp([&](const std::string& rsp) {
           ASSERT(rsp == "ok");
+          pass = true;
+        })
+        ->call(rpc);
+    ASSERT(pass);
+
+    RPC_CORE_LOGI("no_such_cmd");
+    pass = false;
+    request::create()
+        ->cmd("cmd_xx")
+        ->msg(std::string("test"))
+        ->rsp([] {
+          ASSERT(false);
+        })
+        ->finally([&](finally_t type) {
+          ASSERT(type == finally_t::no_such_cmd);
           pass = true;
         })
         ->call(rpc);

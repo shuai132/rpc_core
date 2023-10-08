@@ -18,6 +18,7 @@ struct msg_wrapper : copyable {  // NOLINT
     need_rsp = 1 << 2,
     ping = 1 << 3,
     pong = 1 << 4,
+    no_such_cmd = 1 << 5,
   };
 
   seq_type seq;

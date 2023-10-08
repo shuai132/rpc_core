@@ -58,6 +58,14 @@ class msg_dispatcher : noncopyable {
         auto it = cmd_handle_map_.find(cmd);
         if (it == cmd_handle_map_.cend()) {
           RPC_CORE_LOGD("not subscribe cmd for: %s", cmd.c_str());
+          const bool need_rsp = msg.type & msg_wrapper::need_rsp;
+          if (need_rsp) {
+            RPC_CORE_LOGD("=> seq:%u type:rsp", msg.seq);
+            msg_wrapper rsp;
+            rsp.seq = msg.seq;
+            rsp.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::msg_type::response | msg_wrapper::msg_type::no_such_cmd);
+            conn_->send_package_impl(coder::serialize(rsp));
+          }
           return;
         }
         const auto& fn = it->second;

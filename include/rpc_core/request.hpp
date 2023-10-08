@@ -49,6 +49,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     rpc_expired = 4,
     rpc_not_ready = 5,
     rsp_serialize_error = 6,
+    no_such_cmd = 7,
   };
   static inline const char* finally_t_str(finally_t t) {
     switch (t) {
@@ -66,6 +67,8 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         return "rpc_not_ready";
       case finally_t::rsp_serialize_error:
         return "rsp_serialize_error";
+      case finally_t::no_such_cmd:
+        return "no_such_cmd";
       default:
         return "unknown";
     }
@@ -111,6 +114,11 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         return true;
       }
 
+      if (msg.type & detail::msg_wrapper::msg_type::no_such_cmd) {
+        on_finish(finally_t::no_such_cmd);
+        return true;
+      }
+
       auto rsp = msg.unpack_as<T>();
       if (rsp.first) {
         cb(std::move(rsp.second));
@@ -134,6 +142,12 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         on_finish(finally_t::canceled);
         return true;
       }
+
+      if (msg.type & detail::msg_wrapper::msg_type::no_such_cmd) {
+        on_finish(finally_t::no_such_cmd);
+        return true;
+      }
+
       cb();
       on_finish(finally_t::normal);
       return true;
