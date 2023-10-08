@@ -25,6 +25,7 @@ struct msg_wrapper : copyable {  // NOLINT
   cmd_type cmd;
   msg_type type;
   std::string data;
+  std::string* request_payload = nullptr;
 
   std::string dump() const {
     char tmp[100];
@@ -40,15 +41,6 @@ struct msg_wrapper : copyable {  // NOLINT
       RPC_CORE_LOGE("deserialize error, msg info:%s", dump().c_str());
     }
     return std::make_pair(ok, std::move(message));
-  }
-
-  static msg_wrapper make_cmd(cmd_type cmd, seq_type seq, bool is_ping, bool need_rsp, std::string data) {
-    msg_wrapper msg;
-    msg.type = static_cast<msg_type>(msg_wrapper::command | (is_ping ? msg_wrapper::ping : 0) | (need_rsp ? msg_wrapper::need_rsp : 0));
-    msg.cmd = std::move(cmd);
-    msg.seq = seq;
-    msg.data = std::move(data);
-    return msg;
   }
 
   template <typename T>

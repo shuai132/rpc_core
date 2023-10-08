@@ -15,7 +15,11 @@ class coder {
     payload.append((char*)&cmdLen, 2);
     payload.append((char*)msg.cmd.data(), cmdLen);
     payload.append((char*)&msg.type, 1);
-    payload.append(msg.data);
+    if (msg.request_payload) {
+      payload.append(*msg.request_payload);
+    } else {
+      payload.append(msg.data);
+    }
     return payload;
   }
 
