@@ -8,7 +8,7 @@ namespace rpc_core {
 
 template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::value, int>::type = 0>
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
-  oa << t.dump();
+  t.dump() >> oa;
   return oa;
 }
 

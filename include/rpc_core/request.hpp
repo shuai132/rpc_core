@@ -90,13 +90,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  template <class T>
-  request_s msg(const T& message) {
-    this->payload_ = serialize(message);
-    return shared_from_this();
-  }
-
-  template <class T>
+  template <typename T>
   request_s msg(T&& message) {
     this->payload_ = serialize(std::forward<T>(message));
     return shared_from_this();

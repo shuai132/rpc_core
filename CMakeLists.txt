@@ -21,7 +21,7 @@ if (RPC_CORE_BUILD_TEST)
             ANDROID_STANDALONE
             RPC_CORE_LOG_SHOW_DEBUG
             # RPC_CORE_LOG_SHOW_VERBOSE
-            )
+    )
 
     set(TARGET_NAME ${PROJECT_NAME}_test)
     file(GLOB SRCS test/main.cpp test/test_rpc.cpp test/test_serialize.cpp test/test_data_packer.cpp)
@@ -45,7 +45,7 @@ if (RPC_CORE_BUILD_TEST)
                 # flatbuffers
                 COMMAND git clone https://github.com/google/flatbuffers.git --depth=1 --branch=v23.1.21 ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers
                 WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-                )
+        )
 
         target_include_directories(${TARGET_NAME} PRIVATE thirdparty)
         target_include_directories(${TARGET_NAME} PRIVATE thirdparty/flatbuffers/include)

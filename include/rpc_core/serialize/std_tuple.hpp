@@ -8,7 +8,7 @@ namespace rpc_core {
 
 namespace detail {
 
-template <std::size_t I, class T>
+template <std::size_t I, typename T>
 using tuple_element_t = detail::remove_cvref_t<typename std::tuple_element<I, detail::remove_cvref_t<T>>::type>;
 
 template <typename T>

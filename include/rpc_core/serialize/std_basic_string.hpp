@@ -22,13 +22,13 @@ inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 }
 
 template <typename T, typename std::enable_if<detail::is_std_basic_string<T>::value, int>::type = 0>
-serialize_oarchive& operator<<(rpc_core::serialize_oarchive& oa, T&& t) {
+inline serialize_oarchive& operator>>(T&& t, serialize_oarchive& oa) {
   using VT = typename T::value_type;
   if (oa.data.empty()) {
     oa.data = std::forward<T>(t);
-    return oa;
+  } else {
+    oa.data.append((char*)t.data(), t.size() * sizeof(VT));
   }
-  oa.data.append((char*)t.data(), t.size() * sizeof(VT));
   return oa;
 }
 

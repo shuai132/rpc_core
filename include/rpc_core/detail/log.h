@@ -180,7 +180,7 @@ extern int L_O_G_PRINTF_CUSTOM(const char *fmt, ...);
 #include <cstdint>
 #ifdef L_O_G_GET_TID_CUSTOM
 extern uint32_t L_O_G_GET_TID_CUSTOM();
-#elif _WIN32
+#elif defined(_WIN32)
 #include <processthreadsapi.h>
 struct L_O_G_NS_GET_TID {
 static inline uint32_t get_tid() {

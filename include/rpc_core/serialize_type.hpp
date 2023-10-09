@@ -52,9 +52,9 @@ inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive&
 }
 
 template <typename T>
-inline std::string serialize(const T& t) {
+inline std::string serialize(T&& t) {
   serialize_oarchive ar;
-  t >> ar;
+  std::forward<T>(t) >> ar;
   return std::move(ar.data);
 }
 
