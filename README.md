@@ -10,7 +10,7 @@ Arduino, STM32, ESP32/ESP8266, etc.)
 The complete rpc frameworks (such as `gRPC` and `brpc`) have complex functions
 and are not practical on embedded platforms.
 
-This project offers a lightweight and user-friendly implementation that is better suited for one-to-one rpc calls.
+This project offers a lightweight and user-friendly rpc library that is better suited for one-to-one rpc calls.
 It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 
 Note:
@@ -21,13 +21,13 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 ## Features
 
 * Header-Only
-* No schema
-* Support performance-limited platforms, including microchips
-* Compatible with any connection type (`tcp socket`, `serial port`, etc.)
-* Serialization for primitive types, most STL containers, and user struct/class
+* No-Schema
+* Support performance-limited platforms including microchips
+* Support any connection type (`tcp socket`, `serial port`, etc.)
+* High Performance Serialization, support most STL containers and user type
 * Serialization plugins implementations for `flatbuffers` and `nlohmann::json`
-* RAII-based `dispose` for automatic request cancellation
-* Timeout and retry settings
+* RAII-based `dispose` for automatic cancel request
+* Timeout and Retry API
 * Support `std::future` interface
 
 ## Requirements
@@ -35,7 +35,7 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 * C++11
 * Provide your connection implementation: [connection](include/rpc_core/connection.hpp)  
   NOTICE: complete data packets are required for data transmission, such as `websocket`.  
-  If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented by yourself.
+  If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented.
   Or you can use [stream_connection](include/rpc_core/connection.hpp).
 
 ## Usage
@@ -58,7 +58,7 @@ rpc->cmd("cmd")
 
 `msg` and `rsp` support any serializable type, see [Serialization](#Serialization).
 
-Detailed initialization process and unit tests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
+Detailed usages and unittests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
 
 ## Serialization
 
