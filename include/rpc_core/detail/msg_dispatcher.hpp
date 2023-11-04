@@ -70,21 +70,18 @@ class msg_dispatcher : noncopyable {
         }
         const auto& fn = it->second;
         const bool need_rsp = msg.type & msg_wrapper::need_rsp;
-        auto resp = fn(msg);
+        auto resp = fn(std::move(msg));
         if (need_rsp && resp.first) {
-          RPC_CORE_LOGD("=> seq:%u type:rsp", msg.seq);
+          RPC_CORE_LOGD("=> seq:%u type:rsp", resp.second.seq);
           conn_->send_package_impl(coder::serialize(resp.second));
         }
       } break;
 
       case msg_wrapper::response: {
         // pong or response
-        const bool isPong = msg.type & msg_wrapper::pong;
-        const auto handleMap = isPong ? &pong_handle_map_ : &rsp_handle_map_;
-
         RPC_CORE_LOGD("<= seq:%u type:%s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::pong) ? "pong" : "rsp");
-        auto it = handleMap->find(msg.seq);
-        if (it == handleMap->cend()) {
+        auto it = rsp_handle_map_.find(msg.seq);
+        if (it == rsp_handle_map_.cend()) {
           RPC_CORE_LOGD("no rsp for seq:%u", msg.seq);
           break;
         }
@@ -94,11 +91,11 @@ class msg_dispatcher : noncopyable {
           return;
         }
         if (cb(std::move(msg))) {
-          handleMap->erase(it);
-          RPC_CORE_LOGV("handleMap->size=%zu", handleMap->size());
+          RPC_CORE_LOGV("rsp_handle_map_.size=%zu", rsp_handle_map_.size());
         } else {
           RPC_CORE_LOGE("may deserialize error");
         }
+        rsp_handle_map_.erase(it);
       } break;
 
       default:
@@ -122,31 +119,29 @@ class msg_dispatcher : noncopyable {
     }
   }
 
-  void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeout_cb, uint32_t timeout_ms, bool is_ping) {
+  void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeout_cb, uint32_t timeout_ms) {
     RPC_CORE_LOGD("subscribe_rsp seq:%u", seq);
     if (handle == nullptr) return;
-    const auto handleMap = is_ping ? &pong_handle_map_ : &rsp_handle_map_;
-
-    (*handleMap)[seq] = std::move(handle);
 
     if (timer_impl_ == nullptr) {
       RPC_CORE_LOGW("no timeout will cause memory leak!");
       return;
     }
 
+    rsp_handle_map_[seq] = std::move(handle);
     auto alive = std::weak_ptr<void>(is_alive_);
-    timer_impl_(timeout_ms, [handleMap, seq, RPC_CORE_MOVE_LAMBDA(timeout_cb), RPC_CORE_MOVE_LAMBDA(alive)] {
+    timer_impl_(timeout_ms, [this, seq, RPC_CORE_MOVE_LAMBDA(timeout_cb), RPC_CORE_MOVE_LAMBDA(alive)] {
       if (alive.expired()) {
         RPC_CORE_LOGD("seq:%u timeout after destroy", seq);
         return;
       }
-      auto it = handleMap->find(seq);
-      if (it != handleMap->cend()) {
+      auto it = this->rsp_handle_map_.find(seq);
+      if (it != this->rsp_handle_map_.cend()) {
         if (timeout_cb) {
           timeout_cb();
         }
-        handleMap->erase(seq);
-        RPC_CORE_LOGV("Timeout seq=%d, handleMap.size=%zu", seq, handleMap->size());
+        this->rsp_handle_map_.erase(seq);
+        RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, this->rsp_handle_map_.size());
       }
     });
   }
@@ -159,7 +154,6 @@ class msg_dispatcher : noncopyable {
   std::shared_ptr<connection> conn_;
   std::map<cmd_type, cmd_handle> cmd_handle_map_;
   std::map<seq_type, rsp_handle> rsp_handle_map_;
-  std::map<seq_type, rsp_handle> pong_handle_map_;
   timer_impl timer_impl_;
   std::shared_ptr<void> is_alive_ = std::make_shared<uint8_t>();
 };

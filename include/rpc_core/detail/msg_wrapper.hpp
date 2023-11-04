@@ -25,7 +25,7 @@ struct msg_wrapper : copyable {  // NOLINT
   cmd_type cmd;
   msg_type type;
   std::string data;
-  std::string* request_payload = nullptr;
+  std::string const* request_payload = nullptr;
 
   std::string dump() const {
     char tmp[100];

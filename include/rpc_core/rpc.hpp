@@ -79,9 +79,9 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
     return seq_++;
   }
 
-  void send_request(const request_s& request) override {
+  void send_request(request const* request) override {
     if (request->need_rsp_) {
-      dispatcher_.subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_, request->is_ping_);
+      dispatcher_.subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);
     }
     detail::msg_wrapper msg;
     msg.type = static_cast<detail::msg_wrapper::msg_type>(detail::msg_wrapper::command | (request->is_ping_ ? detail::msg_wrapper::ping : 0) |

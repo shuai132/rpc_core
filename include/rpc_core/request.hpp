@@ -29,7 +29,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   struct rpc_proto {
     virtual ~rpc_proto() = default;
     virtual seq_type make_seq() = 0;
-    virtual void send_request(const request_s&) = 0;
+    virtual void send_request(request const*) = 0;
     virtual bool is_ready() const = 0;
   };
   using send_proto_s = std::shared_ptr<rpc_proto>;
@@ -80,7 +80,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     auto r = std::shared_ptr<request>(new request(std::forward<Args>(args)...), [](request* p) {
       delete p;
     });
-    r->init();
+    r->timeout(nullptr);
     return r;
   }
 
@@ -189,7 +189,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
       return;
     }
     seq_ = r->make_seq();
-    r->send_request(self_keeper_);
+    r->send_request(this);
     if (!need_rsp_) {
       on_finish(finally_t::no_need_rsp);
     }
@@ -268,7 +268,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return rpc_;
   }
 
-  bool canceled() const {
+  bool is_canceled() const {
     return canceled_;
   }
 
@@ -301,10 +301,6 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
  private:
-  void init() {
-    timeout(nullptr);
-  }
-
   void on_finish(finally_t type) {
     if (!waiting_rsp_) return;
     waiting_rsp_ = false;
