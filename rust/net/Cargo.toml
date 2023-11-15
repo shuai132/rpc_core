@@ -1,0 +1,19 @@
+[package]
+name = "rpc_core_net"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/shuai132/rpc_core"
+
+[dependencies]
+rpc_core = { path = "../core" }
+bitflags = "2.4.1"
+log = "0.4.20"
+serde = "1.0.190"
+serde_json = "1.0.107"
+
+[[test]]
+name = "rpc"
+path = "tests/rpc.rs"
+
+[dev-dependencies]
+env_logger = "0.10.0"
