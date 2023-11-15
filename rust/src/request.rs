@@ -5,6 +5,7 @@ use log::debug;
 
 use crate::detail::msg_dispatcher::{RspHandle, TimeoutCb};
 use crate::detail::msg_wrapper::MsgType;
+use crate::dispose::Dispose;
 use crate::rpc::RpcProto;
 use crate::type_def::{CmdType, SeqType};
 
@@ -32,11 +33,11 @@ pub struct Request {
 }
 
 pub trait DisposeProto {
-    fn add(&mut self, request: Rc<Request>);
-    fn remove(&mut self, request: Rc<Request>);
+    fn add(&mut self, request: &Rc<Request>);
+    fn remove(&mut self, request: &Rc<Request>);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FinallyType {
     Normal = 0,
     NoNeedRsp = 1,
@@ -218,11 +219,11 @@ impl Request {
         self.shared_from_this()
     }
 
-    pub fn add_to<T>(&self, dispose: &mut T) -> Rc<Request>
-        where T: DisposeProto
+    pub fn add_to(&self, dispose: &mut Dispose) -> Rc<Request>
     {
-        dispose.add(self.shared_from_this());
-        self.shared_from_this()
+        let r = self.shared_from_this();
+        dispose.add(&r);
+        r
     }
 
     pub fn cancel(&self) -> Rc<Request> {

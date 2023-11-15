@@ -2,7 +2,10 @@
 mod test_rpc {
     use std::cell::RefCell;
     use std::rc::Rc;
+
     use log::info;
+
+    use rpc_core::request::FinallyType;
 
     #[test]
     fn simple() {
@@ -59,7 +62,33 @@ mod test_rpc {
                     assert_eq!(msg, "world");
                     *pass_clone.borrow_mut() = true;
                 })
-                .call_with_rpc(rpc);
+                .call_with_rpc(rpc.clone());
+            assert!(*pass.borrow());
+        }
+
+        info!("--- test dispose ---");
+        {
+            rpc.subscribe("cmd", |_: String| -> String {
+                assert!(false);
+                "".to_string()
+            });
+
+            let pass = Rc::new(RefCell::new(false));
+            let pass_clone = pass.clone();
+            let request = rpc.cmd("cmd")
+                .msg("hello")
+                .rsp(|_: String| {
+                    assert!(false);
+                })
+                .finally(move |t| {
+                    assert_eq!(t, FinallyType::Canceled);
+                    *pass_clone.borrow_mut() = true;
+                });
+            {
+                let mut dispose = rpc_core::dispose::create();
+                request.add_to(&mut dispose);
+            }
+            request.call();
             assert!(*pass.borrow());
         }
     }
