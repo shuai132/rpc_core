@@ -29,6 +29,7 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 * RAII-based `dispose` for automatic cancel request
 * Timeout and Retry API
 * Support `std::future` interface
+* More language support: [Rust](./rust)
 
 ## Requirements
 
