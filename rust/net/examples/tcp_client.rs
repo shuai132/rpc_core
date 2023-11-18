@@ -1,6 +1,6 @@
 use log::info;
+use rpc_core_net::config_builder::TcpConfigBuilder;
 
-use rpc_core_net::config::TcpConfig;
 use rpc_core_net::tcp_client;
 
 fn main() {
@@ -13,9 +13,12 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        let mut client = tcp_client::TcpClient::new(TcpConfig::new());
-        client.on_open(|| {
+        let mut client = tcp_client::TcpClient::new(TcpConfigBuilder::new().auto_pack(true).build());
+        let client_ptr = &client as *const _ as *mut tcp_client::TcpClient;
+        client.on_open(move || {
             info!("on_open");
+            let client = unsafe { &mut *client_ptr };
+            client.send_str("hello from client");
         });
         client.on_open_failed(|e| {
             info!("on_open_failed: {:?}", e);

@@ -2,7 +2,7 @@ use std::error::Error;
 use std::net::ToSocketAddrs;
 
 use log::debug;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::config::TcpConfig;
@@ -14,8 +14,8 @@ pub struct TcpClient {
     config: TcpConfig,
     on_open: Option<Box<dyn Fn()>>,
     on_open_failed: Option<Box<dyn Fn(&dyn Error)>>,
-    on_close: Option<Box<dyn Fn() + Send>>,
-    on_data: Option<Box<dyn Fn(Vec<u8>) + Send>>,
+    on_close: Option<Box<dyn Fn()>>,
+    on_data: Option<Box<dyn Fn(Vec<u8>)>>,
     is_open: bool,
     reconnect_ms: u32,
     reconnect_timer_running: bool,
@@ -28,7 +28,7 @@ unsafe impl Sync for TcpClient {}
 
 impl TcpClient {
     pub fn new(config: TcpConfig) -> Self {
-        TcpClient {
+        Self {
             host: "".to_string(),
             port: 0,
             socket: None,
@@ -100,7 +100,11 @@ impl TcpClient {
                     if let Some(on_open) = &this.on_open {
                         this.is_open = true;
                         this.socket = Some(stream);
-                        this.do_read_header();
+                        if this.config.auto_pack {
+                            this.do_read_header();
+                        } else {
+                            this.do_read_data();
+                        }
                         on_open();
                     }
                 }
@@ -114,15 +118,44 @@ impl TcpClient {
         });
     }
 
+    fn do_close(&mut self) {
+        self.is_open = false;
+        if let Some(on_close) = &self.on_close {
+            on_close();
+        }
+    }
+
+    fn do_read_data(&self) {
+        let this_ptr = self as *const _ as *mut Self;
+        let this = unsafe { &mut *this_ptr };
+        tokio::spawn(async move {
+            let stream = this.socket.as_mut().unwrap();
+            let mut buffer = vec![];
+            if let Ok(_) = stream.read_buf(&mut buffer).await {
+                if let Some(on_data) = &this.on_data {
+                    on_data(buffer);
+                }
+                this.do_read_data();
+            } else {
+                this.do_close();
+                this.check_reconnect();
+            }
+        });
+    }
+
     fn do_read_header(&self) {
         let this_ptr = self as *const _ as *mut Self;
         let this = unsafe { &mut *this_ptr };
         tokio::spawn(async move {
             let stream = this.socket.as_mut().unwrap();
             let mut buffer = [0u8; 4];
-            stream.read_exact(&mut buffer).await.unwrap();
-            let body_size = u32::from_le_bytes(buffer);
-            this.do_read_body(body_size);
+            if let Ok(_) = stream.read_exact(&mut buffer).await {
+                let body_size = u32::from_le_bytes(buffer);
+                this.do_read_body(body_size);
+            } else {
+                this.do_close();
+                this.check_reconnect();
+            }
         });
     }
 
@@ -132,11 +165,15 @@ impl TcpClient {
         tokio::spawn(async move {
             let stream = this.socket.as_mut().unwrap();
             let mut buffer: Vec<u8> = vec![0; body_size as usize];
-            stream.read_exact(&mut buffer).await.unwrap();
-            if let Some(on_data) = &this.on_data {
-                on_data(buffer);
+            if let Ok(_) = stream.read_exact(&mut buffer).await {
+                if let Some(on_data) = &this.on_data {
+                    on_data(buffer);
+                }
+                this.do_read_header();
+            } else {
+                this.do_close();
+                this.check_reconnect();
             }
-            this.do_read_header();
         });
     }
 
@@ -162,15 +199,32 @@ impl TcpClient {
     }
 
     pub fn on_data<F>(&mut self, callback: F)
-        where F: Fn(Vec<u8>) + Send + 'static,
+        where F: Fn(Vec<u8>) + 'static,
     {
         self.on_data = Some(Box::new(callback));
     }
 
     pub fn on_close<F>(&mut self, callback: F)
-        where F: Fn() + Send + 'static,
+        where F: Fn() + 'static,
     {
         self.on_close = Some(Box::new(callback));
+    }
+
+    pub fn send(&mut self, data: Vec<u8>) {
+        let this_ptr = self as *const _ as *mut Self;
+        let this = unsafe { &mut *this_ptr };
+        tokio::spawn(async move {
+            if let Some(socket) = &mut this.socket {
+                if this.config.auto_pack {
+                    socket.write_all((data.len() as u32).to_le_bytes().as_slice()).await.expect("write header");
+                }
+                socket.write_all(&data).await.expect("write body");
+            }
+        });
+    }
+
+    pub fn send_str(&mut self, data: impl ToString) {
+        self.send(data.to_string().as_bytes().to_vec());
     }
 }
 
