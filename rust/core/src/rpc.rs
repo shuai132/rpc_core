@@ -81,6 +81,10 @@ impl Rpc {
     pub fn set_ready(&self, ready: bool) {
         self.inner.borrow_mut().is_ready = ready;
     }
+
+    pub fn get_connection(&self) -> Option<Rc<RefCell<dyn Connection>>>{
+        self.inner.borrow().connection.clone()
+    }
 }
 
 impl RpcProto for Rpc {

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 pub struct TcpConfig {
     pub auto_pack: bool,
@@ -31,7 +31,7 @@ impl TcpConfig {
 }
 
 pub struct RpcConfig {
-    pub rpc: Option<Arc<rpc_core::rpc::Rpc>>,
+    pub rpc: Option<Rc<rpc_core::rpc::Rpc>>,
     pub ping_interval_ms: u32,
     pub pong_timeout_ms: u32,
     pub enable_ipv6: bool,
