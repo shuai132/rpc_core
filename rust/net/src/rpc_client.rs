@@ -1,8 +1,11 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicPtr, Ordering};
+
 use rpc_core::connection::Connection;
 use rpc_core::rpc::Rpc;
+
 use crate::config::RpcConfig;
 use crate::tcp_client::TcpClient;
 
@@ -25,7 +28,7 @@ impl RpcClient {
             on_open_failed: None,
             on_close: None,
             rpc: None,
-            connection: rpc_core::connection::DefaultConnection::create(),
+            connection: rpc_core::connection::DefaultConnection::new(),
         };
 
         let this_ptr = &r as *const _ as *mut Self;
@@ -36,10 +39,10 @@ impl RpcClient {
                 this.rpc = Some(rpc.clone());
                 this.connection = rpc.get_connection().unwrap();
             } else {
-                this.rpc = Some(rpc_core::rpc::create(Some(this.connection.clone())));
+                this.rpc = Some(Rpc::new(Some(this.connection.clone())));
             }
 
-            let this_ptr = &this as *const _ as *mut Self;
+            let this_ptr = this as *const _ as *mut Self;
             this.connection.borrow_mut().set_send_package_impl(Box::new(move |package: Vec<u8>| {
                 let this = unsafe { &mut *this_ptr };
                 this.tcp_client.send(package);
@@ -49,10 +52,12 @@ impl RpcClient {
                 this.connection.borrow_mut().on_recv_package(package);
             });
 
-            this.rpc.as_mut().unwrap().set_timer(|ms: u32, _handle: Box<dyn Fn()>| {
+            this.rpc.as_mut().unwrap().set_timer(|ms: u32, handle: Box<dyn Fn()>| {
+                let handle_ptr = AtomicPtr::new(Box::into_raw(Box::new(handle)));
                 tokio::spawn(async move {
                     tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
-                    // handle();
+                    let handle = unsafe { Box::from_raw(handle_ptr.load(Ordering::SeqCst)) };
+                    handle();
                 });
             });
             this.rpc.as_mut().unwrap().set_ready(true);
@@ -85,7 +90,7 @@ impl RpcClient {
     }
 
     pub fn on_open<F>(&mut self, callback: F)
-        where F: Fn(Rc<rpc_core::rpc::Rpc>) + 'static,
+        where F: Fn(Rc<Rpc>) + 'static,
     {
         self.on_open = Some(Box::new(callback));
     }

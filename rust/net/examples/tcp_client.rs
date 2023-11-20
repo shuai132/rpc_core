@@ -1,6 +1,6 @@
 use log::info;
-use rpc_core_net::config_builder::TcpConfigBuilder;
 
+use rpc_core_net::config_builder::TcpConfigBuilder;
 use rpc_core_net::tcp_client;
 
 fn main() {

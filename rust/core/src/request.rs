@@ -66,7 +66,7 @@ impl FinallyType {
 
 // public
 impl Request {
-    pub fn create() -> Rc<Self> {
+    pub fn new() -> Rc<Self> {
         let r = Rc::new(Self {
             inner: RefCell::new(RequestImpl {
                 rpc: None,
@@ -78,7 +78,7 @@ impl Request {
                 need_rsp: false,
                 canceled: false,
                 rsp_handle: None,
-                timeout_ms: 0,
+                timeout_ms: 3000,
                 timeout_cb: None,
                 finally_type: FinallyType::Normal,
                 finally: None,
@@ -93,7 +93,7 @@ impl Request {
     }
 
     pub fn create_with_rpc(rpc: Weak<dyn RpcProto>) -> Rc<Self> {
-        let r = Self::create();
+        let r = Self::new();
         r.inner.borrow_mut().rpc = Some(rpc);
         r
     }

@@ -24,7 +24,7 @@ pub(crate) struct MsgDispatcher {
 }
 
 impl MsgDispatcher {
-    pub(crate) fn create(conn: Option<Rc<RefCell<dyn Connection>>>) -> Box<Self> {
+    pub(crate) fn new(conn: Option<Rc<RefCell<dyn Connection>>>) -> Box<Self> {
         let dispatcher = Box::new(Self {
             conn: Rc::downgrade(&conn.unwrap()),
             cmd_handle_map: HashMap::new(),

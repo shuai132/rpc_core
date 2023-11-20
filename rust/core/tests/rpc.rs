@@ -12,8 +12,8 @@ mod test_rpc {
         std::env::set_var("RUST_LOG", "trace");
         env_logger::init();
 
-        let connection = rpc_core::connection::LoopbackConnection::create();
-        let rpc = rpc_core::rpc::create(Some(connection));
+        let connection = rpc_core::connection::LoopbackConnection::new();
+        let rpc = rpc_core::rpc::Rpc::new(Some(connection));
         rpc.set_timer(|ms: u32, _: Box<dyn Fn()>| {
             info!("set_timer: {ms}");
         });
@@ -53,7 +53,7 @@ mod test_rpc {
 
         info!("--- test request ---");
         {
-            let request = rpc_core::request::Request::create();
+            let request = rpc_core::request::Request::new();
             let pass = Rc::new(RefCell::new(false));
             let pass_clone = pass.clone();
             request.cmd("cmd")
@@ -85,7 +85,7 @@ mod test_rpc {
                     *pass_clone.borrow_mut() = true;
                 });
             {
-                let mut dispose = rpc_core::dispose::create();
+                let mut dispose = rpc_core::dispose::Dispose::new();
                 request.add_to(&mut dispose);
             }
             request.call();

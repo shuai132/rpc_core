@@ -111,8 +111,8 @@ impl TcpClient {
                 Err(err) => {
                     if let Some(on_open_failed) = &this.on_open_failed {
                         on_open_failed(&*err);
-                        this.check_reconnect();
                     }
+                    this.check_reconnect();
                 }
             };
         });

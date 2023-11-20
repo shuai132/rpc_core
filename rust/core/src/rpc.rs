@@ -28,6 +28,20 @@ pub struct Rpc {
 }
 
 impl Rpc {
+    pub fn new(connection: Option<Rc<RefCell<dyn Connection>>>) -> Rc<Rpc> {
+        let rpc = Rc::new(Rpc {
+            inner: RefCell::new(RpcImpl {
+                weak: Weak::new(),
+                connection: connection.clone(),
+                dispatcher: MsgDispatcher::new(connection),
+                seq: 0,
+                is_ready: false,
+            }),
+        });
+        rpc.inner.borrow_mut().weak = Rc::downgrade(&rpc);
+        rpc
+    }
+
     pub fn subscribe<C, F, P, R>(&self, cmd: C, handle: F)
         where
             C: ToString,
@@ -82,7 +96,7 @@ impl Rpc {
         self.inner.borrow_mut().is_ready = ready;
     }
 
-    pub fn get_connection(&self) -> Option<Rc<RefCell<dyn Connection>>>{
+    pub fn get_connection(&self) -> Option<Rc<RefCell<dyn Connection>>> {
         self.inner.borrow().connection.clone()
     }
 }
@@ -126,18 +140,4 @@ impl RpcProto for Rpc {
     fn is_ready(&self) -> bool {
         self.inner.borrow().is_ready
     }
-}
-
-pub fn create(connection: Option<Rc<RefCell<dyn Connection>>>) -> Rc<Rpc> {
-    let rpc = Rc::new(Rpc {
-        inner: RefCell::new(RpcImpl {
-            weak: Weak::new(),
-            connection: connection.clone(),
-            dispatcher: MsgDispatcher::create(connection),
-            seq: 0,
-            is_ready: false,
-        }),
-    });
-    rpc.inner.borrow_mut().weak = Rc::downgrade(&rpc);
-    rpc
 }

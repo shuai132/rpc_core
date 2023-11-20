@@ -7,6 +7,12 @@ pub struct Dispose {
 }
 
 impl Dispose {
+    pub fn new() -> Dispose {
+        Dispose {
+            requests: vec![],
+        }
+    }
+
     pub fn dismiss(&mut self) {
         for item in &self.requests {
             if let Some(request) = item.upgrade() {
@@ -40,11 +46,5 @@ impl DisposeProto for Dispose {
         }) {
             self.requests.remove(index);
         }
-    }
-}
-
-pub fn create() -> Dispose {
-    Dispose {
-        requests: vec![],
     }
 }

@@ -1,9 +1,10 @@
 use std::rc::Rc;
+
 use log::info;
+
 use rpc_core::connection::DefaultConnection;
 use rpc_core::rpc::Rpc;
 use rpc_core_net::config_builder::RpcConfigBuilder;
-
 use rpc_core_net::rpc_client;
 
 fn main() {
@@ -16,7 +17,7 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        let rpc = rpc_core::rpc::create(Some(DefaultConnection::create()));
+        let rpc = Rpc::new(Some(DefaultConnection::new()));
         let mut client = rpc_client::RpcClient::new(RpcConfigBuilder::new().rpc(Some(rpc.clone())).build());
         client.on_open(move |_: Rc<Rpc>| {
             info!("on_open");
