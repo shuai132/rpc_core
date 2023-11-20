@@ -1,4 +1,5 @@
 use bitflags::bitflags;
+use log::error;
 use serde_json::Error;
 
 use crate::type_def::{CmdType, SeqType};
@@ -33,10 +34,18 @@ impl MsgWrapper {
         }
     }
 
+    pub(crate) fn dump(&self) -> String {
+        format!("seq:{}, type:{}, cmd:{}", self.seq, self.type_.bits(), self.cmd)
+    }
+
     pub(crate) fn unpack_as<'a, T>(&'a self) -> Result<T, Error>
         where T: serde::Deserialize<'a>
     {
-        serde_json::from_slice::<T>(self.data.as_slice())
+        let r = serde_json::from_slice::<T>(self.data.as_slice());
+        if r.is_err() {
+            error!("deserialize error, msg info:{}", self.dump());
+        }
+        r
     }
 
     pub(crate) fn make_rsp<R>(seq: SeqType, rsp: R) -> MsgWrapper

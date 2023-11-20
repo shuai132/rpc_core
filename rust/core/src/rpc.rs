@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::{Rc, Weak};
 
+use log::debug;
+
 use crate::connection::Connection;
 use crate::detail::coder;
 use crate::detail::msg_dispatcher::{MsgDispatcher, TimeoutCb};
@@ -134,6 +136,7 @@ impl RpcProto for Rpc {
             payload = coder::serialize(&msg);
             connection = inner.connection.as_ref().unwrap().clone();
         }
+        debug!("=> seq:{} type:{} {}", msg.seq, if msg.type_.contains( MsgType::Ping) { "ping" } else {"cmd"}, msg.cmd);
         connection.borrow().send_package(payload);
     }
 
