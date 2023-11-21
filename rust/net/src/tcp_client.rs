@@ -26,6 +26,7 @@ unsafe impl Send for TcpClient {}
 
 unsafe impl Sync for TcpClient {}
 
+// public
 impl TcpClient {
     pub fn new(config: TcpConfig) -> Self {
         Self {
@@ -65,125 +66,8 @@ impl TcpClient {
         self.reconnect_timer_running = false;
     }
 
-    fn check_reconnect(&mut self) {
-        if !self.is_open && !self.reconnect_timer_running && self.reconnect_ms > 0 {
-            self.reconnect_timer_running = true;
-            let this_ptr = self as *const _ as *mut Self;
-            let this = unsafe { &mut *this_ptr };
-            tokio::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(this.reconnect_ms.into())).await;
-                if this.reconnect_timer_running {
-                    this.reconnect_timer_running = false;
-                    this.do_open();
-                }
-            });
-        }
-    }
-
     pub fn stop(&mut self) {
         self.close();
-    }
-
-    fn do_open(&mut self) {
-        self.config.init();
-        let host = self.host.clone();
-        let port = self.port;
-
-        let this_ptr = self as *const _ as *mut Self;
-        let this = unsafe { &mut *this_ptr };
-        tokio::spawn(async move {
-            debug!("connect_tcp: {host} {port}");
-            let result = TcpClient::connect_tcp(host, port).await;
-            debug!("connect_tcp: {result:?}");
-            match result {
-                Ok(stream) => {
-                    if let Some(on_open) = &this.on_open {
-                        this.is_open = true;
-                        this.socket = Some(stream);
-                        if this.config.auto_pack {
-                            this.do_read_header();
-                        } else {
-                            this.do_read_data();
-                        }
-                        on_open();
-                    }
-                }
-                Err(err) => {
-                    if let Some(on_open_failed) = &this.on_open_failed {
-                        on_open_failed(&*err);
-                    }
-                    this.check_reconnect();
-                }
-            };
-        });
-    }
-
-    fn do_close(&mut self) {
-        self.is_open = false;
-        if let Some(on_close) = &self.on_close {
-            on_close();
-        }
-    }
-
-    fn do_read_data(&self) {
-        let this_ptr = self as *const _ as *mut Self;
-        let this = unsafe { &mut *this_ptr };
-        tokio::spawn(async move {
-            let stream = this.socket.as_mut().unwrap();
-            let mut buffer = vec![];
-            if let Ok(_) = stream.read_buf(&mut buffer).await {
-                if let Some(on_data) = &this.on_data {
-                    on_data(buffer);
-                }
-                this.do_read_data();
-            } else {
-                this.do_close();
-                this.check_reconnect();
-            }
-        });
-    }
-
-    fn do_read_header(&self) {
-        let this_ptr = self as *const _ as *mut Self;
-        let this = unsafe { &mut *this_ptr };
-        tokio::spawn(async move {
-            let stream = this.socket.as_mut().unwrap();
-            let mut buffer = [0u8; 4];
-            if let Ok(_) = stream.read_exact(&mut buffer).await {
-                let body_size = u32::from_le_bytes(buffer);
-                this.do_read_body(body_size);
-            } else {
-                this.do_close();
-                this.check_reconnect();
-            }
-        });
-    }
-
-    fn do_read_body(&mut self, body_size: u32) {
-        let this_ptr = self as *const _ as *mut Self;
-        let this = unsafe { &mut *this_ptr };
-        tokio::spawn(async move {
-            let stream = this.socket.as_mut().unwrap();
-            let mut buffer: Vec<u8> = vec![0; body_size as usize];
-            if let Ok(_) = stream.read_exact(&mut buffer).await {
-                if let Some(on_data) = &this.on_data {
-                    on_data(buffer);
-                }
-                this.do_read_header();
-            } else {
-                this.do_close();
-                this.check_reconnect();
-            }
-        });
-    }
-
-    async fn connect_tcp(
-        host: String,
-        port: u16,
-    ) -> Result<TcpStream, Box<dyn Error>> {
-        let addr = (host, port).to_socket_addrs()?.next().unwrap();
-        let stream = TcpStream::connect(addr).await?;
-        Ok(stream)
     }
 
     pub fn on_open<F>(&mut self, callback: F)
@@ -225,6 +109,128 @@ impl TcpClient {
 
     pub fn send_str(&mut self, data: impl ToString) {
         self.send(data.to_string().as_bytes().to_vec());
+    }
+}
+
+// private
+impl TcpClient {
+    fn do_open(&mut self) {
+        self.config.init();
+        let host = self.host.clone();
+        let port = self.port;
+
+        let this_ptr = self as *const _ as *mut Self;
+        let this = unsafe { &mut *this_ptr };
+        tokio::spawn(async move {
+            debug!("connect_tcp: {host} {port}");
+            let result = TcpClient::connect_tcp(host, port).await;
+            debug!("connect_tcp: {result:?}");
+            match result {
+                Ok(stream) => {
+                    if let Some(on_open) = &this.on_open {
+                        this.is_open = true;
+                        this.socket = Some(stream);
+                        on_open();
+                        if this.config.auto_pack {
+                            tokio::spawn(async move {
+                                loop {
+                                    this.do_read_header().await;
+                                }
+                            });
+                        } else {
+                            tokio::spawn(async move {
+                                loop {
+                                    this.do_read_data().await;
+                                }
+                            });
+                        }
+                    }
+                }
+                Err(err) => {
+                    if let Some(on_open_failed) = &this.on_open_failed {
+                        on_open_failed(&*err);
+                    }
+                    this.check_reconnect().await;
+                }
+            };
+        });
+    }
+
+    fn do_close(&mut self) {
+        if !self.is_open {
+            return;
+        }
+        self.is_open = false;
+        self.socket = None;
+        if let Some(on_close) = &self.on_close {
+            on_close();
+        }
+    }
+
+    async fn do_read_data(&mut self) {
+        let stream = self.socket.as_mut().unwrap();
+        let mut buffer = vec![];
+        if let Ok(_) = stream.read_buf(&mut buffer).await {
+            if let Some(on_data) = &self.on_data {
+                on_data(buffer);
+            }
+        } else {
+            self.do_close();
+            self.check_reconnect().await;
+        }
+    }
+
+    async fn do_read_header(&mut self) {
+        if let Some(stream) = self.socket.as_mut() {
+            let mut buffer = [0u8; 4];
+            if let Ok(_) = stream.read_exact(&mut buffer).await {
+                let body_size = u32::from_le_bytes(buffer);
+                self.do_read_body(body_size).await;
+            } else {
+                self.do_close();
+                self.check_reconnect().await;
+            }
+        } else {
+            self.do_close();
+            self.check_reconnect().await;
+        }
+    }
+
+    async fn do_read_body(&mut self, body_size: u32) {
+        if let Some(stream) = self.socket.as_mut() {
+            let mut buffer: Vec<u8> = vec![0; body_size as usize];
+            if let Ok(_) = stream.read_exact(&mut buffer).await {
+                if let Some(on_data) = &self.on_data {
+                    on_data(buffer);
+                }
+            } else {
+                self.do_close();
+                self.check_reconnect().await;
+            }
+        } else {
+            self.do_close();
+            self.check_reconnect().await;
+        }
+    }
+
+    async fn connect_tcp(
+        host: String,
+        port: u16,
+    ) -> Result<TcpStream, Box<dyn Error + Send + Sync>> {
+        let addr = (host, port).to_socket_addrs()?.next().unwrap();
+        let stream = TcpStream::connect(addr).await?;
+        Ok(stream)
+    }
+
+    async fn check_reconnect(&mut self) {
+        if !self.is_open && !self.reconnect_timer_running && self.reconnect_ms > 0 {
+            self.reconnect_timer_running = true;
+            tokio::time::sleep(tokio::time::Duration::from_millis(self.reconnect_ms.into())).await;
+            if self.reconnect_timer_running {
+                self.reconnect_timer_running = false;
+                self.do_open();
+            }
+        }
     }
 }
 
