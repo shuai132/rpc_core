@@ -60,6 +60,12 @@ impl RpcClient {
                     handle();
                 });
             });
+
+            let this_ptr = this as *const _ as *mut Self;
+            this.tcp_client.on_close(move || {
+                let this = unsafe { &mut *this_ptr };
+                this.rpc.as_mut().unwrap().set_ready(false);
+            });
             this.rpc.as_mut().unwrap().set_ready(true);
 
             if let Some(on_open) = &this.on_open {

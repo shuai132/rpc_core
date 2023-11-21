@@ -1,9 +1,11 @@
+use std::collections::VecDeque;
 use std::error::Error;
 use std::net::ToSocketAddrs;
 
 use log::debug;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::Notify;
 
 use crate::config::TcpConfig;
 
@@ -19,6 +21,8 @@ pub struct TcpClient {
     is_open: bool,
     reconnect_ms: u32,
     reconnect_timer_running: bool,
+    send_queue: VecDeque<Vec<u8>>,
+    send_queue_notify: Notify,
 }
 
 // Be sure used on single thread
@@ -41,6 +45,8 @@ impl TcpClient {
             is_open: false,
             reconnect_ms: 0,
             reconnect_timer_running: false,
+            send_queue: VecDeque::new(),
+            send_queue_notify: Notify::new(),
         }
     }
 
@@ -53,6 +59,8 @@ impl TcpClient {
     pub fn close(&mut self) {
         self.cancel_reconnect();
         self.is_open = false;
+        self.send_queue.clear();
+        self.send_queue_notify.notify_one();
         if let Some(on_close) = self.on_close.take() {
             on_close();
         }
@@ -95,16 +103,15 @@ impl TcpClient {
     }
 
     pub fn send(&mut self, data: Vec<u8>) {
-        let this_ptr = self as *const _ as *mut Self;
-        let this = unsafe { &mut *this_ptr };
-        tokio::spawn(async move {
-            if let Some(socket) = &mut this.socket {
-                if this.config.auto_pack {
-                    socket.write_all((data.len() as u32).to_le_bytes().as_slice()).await.expect("write header");
-                }
-                socket.write_all(&data).await.expect("write body");
-            }
-        });
+        if !self.is_open {
+            debug!("tcp not connected");
+            return;
+        }
+        if self.config.auto_pack {
+            self.send_queue.push_back((data.len() as u32).to_le_bytes().to_vec());
+        }
+        self.send_queue.push_back(data);
+        self.send_queue_notify.notify_one();
     }
 
     pub fn send_str(&mut self, data: impl ToString) {
@@ -121,6 +128,7 @@ impl TcpClient {
 
         let this_ptr = self as *const _ as *mut Self;
         let this = unsafe { &mut *this_ptr };
+        let this2 = unsafe { &mut *this_ptr };
         tokio::spawn(async move {
             debug!("connect_tcp: {host} {port}");
             let result = TcpClient::connect_tcp(host, port).await;
@@ -144,12 +152,37 @@ impl TcpClient {
                                 }
                             });
                         }
+
+                        tokio::spawn(async {
+                            let this = this2;
+                            loop {
+                                if !this.is_open {
+                                    break;
+                                }
+                                if let Some(data) = this.send_queue.pop_front() {
+                                    if let Some(stream) = this.socket.as_mut() {
+                                        if stream.write_all(&data).await.is_err() {
+                                            this.do_close();
+                                            this.check_reconnect().await;
+                                            break;
+                                        }
+                                    } else {
+                                        this.do_close();
+                                        this.check_reconnect().await;
+                                        break;
+                                    }
+                                } else {
+                                    this.send_queue_notify.notified().await;
+                                }
+                            }
+                        });
                     }
                 }
                 Err(err) => {
                     if let Some(on_open_failed) = &this.on_open_failed {
                         on_open_failed(&*err);
                     }
+                    this.is_open = false;
                     this.check_reconnect().await;
                 }
             };
@@ -228,6 +261,10 @@ impl TcpClient {
             tokio::time::sleep(tokio::time::Duration::from_millis(self.reconnect_ms.into())).await;
             if self.reconnect_timer_running {
                 self.reconnect_timer_running = false;
+            } else {
+                return;
+            }
+            if !self.is_open {
                 self.do_open();
             }
         }
