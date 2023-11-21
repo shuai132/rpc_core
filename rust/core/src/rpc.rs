@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 
 use log::debug;
 
-use crate::connection::Connection;
+use crate::connection::{Connection, DefaultConnection};
 use crate::detail::coder;
 use crate::detail::msg_dispatcher::{MsgDispatcher, TimeoutCb};
 use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
@@ -31,6 +31,7 @@ pub struct Rpc {
 
 impl Rpc {
     pub fn new(connection: Option<Rc<RefCell<dyn Connection>>>) -> Rc<Rpc> {
+        let connection = connection.or(Some(DefaultConnection::new()));
         let rpc = Rc::new(Rpc {
             inner: RefCell::new(RpcImpl {
                 weak: Weak::new(),
