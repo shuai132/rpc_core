@@ -117,26 +117,27 @@ impl Request {
             F: Fn(P) + 'static,
     {
         {
-            let request_s = self.shared_from_this();
+            let this_ptr = self as *const _ as *mut Self;
+            let this = unsafe { &mut *this_ptr };
             let mut request = self.inner.borrow_mut();
             request.need_rsp = true;
             request.rsp_handle = Some(Rc::new(move |msg| -> bool {
-                if request_s.is_canceled() {
-                    request_s.on_finish(FinallyType::Canceled);
+                if this.is_canceled() {
+                    this.on_finish(FinallyType::Canceled);
                     return true;
                 }
 
                 if msg.type_.contains(MsgType::NoSuchCmd) {
-                    request_s.on_finish(FinallyType::NoSuchCmd);
+                    this.on_finish(FinallyType::NoSuchCmd);
                     return true;
                 }
 
                 if let Ok(value) = msg.unpack_as::<P>() {
                     cb(value);
-                    request_s.on_finish(FinallyType::Normal);
+                    this.on_finish(FinallyType::Normal);
                     true
                 } else {
-                    request_s.on_finish(FinallyType::RspSerializeError);
+                    this.on_finish(FinallyType::RspSerializeError);
                     false
                 }
             }));
