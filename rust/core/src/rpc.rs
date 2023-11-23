@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::ops::Add;
 use std::rc::{Rc, Weak};
 
 use log::debug;
@@ -106,7 +105,10 @@ impl Rpc {
 
 impl RpcProto for Rpc {
     fn make_seq(&self) -> SeqType {
-        self.inner.borrow().seq.add(1)
+        let mut inner = self.inner.borrow_mut();
+        let seq = inner.seq;
+        inner.seq += 1;
+        seq
     }
 
     fn send_request(&self, request: &Request) {
@@ -116,7 +118,9 @@ impl RpcProto for Rpc {
         {
             let mut inner = self.inner.borrow_mut();
             let request = request.inner.borrow_mut();
-            inner.dispatcher.subscribe_rsp(request.seq, request.rsp_handle.as_ref().unwrap().clone(), request.timeout_cb.clone(), request.timeout_ms);
+            if request.need_rsp {
+                inner.dispatcher.subscribe_rsp(request.seq, request.rsp_handle.as_ref().unwrap().clone(), request.timeout_cb.clone(), request.timeout_ms);
+            }
             msg = MsgWrapper {
                 seq: request.seq,
                 type_: (|| {

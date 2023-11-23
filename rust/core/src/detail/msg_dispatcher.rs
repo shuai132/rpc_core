@@ -70,19 +70,19 @@ impl MsgDispatcher {
         self.rsp_handle_map.insert(seq, rsp_handle);
         if let Some(timer_impl) = &self.timer_impl {
             let alive = Rc::downgrade(&self.is_alive);
-            let self_ = self as *const _ as *mut Self;
+            let this = self as *const _ as *mut Self;
             timer_impl(timeout_ms, Box::new(move || {
                 if alive.upgrade().is_none() {
                     debug!("seq:{} timeout after destroy", seq);
                     return;
                 }
                 unsafe {
-                    let self_ = &mut *self_;
-                    if let Some(_) = (*self_).rsp_handle_map.remove(&seq) {
+                    let this = &mut *this;
+                    if let Some(_) = this.rsp_handle_map.remove(&seq) {
                         if let Some(timeout_cb) = &timeout_cb {
                             timeout_cb();
                         }
-                        trace!("Timeout seq={}, rsp_handle_map.size={}", seq, (*self_).rsp_handle_map.len());
+                        trace!("Timeout seq={}, rsp_handle_map.size={}", seq, this.rsp_handle_map.len());
                     }
                 }
             }));

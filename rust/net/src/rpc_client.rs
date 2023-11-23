@@ -32,9 +32,8 @@ impl RpcClient {
         };
 
         let this_ptr = &r as *const _ as *mut Self;
-        let this_ptr_box = Box::new(this_ptr);
         r.tcp_client.on_open(move || {
-            let this = unsafe { &mut **this_ptr_box };
+            let this = unsafe { &mut *this_ptr };
             if let Some(rpc) = &this.config.rpc {
                 this.rpc = Some(rpc.clone());
                 this.connection = rpc.get_connection().unwrap();
