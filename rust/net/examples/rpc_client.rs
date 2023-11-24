@@ -34,13 +34,17 @@ fn main() {
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-            info!("rpc...");
+            info!("usage: callback...");
             rpc.cmd("cmd")
                 .msg("hello")
                 .rsp(|msg: String| {
-                    info!("rsp: {msg}");
+                    info!("### rsp: {msg}");
                 })
                 .call();
+
+            info!("usage: future...");
+            let msg = rpc.cmd("cmd").msg("hello").future::<String>().await;
+            info!("### rsp: {msg:?}");
         }
     });
 }

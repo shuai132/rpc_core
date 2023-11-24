@@ -1,5 +1,8 @@
 use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
 use std::rc::{Rc, Weak};
+use std::task::{Context, Poll, Waker};
 
 use log::debug;
 
@@ -264,6 +267,56 @@ impl Request {
     pub fn canceled(&self, canceled: bool) -> Rc<Request> {
         self.inner.borrow_mut().canceled = canceled;
         self.shared_from_this()
+    }
+
+    pub async fn future<R>(&self) -> (FinallyType, Option<R>)
+        where R: for<'de> serde::Deserialize<'de> + 'static,
+    {
+        struct FutureResultInner<R> {
+            ready: bool,
+            result: Option<R>,
+            finally_type: FinallyType,
+            waker: Option<Waker>,
+        }
+        struct FutureResult<R> {
+            inner: Rc<RefCell<FutureResultInner<R>>>,
+        }
+        let result = FutureResult {
+            inner: Rc::new(RefCell::new(FutureResultInner {
+                ready: false,
+                result: None,
+                finally_type: FinallyType::Normal,
+                waker: None,
+            })),
+        };
+
+        let result_c1 = result.inner.clone();
+        let result_c2 = result.inner.clone();
+        self.rsp(move |msg: R| {
+            let mut result = result_c1.borrow_mut();
+            result.result = Some(msg);
+        }).finally(move |finally| {
+            let mut result = result_c2.borrow_mut();
+            result.ready = true;
+            result.finally_type = finally;
+            result.waker.as_mut().unwrap().clone().wake();
+        }).call();
+
+        impl<R> Future for FutureResult<R> {
+            type Output = (FinallyType, Option<R>);
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut result = self.inner.borrow_mut();
+                if result.ready {
+                    let ss = result.result.take().unwrap();
+                    Poll::Ready((result.finally_type.clone(), Some(ss)))
+                } else {
+                    result.waker = Some(cx.waker().clone());
+                    Poll::Pending
+                }
+            }
+        }
+
+        result.await
     }
 }
 
