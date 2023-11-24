@@ -268,8 +268,28 @@ impl Request {
         self.inner.borrow_mut().canceled = canceled;
         self.shared_from_this()
     }
+}
 
-    pub async fn future<R>(&self) -> (FinallyType, Option<R>)
+#[derive(Debug)]
+pub struct FutureRet<R> {
+    pub type_: FinallyType,
+    pub result: Option<R>,
+}
+
+impl<R> FutureRet<R> {
+    pub fn unwrap(self) -> R {
+        if self.type_ != FinallyType::Normal {
+            panic!("called `FutureRet::unwrap()` on FinallyType::{:?}", self.type_);
+        }
+        match self.result {
+            Some(val) => val,
+            None => panic!("called `FutureRet::unwrap()` on a `None` value"),
+        }
+    }
+}
+
+impl Request {
+    pub async fn future<R>(&self) -> FutureRet<R>
         where R: for<'de> serde::Deserialize<'de> + 'static,
     {
         struct FutureResultInner<R> {
@@ -299,16 +319,20 @@ impl Request {
             let mut result = result_c2.borrow_mut();
             result.ready = true;
             result.finally_type = finally;
-            result.waker.as_mut().unwrap().clone().wake();
+            if let Some(waker) = std::mem::replace(&mut result.waker, None) {
+                waker.wake();
+            }
         }).call();
 
         impl<R> Future for FutureResult<R> {
-            type Output = (FinallyType, Option<R>);
+            type Output = FutureRet<R>;
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let mut result = self.inner.borrow_mut();
                 if result.ready {
-                    let ss = result.result.take().unwrap();
-                    Poll::Ready((result.finally_type.clone(), Some(ss)))
+                    Poll::Ready(FutureRet {
+                        type_: result.finally_type.clone(),
+                        result: result.result.take(),
+                    })
                 } else {
                     result.waker = Some(cx.waker().clone());
                     Poll::Pending

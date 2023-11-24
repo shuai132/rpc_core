@@ -43,8 +43,8 @@ fn main() {
                 .call();
 
             info!("usage: future...");
-            let msg = rpc.cmd("cmd").msg("hello").future::<String>().await;
-            info!("### rsp: {msg:?}");
+            let result = rpc.cmd("cmd").msg("hello").future::<String>().await;
+            info!("### rsp: {result:?}");
         }
     });
 }
