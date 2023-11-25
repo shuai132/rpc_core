@@ -75,17 +75,23 @@ impl Rpc {
     pub fn cmd<T>(&self, cmd: T) -> Rc<Request>
         where T: ToString
     {
-        self.create_request().cmd(cmd.to_string())
+        let r = self.create_request();
+        r.cmd(cmd.to_string());
+        r
     }
 
     pub fn ping(&self) -> Rc<Request>
     {
-        self.create_request().ping()
+        let r = self.create_request();
+        r.ping();
+        r
     }
 
     pub fn ping_msg(&self, payload: impl ToString) -> Rc<Request>
     {
-        self.create_request().ping().msg(payload.to_string())
+        let r = self.create_request();
+        r.ping().msg(payload.to_string());
+        r
     }
 
     pub fn set_timer<F>(&self, timer_impl: F)

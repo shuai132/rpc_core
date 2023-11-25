@@ -10,7 +10,7 @@ use crate::config::RpcConfig;
 use crate::tcp_client::TcpClient;
 
 pub struct RpcClient {
-    tcp_client: TcpClient,
+    tcp_client: Box<TcpClient>,
     config: RpcConfig,
     on_open: Option<Box<dyn Fn(Rc<Rpc>)>>,
     on_open_failed: Option<Box<dyn Fn(&dyn Error)>>,
@@ -20,8 +20,8 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    pub fn new(config: RpcConfig) -> Self {
-        let mut r = Self {
+    pub fn new(config: RpcConfig) -> Box<Self> {
+        let r = Box::new(Self {
             tcp_client: TcpClient::new(config.to_tcp_config()),
             config,
             on_open: None,
@@ -29,11 +29,12 @@ impl RpcClient {
             on_close: None,
             rpc: None,
             connection: rpc_core::connection::DefaultConnection::new(),
-        };
+        });
 
-        let this_ptr = &r as *const _ as *mut Self;
-        r.tcp_client.on_open(move || {
-            let this = unsafe { &mut *this_ptr };
+        let rpc_client_ptr = Box::into_raw(r);
+        let this = unsafe { &mut *rpc_client_ptr };
+        this.tcp_client.on_open(move || {
+            let this = unsafe { &mut *rpc_client_ptr };
             if let Some(rpc) = &this.config.rpc {
                 this.rpc = Some(rpc.clone());
                 this.connection = rpc.get_connection().unwrap();
@@ -71,7 +72,7 @@ impl RpcClient {
                 on_open(this.rpc.clone().unwrap());
             }
         });
-        r
+        unsafe { Box::from_raw(rpc_client_ptr) }
     }
 
     pub fn open(&mut self, host: impl ToString, port: u16) {

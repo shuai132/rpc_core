@@ -32,8 +32,8 @@ unsafe impl Sync for TcpClient {}
 
 // public
 impl TcpClient {
-    pub fn new(config: TcpConfig) -> Self {
-        Self {
+    pub fn new(config: TcpConfig) -> Box<Self> {
+        Box::new(Self {
             host: "".to_string(),
             port: 0,
             socket: None,
@@ -47,7 +47,7 @@ impl TcpClient {
             reconnect_timer_running: false,
             send_queue: VecDeque::new(),
             send_queue_notify: Notify::new(),
-        }
+        })
     }
 
     pub fn open(&mut self, host: impl ToString, port: u16) {
