@@ -207,29 +207,23 @@ impl Request {
     pub fn timeout<'a, F>(self: &'a Rc<Self>, timeout_cb: F) -> &'a Rc<Self>
         where F: Fn() + 'static,
     {
-        unsafe {
-            let weak = Rc::downgrade(&self);
-            let request_impl_ptr = self.inner.as_ptr();
-            let request_impl_tmp = &mut *request_impl_ptr;
-            request_impl_tmp.timeout_cb = Some(Rc::new(Box::new(move || {
-                let this = weak.upgrade();
-                if this.is_none() {
-                    return;
-                }
-                let this = this.unwrap();
-
-                timeout_cb();
-                let request_impl = &mut *request_impl_ptr;
-                if request_impl.retry_count == -1 {
-                    this.call();
-                } else if request_impl.retry_count > 0 {
-                    request_impl.retry_count -= 1;
-                    this.call();
-                } else {
-                    this.on_finish(FinallyType::Timeout);
-                }
-            })));
-        }
+        let weak = Rc::downgrade(&self);
+        self.inner.borrow_mut().timeout_cb = Some(Rc::new(Box::new(move || {
+            let this = weak.upgrade();
+            if this.is_none() {
+                return;
+            }
+            let this = this.unwrap();
+            timeout_cb();
+            if this.inner.borrow().retry_count == -1 {
+                this.call();
+            } else if this.inner.borrow().retry_count > 0 {
+                this.inner.borrow_mut().retry_count -= 1;
+                this.call();
+            } else {
+                this.on_finish(FinallyType::Timeout);
+            }
+        })));
         self
     }
 

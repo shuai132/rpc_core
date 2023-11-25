@@ -76,14 +76,13 @@ impl MsgDispatcher {
                     debug!("seq:{} timeout after destroy", seq);
                     return;
                 }
-                unsafe {
-                    let this = &mut *this;
-                    if let Some(_) = this.rsp_handle_map.remove(&seq) {
-                        if let Some(timeout_cb) = &timeout_cb {
-                            timeout_cb();
-                        }
-                        trace!("Timeout seq={}, rsp_handle_map.size={}", seq, this.rsp_handle_map.len());
+
+                let this = unsafe { &mut *this };
+                if let Some(_) = this.rsp_handle_map.remove(&seq) {
+                    if let Some(timeout_cb) = &timeout_cb {
+                        timeout_cb();
                     }
+                    trace!("Timeout seq={}, rsp_handle_map.size={}", seq, this.rsp_handle_map.len());
                 }
             }));
         } else {
