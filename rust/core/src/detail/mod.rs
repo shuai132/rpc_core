@@ -1,3 +1,3 @@
-pub mod msg_wrapper;
-pub mod msg_dispatcher;
-pub mod coder;
+pub(crate) mod msg_wrapper;
+pub(crate) mod msg_dispatcher;
+pub(crate) mod coder;

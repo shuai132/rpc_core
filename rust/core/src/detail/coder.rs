@@ -3,7 +3,7 @@ use crate::type_def::SeqType;
 
 const PAYLOAD_MIN_LEN: usize = 4 /*seq*/ + 2 /*cmdLen*/ + 1 /*type*/;
 
-pub(crate) fn serialize(msg: &MsgWrapper) -> Vec<u8> {
+pub fn serialize(msg: &MsgWrapper) -> Vec<u8> {
     let mut payload: Vec<u8> = vec![];
     payload.reserve(PAYLOAD_MIN_LEN);
     payload.extend_from_slice(&msg.seq.to_le_bytes());
@@ -20,7 +20,7 @@ pub(crate) fn serialize(msg: &MsgWrapper) -> Vec<u8> {
     payload
 }
 
-pub(crate) fn deserialize(payload: &Vec<u8>) -> Option<MsgWrapper> {
+pub fn deserialize(payload: &Vec<u8>) -> Option<MsgWrapper> {
     if payload.len() < PAYLOAD_MIN_LEN {
         return None;
     }

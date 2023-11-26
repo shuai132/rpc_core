@@ -10,13 +10,13 @@ use crate::detail::coder;
 use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
 use crate::type_def::{CmdType, SeqType};
 
-pub(crate) type TimeoutCb = dyn Fn();
-pub(crate) type TimerImpl = dyn Fn(u32, Box<TimeoutCb>);
+pub type TimeoutCb = dyn Fn();
+pub type TimerImpl = dyn Fn(u32, Box<TimeoutCb>);
 
 type CmdHandle = Box<dyn Fn(MsgWrapper) -> Option<MsgWrapper>>;
-pub(crate) type RspHandle = dyn Fn(MsgWrapper) -> bool;
+pub type RspHandle = dyn Fn(MsgWrapper) -> bool;
 
-pub(crate) struct MsgDispatcher {
+pub struct MsgDispatcher {
     conn: Weak<RefCell<dyn Connection>>,
     cmd_handle_map: HashMap<CmdType, CmdHandle>,
     rsp_handle_map: HashMap<SeqType, Rc<RspHandle>>,
@@ -25,7 +25,7 @@ pub(crate) struct MsgDispatcher {
 }
 
 impl MsgDispatcher {
-    pub(crate) fn new(conn: Option<Rc<RefCell<dyn Connection>>>) -> Box<Self> {
+    pub fn new(conn: Option<Rc<RefCell<dyn Connection>>>) -> Box<Self> {
         let mut dispatcher = Box::new(Self {
             conn: Rc::downgrade(&conn.unwrap()),
             cmd_handle_map: HashMap::new(),
@@ -54,11 +54,11 @@ impl MsgDispatcher {
 }
 
 impl MsgDispatcher {
-    pub(crate) fn subscribe_cmd(&mut self, cmd: String, handle: CmdHandle) {
+    pub fn subscribe_cmd(&mut self, cmd: String, handle: CmdHandle) {
         self.cmd_handle_map.insert(cmd, handle);
     }
 
-    pub(crate) fn unsubscribe_cmd(&mut self, cmd: String) {
+    pub fn unsubscribe_cmd(&mut self, cmd: String) {
         if let Some(_) = self.cmd_handle_map.remove(&cmd) {
             debug!("erase cmd: {}", cmd);
         } else {
@@ -66,7 +66,7 @@ impl MsgDispatcher {
         }
     }
 
-    pub(crate) fn subscribe_rsp(&mut self, seq: SeqType, rsp_handle: Rc<RspHandle>, timeout_cb: Option<Rc<TimeoutCb>>, timeout_ms: u32) {
+    pub fn subscribe_rsp(&mut self, seq: SeqType, rsp_handle: Rc<RspHandle>, timeout_cb: Option<Rc<TimeoutCb>>, timeout_ms: u32) {
         self.rsp_handle_map.insert(seq, rsp_handle);
         if let Some(timer_impl) = &self.timer_impl {
             let this_weak = self.this.downgrade();
@@ -89,7 +89,7 @@ impl MsgDispatcher {
         }
     }
 
-    pub(crate) fn dispatch(&mut self, mut msg: MsgWrapper) {
+    pub fn dispatch(&mut self, mut msg: MsgWrapper) {
         if msg.type_.contains(MsgType::Command) {
             // ping
             let is_ping = msg.type_.contains(MsgType::Ping);
@@ -141,7 +141,7 @@ impl MsgDispatcher {
         }
     }
 
-    pub(crate) fn set_timer_impl<F>(&mut self, timer_impl: F)
+    pub fn set_timer_impl<F>(&mut self, timer_impl: F)
         where F: Fn(u32, Box<TimeoutCb>) + 'static
     {
         self.timer_impl = Some(Rc::new(timer_impl));

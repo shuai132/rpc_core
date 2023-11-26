@@ -1,2 +1,2 @@
-pub(crate) type SeqType = u32;
-pub(crate) type CmdType = String;
+pub type SeqType = u32;
+pub type CmdType = String;
