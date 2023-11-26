@@ -14,11 +14,10 @@ fn main() {
 
     runtime.block_on(async {
         let mut client = tcp_client::TcpClient::new(TcpConfigBuilder::new().auto_pack(true).build());
-        let client_ptr = &client as *const _ as *mut tcp_client::TcpClient;
+        let client_weak = client.downgrade();
         client.on_open(move || {
             info!("on_open");
-            let client = unsafe { &mut *client_ptr };
-            client.send_str("hello from client");
+            client_weak.unwrap().send_str("hello from client");
         });
         client.on_open_failed(|e| {
             info!("on_open_failed: {:?}", e);

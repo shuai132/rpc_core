@@ -4,6 +4,7 @@ use std::rc::{Rc, Weak};
 
 use log::{debug, error, trace, warn};
 
+use crate::base::this::SharedPtr;
 use crate::connection::Connection;
 use crate::detail::coder;
 use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
@@ -20,36 +21,35 @@ pub(crate) struct MsgDispatcher {
     cmd_handle_map: HashMap<CmdType, CmdHandle>,
     rsp_handle_map: HashMap<SeqType, Rc<RspHandle>>,
     timer_impl: Option<Rc<TimerImpl>>,
-    is_alive: Rc<bool>,
+    this: SharedPtr<Self>,
 }
 
 impl MsgDispatcher {
     pub(crate) fn new(conn: Option<Rc<RefCell<dyn Connection>>>) -> Box<Self> {
-        let dispatcher = Box::new(Self {
+        let mut dispatcher = Box::new(Self {
             conn: Rc::downgrade(&conn.unwrap()),
             cmd_handle_map: HashMap::new(),
             rsp_handle_map: HashMap::new(),
             timer_impl: None,
-            is_alive: Rc::new(true),
+            this: SharedPtr::new(),
         });
+        dispatcher.this = SharedPtr::from_box(&mut dispatcher);
 
         let conn = dispatcher.conn.upgrade().unwrap();
-        let alive = Rc::downgrade(&dispatcher.is_alive);
-        let dispatcher_ptr = Box::into_raw(dispatcher);
+        let this_weak = dispatcher.this.downgrade();
         conn.borrow_mut().set_recv_package_impl(Box::new(
             move |payload| {
-                if alive.upgrade().is_none() {
+                if this_weak.expired() {
                     return;
                 }
                 if let Some(msg) = coder::deserialize(&payload) {
-                    let dispatcher = unsafe { &mut *dispatcher_ptr };
-                    dispatcher.dispatch(msg);
+                    this_weak.unwrap().dispatch(msg);
                 } else {
                     eprintln!("deserialize error");
                 }
             }
         ));
-        unsafe { Box::from_raw(dispatcher_ptr) }
+        dispatcher
     }
 }
 
@@ -69,15 +69,14 @@ impl MsgDispatcher {
     pub(crate) fn subscribe_rsp(&mut self, seq: SeqType, rsp_handle: Rc<RspHandle>, timeout_cb: Option<Rc<TimeoutCb>>, timeout_ms: u32) {
         self.rsp_handle_map.insert(seq, rsp_handle);
         if let Some(timer_impl) = &self.timer_impl {
-            let alive = Rc::downgrade(&self.is_alive);
-            let this = self as *const _ as *mut Self;
+            let this_weak = self.this.downgrade();
             timer_impl(timeout_ms, Box::new(move || {
-                if alive.upgrade().is_none() {
+                if this_weak.expired() {
                     debug!("seq:{} timeout after destroy", seq);
                     return;
                 }
 
-                let this = unsafe { &mut *this };
+                let this = this_weak.unwrap();
                 if let Some(_) = this.rsp_handle_map.remove(&seq) {
                     if let Some(timeout_cb) = &timeout_cb {
                         timeout_cb();

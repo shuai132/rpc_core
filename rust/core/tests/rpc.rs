@@ -75,8 +75,8 @@ mod test_rpc {
 
             let pass = Rc::new(RefCell::new(false));
             let pass_clone = pass.clone();
-            let request = rpc.cmd("cmd")
-                .msg("hello")
+            let request = rpc.cmd("cmd");
+            request.msg("hello")
                 .rsp(|_: String| {
                     assert!(false);
                 })
