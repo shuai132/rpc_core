@@ -1,6 +1,6 @@
+use std::cell::UnsafeCell;
 use std::rc::{Rc, Weak};
 
-#[derive(Clone)]
 pub struct SharedPtr<T> {
     value: Option<Rc<*mut T>>,
 }
@@ -12,7 +12,7 @@ impl<T> SharedPtr<T> {
         }
     }
 
-    pub fn from_box(value: &mut Box<T>) -> SharedPtr<T> {
+    pub fn from_box(value: &Box<T>) -> SharedPtr<T> {
         let mut this = Self::new();
         this.init_from_box(value);
         this
@@ -20,18 +20,23 @@ impl<T> SharedPtr<T> {
 }
 
 impl<T> SharedPtr<T> {
-    pub fn init_from_box(&mut self, value: &mut Box<T>) {
-        self.value = Some(Rc::new(value.as_mut()));
+    pub fn init_from_box(&mut self, value: &Box<T>) {
+        let raw_ptr = unsafe { &*(value.as_ref() as *const T as *const UnsafeCell<T>) }.get();
+        self.value = Some(Rc::new(raw_ptr));
     }
 
     pub fn downgrade(&self) -> WeakPtr<T> {
-        WeakPtr::<T> {
-            value: Rc::downgrade(self.value.as_ref().unwrap()),
+        match &self.value {
+            Some(ptr) => {
+                WeakPtr::<T> {
+                    value: Rc::downgrade(ptr),
+                }
+            }
+            None => panic!("SharedPtr not init"),
         }
     }
 }
 
-#[derive(Clone)]
 pub struct WeakPtr<T> {
     value: Weak<*mut T>,
 }
@@ -55,13 +60,13 @@ impl<T> WeakPtr<T> {
     pub fn unwrap(&self) -> &mut T {
         match self.value.upgrade() {
             Some(ptr) => { unsafe { &mut **ptr } }
-            None => panic!("called `WeakPtr::unwrap()` on a `None` value"),
+            None => panic!("WeakPtr expired"),
         }
     }
 
     pub fn clone(&self) -> WeakPtr<T> {
         Self {
-            value: Rc::downgrade(&self.value.upgrade().unwrap()),
+            value: self.value.clone()
         }
     }
 }

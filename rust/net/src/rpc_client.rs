@@ -33,7 +33,7 @@ impl RpcClient {
             rpc: None,
             this: SharedPtr::new(),
         });
-        r.this = SharedPtr::from_box(&mut r);
+        r.this = SharedPtr::from_box(&r);
         let this_weak = r.this.downgrade();
         r.tcp_client.on_open(move || {
             let this = this_weak.unwrap();

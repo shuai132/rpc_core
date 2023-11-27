@@ -33,7 +33,7 @@ impl MsgDispatcher {
             timer_impl: None,
             this: SharedPtr::new(),
         });
-        dispatcher.this = SharedPtr::from_box(&mut dispatcher);
+        dispatcher.this = SharedPtr::from_box(&dispatcher);
 
         let conn = dispatcher.conn.upgrade().unwrap();
         let this_weak = dispatcher.this.downgrade();

@@ -52,7 +52,7 @@ impl TcpClient {
             send_queue_notify: Notify::new(),
             this: SharedPtr::new(),
         });
-        r.this = SharedPtr::from_box(&mut r);
+        r.this = SharedPtr::from_box(&r);
         r
     }
 
