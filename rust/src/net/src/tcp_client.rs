@@ -7,7 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Notify;
 
-use rpc_core::base::this::{SharedPtrSync, WeakPtrSync};
+use rpc_core::base::this::{SharedPtr, WeakPtr};
 
 use crate::config::TcpConfig;
 
@@ -25,13 +25,8 @@ pub struct TcpClient {
     reconnect_timer_running: bool,
     send_queue: VecDeque<Vec<u8>>,
     send_queue_notify: Notify,
-    this: SharedPtrSync<Self>,
+    this: SharedPtr<Self>,
 }
-
-// Be sure used on single thread
-unsafe impl Send for TcpClient {}
-
-unsafe impl Sync for TcpClient {}
 
 // public
 impl TcpClient {
@@ -50,13 +45,13 @@ impl TcpClient {
             reconnect_timer_running: false,
             send_queue: VecDeque::new(),
             send_queue_notify: Notify::new(),
-            this: SharedPtrSync::new(),
+            this: SharedPtr::new(),
         });
-        r.this = SharedPtrSync::from_box(&r);
+        r.this = SharedPtr::from_box(&r);
         r
     }
 
-    pub fn downgrade(&self) -> WeakPtrSync<Self> {
+    pub fn downgrade(&self) -> WeakPtr<Self> {
         self.this.downgrade()
     }
 
@@ -137,7 +132,7 @@ impl TcpClient {
         let port = self.port;
 
         let this_weak = self.this.downgrade();
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             debug!("connect_tcp: {host} {port}");
             let result = TcpClient::connect_tcp(host, port).await;
             debug!("connect_tcp: {result:?}");
@@ -151,14 +146,14 @@ impl TcpClient {
                         on_open();
                         if this.config.auto_pack {
                             let this_weak = this_weak.clone();
-                            tokio::spawn(async move {
+                            tokio::task::spawn_local(async move {
                                 loop {
                                     this_weak.unwrap().do_read_header().await;
                                 }
                             });
                         } else {
                             let this_weak = this_weak.clone();
-                            tokio::spawn(async move {
+                            tokio::task::spawn_local(async move {
                                 loop {
                                     this_weak.unwrap().do_read_data().await;
                                 }
@@ -166,7 +161,7 @@ impl TcpClient {
                         }
 
                         let this_weak = this_weak.clone();
-                        tokio::spawn(async move {
+                        tokio::task::spawn_local(async move {
                             let this = this_weak.unwrap();
                             loop {
                                 if !this.is_open {

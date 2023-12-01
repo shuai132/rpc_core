@@ -61,7 +61,7 @@ impl RpcClient {
 
             this.rpc.as_mut().unwrap().set_timer(|ms: u32, handle: Box<dyn Fn()>| {
                 let handle_ptr = AtomicPtr::new(Box::into_raw(Box::new(handle)));
-                tokio::spawn(async move {
+                tokio::task::spawn_local(async move {
                     tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
                     let handle = unsafe { Box::from_raw(handle_ptr.load(Ordering::SeqCst)) };
                     handle();
