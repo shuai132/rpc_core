@@ -47,15 +47,17 @@ impl RpcClient {
             {
                 let this_weak = this_weak.clone();
                 this.connection.borrow_mut().set_send_package_impl(Box::new(move |package: Vec<u8>| {
-                    let this = this_weak.unwrap();
-                    this.tcp_client.send(package);
+                    if let Some(this) = this_weak.upgrade() {
+                        this.tcp_client.send(package);
+                    }
                 }));
             }
             {
                 let this_weak = this_weak.clone();
                 this.tcp_client.on_data(move |package| {
-                    let this = this_weak.unwrap();
-                    this.connection.borrow_mut().on_recv_package(package);
+                    if let Some(this) = this_weak.upgrade() {
+                        this.connection.borrow_mut().on_recv_package(package);
+                    }
                 });
             }
 
