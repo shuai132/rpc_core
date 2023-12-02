@@ -18,7 +18,7 @@ pub trait RpcProto {
 
 pub struct RpcImpl {
     weak: Weak<Rpc>,
-    connection: Option<Rc<RefCell<dyn Connection>>>,
+    connection: Rc<RefCell<dyn Connection>>,
     dispatcher: Box<MsgDispatcher>,
     seq: SeqType,
     is_ready: bool,
@@ -30,7 +30,7 @@ pub struct Rpc {
 
 impl Rpc {
     pub fn new(connection: Option<Rc<RefCell<dyn Connection>>>) -> Rc<Rpc> {
-        let connection = connection.or(Some(DefaultConnection::new()));
+        let connection = connection.unwrap_or(DefaultConnection::new());
         let rpc = Rc::new(Rpc {
             inner: RefCell::new(RpcImpl {
                 weak: Weak::new(),
@@ -104,7 +104,7 @@ impl Rpc {
         self.inner.borrow_mut().is_ready = ready;
     }
 
-    pub fn get_connection(&self) -> Option<Rc<RefCell<dyn Connection>>> {
+    pub fn get_connection(&self) -> Rc<RefCell<dyn Connection>> {
         self.inner.borrow().connection.clone()
     }
 }
@@ -145,7 +145,7 @@ impl RpcProto for Rpc {
             };
 
             payload = coder::serialize(&msg);
-            connection = inner.connection.as_ref().unwrap().clone();
+            connection = inner.connection.clone();
         }
         debug!("=> seq:{} type:{} {}", msg.seq, if msg.type_.contains( MsgType::Ping) { "ping" } else {"cmd"}, msg.cmd);
         connection.borrow().send_package(payload);

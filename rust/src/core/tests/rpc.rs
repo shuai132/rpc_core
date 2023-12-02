@@ -4,6 +4,7 @@ mod test_rpc {
     use std::rc::Rc;
 
     use log::info;
+
     use rpc_core::request::FinallyType;
 
     #[test]

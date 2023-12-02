@@ -7,7 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Notify;
 
-use rpc_core::base::this::{SharedPtr, WeakPtr};
+use rpc_core::base::this::{UnsafeThis, WeakThis};
 
 use crate::config::TcpConfig;
 
@@ -25,7 +25,7 @@ pub struct TcpClient {
     reconnect_timer_running: bool,
     send_queue: VecDeque<Vec<u8>>,
     send_queue_notify: Notify,
-    this: SharedPtr<Self>,
+    this: UnsafeThis<Self>,
 }
 
 // public
@@ -45,13 +45,13 @@ impl TcpClient {
             reconnect_timer_running: false,
             send_queue: VecDeque::new(),
             send_queue_notify: Notify::new(),
-            this: SharedPtr::new(),
+            this: UnsafeThis::new(),
         });
-        r.this = SharedPtr::from_box(&r);
+        r.this = UnsafeThis::from_box(&r);
         r
     }
 
-    pub fn downgrade(&self) -> WeakPtr<Self> {
+    pub fn downgrade(&self) -> WeakThis<Self> {
         self.this.downgrade()
     }
 

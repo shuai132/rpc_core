@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 
 use log::{debug, error, trace, warn};
 
-use crate::base::this::SharedPtr;
+use crate::base::this::UnsafeThis;
 use crate::connection::Connection;
 use crate::detail::coder;
 use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
@@ -21,19 +21,19 @@ pub struct MsgDispatcher {
     cmd_handle_map: HashMap<CmdType, CmdHandle>,
     rsp_handle_map: HashMap<SeqType, Rc<RspHandle>>,
     timer_impl: Option<Rc<TimerImpl>>,
-    this: SharedPtr<Self>,
+    this: UnsafeThis<Self>,
 }
 
 impl MsgDispatcher {
-    pub fn new(conn: Option<Rc<RefCell<dyn Connection>>>) -> Box<Self> {
+    pub fn new(conn: Rc<RefCell<dyn Connection>>) -> Box<Self> {
         let mut dispatcher = Box::new(Self {
-            conn: Rc::downgrade(&conn.unwrap()),
+            conn: Rc::downgrade(&conn),
             cmd_handle_map: HashMap::new(),
             rsp_handle_map: HashMap::new(),
             timer_impl: None,
-            this: SharedPtr::new(),
+            this: UnsafeThis::new(),
         });
-        dispatcher.this = SharedPtr::from_box(&dispatcher);
+        dispatcher.this = UnsafeThis::from_box(&dispatcher);
 
         let conn = dispatcher.conn.upgrade().unwrap();
         let this_weak = dispatcher.this.downgrade();
@@ -45,7 +45,7 @@ impl MsgDispatcher {
                 if let Some(msg) = coder::deserialize(&payload) {
                     this_weak.unwrap().dispatch(msg);
                 } else {
-                    eprintln!("deserialize error");
+                    error!("deserialize error");
                 }
             }
         ));
@@ -97,7 +97,9 @@ impl MsgDispatcher {
                 debug!("<= seq:{} type:ping", &msg.seq);
                 msg.type_ = MsgType::Response | MsgType::Pong;
                 debug!("=> seq:{} type:pong", &msg.seq);
-                self.conn.upgrade().unwrap().borrow().send_package(coder::serialize(&msg));
+                if let Some(conn) = self.conn.upgrade() {
+                    conn.borrow().send_package(coder::serialize(&msg));
+                }
                 return;
             }
 
@@ -110,7 +112,9 @@ impl MsgDispatcher {
                 if need_rsp && resp.is_some() {
                     let rsp = resp.unwrap();
                     debug!("=> seq:{} type:rsp", &rsp.seq);
-                    self.conn.upgrade().unwrap().borrow().send_package(coder::serialize(&rsp));
+                    if let Some(conn) = self.conn.upgrade() {
+                        conn.borrow().send_package(coder::serialize(&rsp));
+                    }
                 }
             } else {
                 debug!("not subscribe cmd for: {}", cmd);
@@ -120,7 +124,9 @@ impl MsgDispatcher {
                     let mut rsp = MsgWrapper::new();
                     rsp.seq = msg.seq;
                     rsp.type_ = MsgType::Response | MsgType::NoSuchCmd;
-                    self.conn.upgrade().unwrap().borrow().send_package(coder::serialize(&rsp));
+                    if let Some(conn) = self.conn.upgrade() {
+                        conn.borrow().send_package(coder::serialize(&rsp));
+                    }
                 }
             }
         } else if msg.type_.contains(MsgType::Response) {

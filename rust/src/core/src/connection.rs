@@ -47,11 +47,11 @@ pub struct LoopbackConnection(DefaultConnection);
 impl LoopbackConnection {
     pub fn new() -> Rc<RefCell<Self>> {
         let c = Rc::new(RefCell::new(LoopbackConnection(DefaultConnection::default())));
-        let c2 = c.clone();
+        let c_clone = c.clone();
         c.borrow_mut().0.send_package_impl = Some(
             Box::new(move |package: Vec<u8>| {
-                c2.borrow().0.on_recv_package(package);
-            }) as Box<dyn Fn(Vec<u8>) + 'static>
+                c_clone.borrow().0.on_recv_package(package);
+            })
         );
         c
     }

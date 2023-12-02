@@ -3,7 +3,7 @@ use std::error::Error;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
-use rpc_core::base::this::{SharedPtr, WeakPtr};
+use rpc_core::base::this::{UnsafeThis, WeakThis};
 use rpc_core::connection::Connection;
 use rpc_core::rpc::Rpc;
 
@@ -18,7 +18,7 @@ pub struct RpcClient {
     on_close: Option<Box<dyn Fn()>>,
     connection: Rc<RefCell<dyn Connection>>,
     rpc: Option<Rc<Rpc>>,
-    this: SharedPtr<Self>,
+    this: UnsafeThis<Self>,
 }
 
 impl RpcClient {
@@ -31,15 +31,15 @@ impl RpcClient {
             on_close: None,
             connection: rpc_core::connection::DefaultConnection::new(),
             rpc: None,
-            this: SharedPtr::new(),
+            this: UnsafeThis::new(),
         });
-        r.this = SharedPtr::from_box(&r);
+        r.this = UnsafeThis::from_box(&r);
         let this_weak = r.this.downgrade();
         r.tcp_client.on_open(move || {
             let this = this_weak.unwrap();
             if let Some(rpc) = &this.config.rpc {
                 this.rpc = Some(rpc.clone());
-                this.connection = rpc.get_connection().unwrap();
+                this.connection = rpc.get_connection();
             } else {
                 this.rpc = Some(Rpc::new(Some(this.connection.clone())));
             }
@@ -85,7 +85,7 @@ impl RpcClient {
         r
     }
 
-    pub fn downgrade(&self) -> WeakPtr<Self> {
+    pub fn downgrade(&self) -> WeakThis<Self> {
         self.this.downgrade()
     }
 
