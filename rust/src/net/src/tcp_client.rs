@@ -7,8 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Notify;
 
-use rpc_core::base::this::{UnsafeThis, WeakThis};
-
+use crate::base::this::{UnsafeThis, WeakThis};
 use crate::config::TcpConfig;
 
 pub struct TcpClient {

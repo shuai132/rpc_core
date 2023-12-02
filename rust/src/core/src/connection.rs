@@ -42,35 +42,25 @@ impl Connection for DefaultConnection {
     }
 }
 
-pub struct LoopbackConnection(DefaultConnection);
+pub struct LoopbackConnection;
 
 impl LoopbackConnection {
-    pub fn new() -> Rc<RefCell<Self>> {
-        let c = Rc::new(RefCell::new(LoopbackConnection(DefaultConnection::default())));
-        let c_clone = c.clone();
-        c.borrow_mut().0.send_package_impl = Some(
+    pub fn new() -> (Rc<RefCell<DefaultConnection>>, Rc<RefCell<DefaultConnection>>) {
+        let c1 = Rc::new(RefCell::new(DefaultConnection::default()));
+        let c1_clone = c1.clone();
+        let c2 = Rc::new(RefCell::new(DefaultConnection::default()));
+        let c2_clone = c2.clone();
+
+        c1.borrow_mut().send_package_impl = Some(
             Box::new(move |package: Vec<u8>| {
-                c_clone.borrow().0.on_recv_package(package);
+                c2_clone.borrow().on_recv_package(package);
             })
         );
-        c
-    }
-}
-
-impl Connection for LoopbackConnection {
-    fn set_send_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>)>) {
-        self.0.set_send_package_impl(handle);
-    }
-
-    fn send_package(&self, package: Vec<u8>) {
-        self.0.send_package(package);
-    }
-
-    fn set_recv_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>)>) {
-        self.0.set_recv_package_impl(handle);
-    }
-
-    fn on_recv_package(&self, package: Vec<u8>) {
-        self.0.on_recv_package(package);
+        c2.borrow_mut().send_package_impl = Some(
+            Box::new(move |package: Vec<u8>| {
+                c1_clone.borrow().on_recv_package(package);
+            })
+        );
+        (c1, c2)
     }
 }

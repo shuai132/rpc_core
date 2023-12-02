@@ -3,10 +3,10 @@ use std::error::Error;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
-use rpc_core::base::this::{UnsafeThis, WeakThis};
 use rpc_core::connection::Connection;
 use rpc_core::rpc::Rpc;
 
+use crate::base::this::{UnsafeThis, WeakThis};
 use crate::config::RpcConfig;
 use crate::tcp_client::TcpClient;
 

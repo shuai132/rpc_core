@@ -19,7 +19,7 @@ pub trait RpcProto {
 pub struct RpcImpl {
     weak: Weak<Rpc>,
     connection: Rc<RefCell<dyn Connection>>,
-    dispatcher: Box<MsgDispatcher>,
+    dispatcher: Rc<RefCell<MsgDispatcher>>,
     seq: SeqType,
     is_ready: bool,
 }
@@ -51,7 +51,7 @@ impl Rpc {
             R: serde::Serialize,
             F: Fn(P) -> R + 'static,
     {
-        self.inner.borrow_mut().dispatcher.subscribe_cmd(cmd.to_string(), Box::new(move |msg| -> Option<MsgWrapper>{
+        self.inner.borrow_mut().dispatcher.borrow_mut().subscribe_cmd(cmd.to_string(), Box::new(move |msg| -> Option<MsgWrapper>{
             if let Ok(value) = msg.unpack_as::<P>() {
                 let rsp: R = handle(value);
                 Some(MsgWrapper::make_rsp(msg.seq, rsp))
@@ -64,7 +64,7 @@ impl Rpc {
     pub fn unsubscribe<C>(&self, cmd: C)
         where C: ToString
     {
-        self.inner.borrow_mut().dispatcher.unsubscribe_cmd(cmd.to_string());
+        self.inner.borrow_mut().dispatcher.borrow_mut().unsubscribe_cmd(cmd.to_string());
     }
 
     pub fn create_request(&self) -> Rc<Request>
@@ -97,7 +97,7 @@ impl Rpc {
     pub fn set_timer<F>(&self, timer_impl: F)
         where F: Fn(u32, Box<TimeoutCb>) + 'static
     {
-        self.inner.borrow_mut().dispatcher.set_timer_impl(timer_impl);
+        self.inner.borrow_mut().dispatcher.borrow_mut().set_timer_impl(timer_impl);
     }
 
     pub fn set_ready(&self, ready: bool) {
@@ -122,10 +122,10 @@ impl RpcProto for Rpc {
         let payload;
         let connection;
         {
-            let mut inner = self.inner.borrow_mut();
+            let inner = self.inner.borrow_mut();
             let request = request.inner.borrow_mut();
             if request.need_rsp {
-                inner.dispatcher.subscribe_rsp(request.seq, request.rsp_handle.as_ref().unwrap().clone(), request.timeout_cb.clone(), request.timeout_ms);
+                inner.dispatcher.borrow_mut().subscribe_rsp(request.seq, request.rsp_handle.as_ref().unwrap().clone(), request.timeout_cb.clone(), request.timeout_ms);
             }
             msg = MsgWrapper {
                 seq: request.seq,
