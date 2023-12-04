@@ -20,7 +20,7 @@ fn main() {
         let local = tokio::task::LocalSet::new();
         local.run_until(async move {
             let rpc = Rpc::new(None);
-            let mut client = rpc_client::RpcClient::new(RpcConfigBuilder::new().rpc(Some(rpc.clone())).build());
+            let client = rpc_client::RpcClient::new(RpcConfigBuilder::new().rpc(Some(rpc.clone())).build());
             client.on_open(|_: Rc<Rpc>| {
                 info!("on_open");
             });
