@@ -9,7 +9,7 @@ use crate::config::RpcConfig;
 use crate::tcp_client::TcpClient;
 
 pub struct RpcClientImpl {
-    tcp_client: Box<TcpClient>,
+    tcp_client: Rc<TcpClient>,
     config: RpcConfig,
     on_open: Option<Box<dyn Fn(Rc<Rpc>)>>,
     on_open_failed: Option<Box<dyn Fn(&dyn Error)>>,
@@ -53,17 +53,17 @@ impl RpcClient {
 
             {
                 let this_weak = this_weak.clone();
-                this.inner.borrow_mut().connection.borrow_mut().set_send_package_impl(Box::new(move |package: Vec<u8>| {
+                this.inner.borrow().connection.borrow_mut().set_send_package_impl(Box::new(move |package: Vec<u8>| {
                     if let Some(this) = this_weak.upgrade() {
-                        this.inner.borrow_mut().tcp_client.send(package);
+                        this.inner.borrow().tcp_client.send(package);
                     }
                 }));
             }
             {
                 let this_weak = this_weak.clone();
-                this.inner.borrow_mut().tcp_client.on_data(move |package| {
+                this.inner.borrow().tcp_client.on_data(move |package| {
                     if let Some(this) = this_weak.upgrade() {
-                        this.inner.borrow_mut().connection.borrow_mut().on_recv_package(package);
+                        this.inner.borrow().connection.borrow_mut().on_recv_package(package);
                     }
                 });
             }
@@ -76,7 +76,7 @@ impl RpcClient {
             });
             {
                 let this_weak = this_weak.clone();
-                this.inner.borrow_mut().tcp_client.on_close(move || {
+                this.inner.borrow().tcp_client.on_close(move || {
                     let this = this_weak.upgrade().unwrap();
                     this.inner.borrow_mut().rpc.as_mut().unwrap().set_ready(false);
                 });

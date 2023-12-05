@@ -15,11 +15,11 @@ fn main() {
     runtime.block_on(async {
         let local = tokio::task::LocalSet::new();
         local.run_until(async move {
-            let mut client = tcp_client::TcpClient::new(TcpConfigBuilder::new().auto_pack(true).build());
+            let client = tcp_client::TcpClient::new(TcpConfigBuilder::new().auto_pack(false).build());
             let client_weak = client.downgrade();
             client.on_open(move || {
                 info!("on_open");
-                client_weak.unwrap().send_str("hello from client");
+                client_weak.upgrade().unwrap().send_str("hello from client");
             });
             client.on_open_failed(|e| {
                 info!("on_open_failed: {:?}", e);
