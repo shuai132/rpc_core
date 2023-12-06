@@ -15,7 +15,6 @@ fn main() {
         .build()
         .unwrap();
 
-
     runtime.block_on(async {
         let local = tokio::task::LocalSet::new();
         local.run_until(async move {
