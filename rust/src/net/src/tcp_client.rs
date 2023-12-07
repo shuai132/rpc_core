@@ -96,7 +96,7 @@ impl TcpClient {
     pub fn on_data<F>(&self, callback: F)
         where F: Fn(Vec<u8>) + 'static,
     {
-        *self.channel.on_data.borrow_mut() = Some(Box::new(callback));
+        self.channel.on_data(callback);
     }
 
     pub fn on_close<F>(&self, callback: F)
@@ -130,7 +130,6 @@ impl TcpClient {
 
             match result {
                 Ok(stream) => {
-                    *this.channel.is_open.borrow_mut() = true;
                     if let Some(on_open) = this.on_open.borrow_mut().as_ref() {
                         on_open();
                         this.channel.do_open(stream);

@@ -1,42 +1,46 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use log::{debug, trace};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
+use tokio::select;
 use tokio::sync::Notify;
 
 use crate::config::TcpConfig;
 
 pub struct TcpChannel {
-    pub stream_read: RefCell<Option<ReadHalf<TcpStream>>>,
-    pub stream_write: RefCell<Option<WriteHalf<TcpStream>>>,
-    pub config: Rc<RefCell<TcpConfig>>,
-    pub on_close: RefCell<Option<Box<dyn Fn()>>>,
-    pub on_data: RefCell<Option<Box<dyn Fn(Vec<u8>)>>>,
-    pub send_queue: RefCell<VecDeque<Vec<u8>>>,
-    pub send_queue_notify: RefCell<Notify>,
+    stream_read: RefCell<Option<ReadHalf<TcpStream>>>,
+    stream_write: RefCell<Option<WriteHalf<TcpStream>>>,
+    config: Rc<RefCell<TcpConfig>>,
+    on_close: RefCell<Option<Box<dyn Fn()>>>,
+    on_data: RefCell<Option<Box<dyn Fn(Vec<u8>)>>>,
+    send_queue: RefCell<VecDeque<Vec<u8>>>,
+    send_queue_notify: Notify,
+    quit_notify: Notify,
     pub is_open: RefCell<bool>,
-    this: RefCell<Weak<Self>>,
 }
 
-// public
 impl TcpChannel {
     pub fn new(config: Rc<RefCell<TcpConfig>>) -> Rc<Self> {
-        let r = Rc::new(Self {
+        Rc::new(Self {
             stream_read: None.into(),
             stream_write: None.into(),
             config,
             on_close: None.into(),
             on_data: None.into(),
             send_queue: VecDeque::new().into(),
-            send_queue_notify: Notify::new().into(),
+            send_queue_notify: Notify::new(),
+            quit_notify: Notify::new(),
             is_open: false.into(),
-            this: Weak::new().into(),
-        });
-        *r.this.borrow_mut() = Rc::downgrade(&r).into();
-        r
+        })
+    }
+
+    pub fn on_data<F>(&self, callback: F)
+        where F: Fn(Vec<u8>) + 'static,
+    {
+        *self.on_data.borrow_mut() = Some(Box::new(callback));
     }
 
     pub fn on_close<F>(&self, callback: F)
@@ -61,7 +65,7 @@ impl TcpChannel {
             }
             send_queue.push_back(data);
         }
-        self.send_queue_notify.borrow().notify_one();
+        self.send_queue_notify.notify_one();
     }
 
     pub fn send_str(&self, data: impl ToString) {
@@ -71,57 +75,82 @@ impl TcpChannel {
     pub fn close(&self) {
         *self.is_open.borrow_mut() = false;
         self.send_queue.borrow_mut().clear();
-        self.send_queue_notify.borrow().notify_one();
+        self.send_queue_notify.notify_one();
         if let Some(on_close) = self.on_close.take() {
             on_close();
         }
     }
-}
 
-// private
-impl TcpChannel {
-    pub fn do_open(&self, stream: TcpStream) {
+    pub fn do_open(self: &Rc<Self>, stream: TcpStream) {
+        if *self.is_open.borrow() {
+            self.do_close();
+        }
         *self.is_open.borrow_mut() = true;
-        let this_weak = self.this.borrow().clone();
+        let this = self.clone();
         tokio::task::spawn_local(async move {
-            let this = this_weak.upgrade().unwrap();
             let (read_half, write_half) = tokio::io::split(stream);
             *this.stream_read.borrow_mut() = Some(read_half);
             *this.stream_write.borrow_mut() = Some(write_half);
+
+            // read loop task
             if this.config.borrow().auto_pack {
-                let this_weak = this_weak.clone();
+                let this = this.clone();
                 tokio::task::spawn_local(async move {
                     loop {
-                        if !this_weak.upgrade().unwrap().do_read_header().await {
+                        if !*this.is_open.borrow() {
                             break;
                         }
+                        select! {
+                            goon = this.do_read_header() => {
+                                if !goon {
+                                    break;
+                                }
+                            },
+                            _ = this.quit_notify.notified() => {
+                                break;
+                            },
+                        }
                     }
+                    *this.stream_read.borrow_mut() = None;
                     trace!("loop exit: read");
                 });
             } else {
-                let this_weak = this_weak.clone();
+                let this = this.clone();
                 tokio::task::spawn_local(async move {
                     loop {
-                        if !this_weak.upgrade().unwrap().do_read_data().await {
-                            break;
+                        select! {
+                            goon = this.do_read_data() => {
+                                if !goon {
+                                    break;
+                                }
+                            },
+                            _ = this.quit_notify.notified() => {
+                                break;
+                            },
                         }
+                        *this.stream_read.borrow_mut() = None;
                     }
                     trace!("loop exit: read");
                 });
             }
 
-            let this_weak = this_weak.clone();
+            // write loop task
             tokio::task::spawn_local(async move {
-                let this = this_weak.upgrade().unwrap();
                 loop {
                     if !*this.is_open.borrow() {
                         break;
                     }
+
                     let send_data = this.send_queue.borrow_mut().pop_front();
                     if let Some(data) = send_data {
                         let mut result = None;
                         if let Some(stream) = this.stream_write.borrow_mut().as_mut() {
-                            result = stream.write_all(&data).await.ok();
+                            select! {
+                                write_ret = stream.write_all(&data) => {
+                                    result = write_ret.ok();
+                                },
+                                _ = this.quit_notify.notified() => {},
+                            }
                         }
 
                         if result.is_none() {
@@ -129,10 +158,11 @@ impl TcpChannel {
                             break;
                         }
                     } else {
-                        this.send_queue_notify.borrow().notified().await;
+                        this.send_queue_notify.notified().await;
                     }
                 }
-                trace!("loop exit: send");
+                *this.stream_write.borrow_mut() = None;
+                trace!("loop exit: write");
             });
         });
     }
@@ -142,9 +172,8 @@ impl TcpChannel {
             return;
         }
         *self.is_open.borrow_mut() = false;
-        self.send_queue_notify.borrow().notify_one();
-        *self.stream_read.borrow_mut() = None;
-        *self.stream_write.borrow_mut() = None;
+        self.quit_notify.notify_waiters();
+        self.send_queue_notify.notify_one();
         if let Some(on_close) = self.on_close.borrow().as_ref() {
             on_close();
         }
@@ -203,3 +232,8 @@ impl TcpChannel {
     }
 }
 
+impl Drop for TcpChannel {
+    fn drop(&mut self) {
+        trace!("~TcpChannel");
+    }
+}

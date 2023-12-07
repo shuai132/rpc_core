@@ -15,7 +15,7 @@ rust-version = { workspace = true }
 rpc-core = { version = "0.1.0", path = "../core" }
 bitflags = "2.4"
 log = "0.4"
-tokio = { version = "1", features = ["rt", "net", "io-util"] }
+tokio = { version = "1", features = ["rt", "net", "io-util", "macros"] }
 tokio-stream = "0.1"
 
 [dev-dependencies]

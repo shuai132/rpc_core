@@ -68,7 +68,7 @@ impl RpcClient {
                 });
             }
 
-            this.inner.borrow_mut().rpc.as_mut().unwrap().set_timer(|ms: u32, handle: Box<dyn Fn()>| {
+            this.inner.borrow_mut().rpc.as_ref().unwrap().set_timer(|ms: u32, handle: Box<dyn Fn()>| {
                 tokio::task::spawn_local(async move {
                     tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
                     handle();
@@ -78,10 +78,10 @@ impl RpcClient {
                 let this_weak = this_weak.clone();
                 this.inner.borrow().tcp_client.on_close(move || {
                     let this = this_weak.upgrade().unwrap();
-                    this.inner.borrow_mut().rpc.as_mut().unwrap().set_ready(false);
+                    this.inner.borrow().rpc.as_ref().unwrap().set_ready(false);
                 });
             }
-            this.inner.borrow_mut().rpc.as_mut().unwrap().set_ready(true);
+            this.inner.borrow_mut().rpc.as_ref().unwrap().set_ready(true);
 
             {
                 let this = this.inner.borrow();
@@ -98,7 +98,7 @@ impl RpcClient {
     }
 
     pub fn close(&self) {
-        self.inner.borrow_mut().tcp_client.close();
+        self.inner.borrow().tcp_client.close();
     }
 
     pub fn set_reconnect(&self, ms: u32) {
