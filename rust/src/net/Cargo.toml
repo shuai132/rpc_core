@@ -20,3 +20,11 @@ tokio-stream = "0.1"
 
 [dev-dependencies]
 env_logger = "0.10.0"
+
+[[test]]
+name = "rpc"
+path = "tests/rpc.rs"
+
+[[test]]
+name = "tcp"
+path = "tests/tcp.rs"

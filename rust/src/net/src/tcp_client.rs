@@ -130,9 +130,9 @@ impl TcpClient {
 
             match result {
                 Ok(stream) => {
+                    this.channel.do_open(stream);
                     if let Some(on_open) = this.on_open.borrow_mut().as_ref() {
                         on_open();
-                        this.channel.do_open(stream);
                     }
                 }
                 Err(err) => {
