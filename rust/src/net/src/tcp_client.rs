@@ -155,7 +155,7 @@ impl TcpClient {
     }
 
     async fn check_reconnect(&self) {
-        if !*self.channel.is_open.borrow() && !*self.reconnect_timer_running.borrow() && *self.reconnect_ms.borrow() > 0 {
+        if !self.channel.is_open() && !*self.reconnect_timer_running.borrow() && *self.reconnect_ms.borrow() > 0 {
             *self.reconnect_timer_running.borrow_mut() = true;
             tokio::time::sleep(tokio::time::Duration::from_millis((*self.reconnect_ms.borrow()).into())).await;
             if *self.reconnect_timer_running.borrow() {
@@ -163,7 +163,7 @@ impl TcpClient {
             } else {
                 return;
             }
-            if !*self.channel.is_open.borrow() {
+            if !self.channel.is_open() {
                 self.do_open();
             }
         }

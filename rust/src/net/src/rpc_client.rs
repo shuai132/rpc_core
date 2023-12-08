@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::error::Error;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use rpc_core::connection::Connection;
 use rpc_core::rpc::Rpc;
@@ -16,7 +16,6 @@ pub struct RpcClientImpl {
     on_close: Option<Box<dyn Fn()>>,
     connection: Rc<RefCell<dyn Connection>>,
     rpc: Option<Rc<Rpc>>,
-    this: Weak<RpcClient>,
 }
 
 pub struct RpcClient {
@@ -34,11 +33,9 @@ impl RpcClient {
                 on_close: None,
                 connection: rpc_core::connection::DefaultConnection::new(),
                 rpc: None,
-                this: Weak::new(),
             })
         });
-        r.inner.borrow_mut().this = Rc::downgrade(&r);
-        let this_weak = r.inner.borrow_mut().this.clone();
+        let this_weak = Rc::downgrade(&r);
         r.inner.borrow_mut().tcp_client.on_open(move || {
             let this = this_weak.upgrade().unwrap();
             {

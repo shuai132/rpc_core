@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use log::{debug, trace};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf};
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::Notify;
@@ -11,22 +11,18 @@ use tokio::sync::Notify;
 use crate::config::TcpConfig;
 
 pub struct TcpChannel {
-    stream_read: RefCell<Option<ReadHalf<TcpStream>>>,
-    stream_write: RefCell<Option<WriteHalf<TcpStream>>>,
     config: Rc<RefCell<TcpConfig>>,
     on_close: RefCell<Option<Box<dyn Fn()>>>,
     on_data: RefCell<Option<Box<dyn Fn(Vec<u8>)>>>,
     send_queue: RefCell<VecDeque<Vec<u8>>>,
     send_queue_notify: Notify,
     quit_notify: Notify,
-    pub is_open: RefCell<bool>,
+    is_open: RefCell<bool>,
 }
 
 impl TcpChannel {
     pub fn new(config: Rc<RefCell<TcpConfig>>) -> Rc<Self> {
         Rc::new(Self {
-            stream_read: None.into(),
-            stream_write: None.into(),
             config,
             on_close: None.into(),
             on_data: None.into(),
@@ -35,6 +31,10 @@ impl TcpChannel {
             quit_notify: Notify::new(),
             is_open: false.into(),
         })
+    }
+
+    pub fn is_open(&self) -> bool {
+        *self.is_open.borrow()
     }
 
     pub fn on_data<F>(&self, callback: F)
@@ -89,19 +89,18 @@ impl TcpChannel {
         let this = self.clone();
         tokio::task::spawn_local(async move {
             let (read_half, write_half) = tokio::io::split(stream);
-            *this.stream_read.borrow_mut() = Some(read_half);
-            *this.stream_write.borrow_mut() = Some(write_half);
 
             // read loop task
             if this.config.borrow().auto_pack {
                 let this = this.clone();
                 tokio::task::spawn_local(async move {
+                    let mut read_half = read_half;
                     loop {
                         if !*this.is_open.borrow() {
                             break;
                         }
                         select! {
-                            goon = this.do_read_header() => {
+                            goon = this.do_read_header(&mut read_half) => {
                                 if !goon {
                                     break;
                                 }
@@ -111,15 +110,15 @@ impl TcpChannel {
                             },
                         }
                     }
-                    *this.stream_read.borrow_mut() = None;
                     trace!("loop exit: read");
                 });
             } else {
                 let this = this.clone();
                 tokio::task::spawn_local(async move {
+                    let mut read_half = read_half;
                     loop {
                         select! {
-                            goon = this.do_read_data() => {
+                            goon = this.do_read_data(&mut read_half) => {
                                 if !goon {
                                     break;
                                 }
@@ -128,7 +127,6 @@ impl TcpChannel {
                                 break;
                             },
                         }
-                        *this.stream_read.borrow_mut() = None;
                     }
                     trace!("loop exit: read");
                 });
@@ -136,6 +134,7 @@ impl TcpChannel {
 
             // write loop task
             tokio::task::spawn_local(async move {
+                let mut write_half = write_half;
                 loop {
                     if !*this.is_open.borrow() {
                         break;
@@ -144,15 +143,12 @@ impl TcpChannel {
                     let send_data = this.send_queue.borrow_mut().pop_front();
                     if let Some(data) = send_data {
                         let mut result = None;
-                        if let Some(stream) = this.stream_write.borrow_mut().as_mut() {
-                            select! {
-                                write_ret = stream.write_all(&data) => {
-                                    result = write_ret.ok();
-                                },
-                                _ = this.quit_notify.notified() => {},
-                            }
+                        select! {
+                            write_ret = write_half.write_all(&data) => {
+                                result = write_ret.ok();
+                            },
+                            _ = this.quit_notify.notified() => {},
                         }
-
                         if result.is_none() {
                             this.do_close();
                             break;
@@ -161,7 +157,6 @@ impl TcpChannel {
                         this.send_queue_notify.notified().await;
                     }
                 }
-                *this.stream_write.borrow_mut() = None;
                 trace!("loop exit: write");
             });
         });
@@ -179,12 +174,9 @@ impl TcpChannel {
         }
     }
 
-    pub async fn do_read_data(&self) -> bool {
+    pub async fn do_read_data(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
         let mut buffer = vec![];
-        let mut read_result = None;
-        if let Some(stream) = self.stream_read.borrow_mut().as_mut() {
-            read_result = stream.read_buf(&mut buffer).await.ok();
-        }
+        let read_result = read_half.read_buf(&mut buffer).await.ok();
 
         return if read_result.is_some() && !buffer.is_empty() {
             if let Some(on_data) = self.on_data.borrow().as_ref() {
@@ -197,28 +189,22 @@ impl TcpChannel {
         };
     }
 
-    pub async fn do_read_header(&self) -> bool {
+    pub async fn do_read_header(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
         let mut buffer = [0u8; 4];
-        let mut read_result = None;
-        if let Some(stream) = self.stream_read.borrow_mut().as_mut() {
-            read_result = stream.read_exact(&mut buffer).await.ok();
-        }
+        let read_result = read_half.read_exact(&mut buffer).await.ok();
 
         return if read_result.is_some() {
             let body_size = u32::from_le_bytes(buffer);
-            self.do_read_body(body_size).await
+            self.do_read_body(read_half, body_size).await
         } else {
             self.do_close();
             false
         };
     }
 
-    async fn do_read_body(&self, body_size: u32) -> bool {
+    async fn do_read_body(&self, read_half: &mut ReadHalf<TcpStream>, body_size: u32) -> bool {
         let mut buffer: Vec<u8> = vec![0; body_size as usize];
-        let mut read_result = None;
-        if let Some(stream) = self.stream_read.borrow_mut().as_mut() {
-            read_result = stream.read_exact(&mut buffer).await.ok();
-        }
+        let read_result = read_half.read_exact(&mut buffer).await.ok();
 
         return if read_result.is_some() {
             if let Some(on_data) = self.on_data.borrow().as_ref() {
