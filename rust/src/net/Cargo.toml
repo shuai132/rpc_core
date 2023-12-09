@@ -22,9 +22,9 @@ tokio-stream = "0.1"
 env_logger = "0.10.0"
 
 [[test]]
-name = "rpc"
+name = "net_rpc"
 path = "tests/rpc.rs"
 
 [[test]]
-name = "tcp"
+name = "net_tcp"
 path = "tests/tcp.rs"

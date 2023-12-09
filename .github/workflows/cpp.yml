@@ -1,4 +1,4 @@
-name: build
+name: cpp
 
 on:
   push:
@@ -25,7 +25,9 @@ jobs:
         run: cd build && make rpc_core_test_init
 
       - name: Build
-        run: cd build && make -j2
+        working-directory: build
+        run: make -j2
 
       - name: Run
-        run: cd build && ./rpc_core_test
+        working-directory: build
+        run: ./rpc_core_test

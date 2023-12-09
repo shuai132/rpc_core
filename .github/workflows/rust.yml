@@ -1,0 +1,39 @@
+name: rust
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'include/**'
+      - 'test/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'include/**'
+      - 'test/**'
+
+jobs:
+  Linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: build
+        working-directory: rust
+        run: cargo build
+
+      - name: test build
+        working-directory: rust
+        run: cargo test build
+
+      - name: core_rpc
+        working-directory: rust
+        run: cargo test --test core_rpc
+
+#      - name: net_tcp
+#        working-directory: rust
+#        run: cargo test --test net_tcp
+#
+#      - name: net_rpc
+#        working-directory: rust
+#        run: cargo test --test net_rpc

@@ -18,7 +18,7 @@ serde = "1.0"
 serde_json = "1.0"
 
 [[test]]
-name = "rpc"
+name = "core_rpc"
 path = "tests/rpc.rs"
 
 [dev-dependencies]

@@ -36,10 +36,10 @@ fn net_rpc() {
                     });
                 });
 
-                info!("start...");
+                info!("server: start...");
                 server.start();
 
-                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
             }).await;
         });
     });
@@ -65,10 +65,13 @@ fn net_rpc() {
                     info!("on_close");
                 });
                 client.set_reconnect(1000);
-                client.open("localhost", 6666);
-                info!("start...");
 
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                // wait server ready
+                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                client.open("localhost", 6666);
+                info!("client: start...");
+
+                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
                 info!("usage: callback...");
                 rpc.cmd("cmd")
