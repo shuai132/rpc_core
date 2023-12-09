@@ -43,10 +43,18 @@ struct default_connection : connection {
  * Loopback connection for testing
  */
 struct loopback_connection : public connection {
-  loopback_connection() {
-    send_package_impl = [this](std::string payload) {
-      on_recv_package(std::move(payload));
+  static std::pair<std::shared_ptr<connection>, std::shared_ptr<connection>> create() {
+    auto c1 = std::make_shared<connection>();
+    auto c1_weak = std::weak_ptr<connection>(c1);
+    auto c2 = std::make_shared<connection>();
+    auto c2_weak = std::weak_ptr<connection>(c2);
+    c1->send_package_impl = [c2_weak](std::string package) {
+      c2_weak.lock()->on_recv_package(std::move(package));
     };
+    c2->send_package_impl = [c1_weak](std::string package) {
+      c1_weak.lock()->on_recv_package(std::move(package));
+    };
+    return std::make_pair(c1, c2);
   }
 };
 

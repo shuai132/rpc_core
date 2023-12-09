@@ -47,18 +47,18 @@ pub struct LoopbackConnection;
 impl LoopbackConnection {
     pub fn new() -> (Rc<RefCell<DefaultConnection>>, Rc<RefCell<DefaultConnection>>) {
         let c1 = Rc::new(RefCell::new(DefaultConnection::default()));
-        let c1_clone = c1.clone();
+        let c1_weak = Rc::downgrade(&c1);
         let c2 = Rc::new(RefCell::new(DefaultConnection::default()));
-        let c2_clone = c2.clone();
+        let c2_weak = Rc::downgrade(&c2);
 
         c1.borrow_mut().send_package_impl = Some(
             Box::new(move |package: Vec<u8>| {
-                c2_clone.borrow().on_recv_package(package);
+                c2_weak.upgrade().unwrap().borrow().on_recv_package(package);
             })
         );
         c2.borrow_mut().send_package_impl = Some(
             Box::new(move |package: Vec<u8>| {
-                c1_clone.borrow().on_recv_package(package);
+                c1_weak.upgrade().unwrap().borrow().on_recv_package(package);
             })
         );
         (c1, c2)

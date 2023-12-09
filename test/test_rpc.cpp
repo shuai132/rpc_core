@@ -9,20 +9,28 @@ void test_rpc() {
   using namespace rpc_core;
 
   // 此示例使用回环连接 实际使用时需自定义连接
-  auto connection = std::make_shared<loopback_connection>();
+  auto loopback = loopback_connection::create();
 
-  // 创建rpc 收发消息
-  auto rpc = rpc::create(connection);
+  // 创建rpc server
+  auto rpc_s = rpc::create(loopback.first);
 
   // 定时器实现 应配合当前应用的事件循环 以确保消息收发和超时回调在同一个线程
   // 此示例使用回环连接 不做超时测试
-  rpc->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {
+  rpc_s->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {
     RPC_CORE_UNUSED(ms);
     RPC_CORE_UNUSED(cb);
   });
 
   // 已连接时设置ready
-  rpc->set_ready(true);
+  rpc_s->set_ready(true);
+
+  // 创建rpc client
+  auto rpc_c = rpc::create(loopback.second);
+  rpc_c->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {
+    RPC_CORE_UNUSED(ms);
+    RPC_CORE_UNUSED(cb);
+  });
+  rpc_c->set_ready(true);
 
   /**
    * 简单示例
@@ -30,13 +38,13 @@ void test_rpc() {
    */
   {
     // The Receiver
-    rpc->subscribe("cmd", [](const std::string& msg) -> std::string {
+    rpc_s->subscribe("cmd", [](const std::string& msg) -> std::string {
       assert(msg == "hello");
       return "world";
     });
 
     // The Sender
-    rpc->cmd("cmd")
+    rpc_c->cmd("cmd")
         ->msg(std::string("hello"))
         ->rsp([](const std::string& rsp) {
           assert(rsp == "world");
@@ -51,7 +59,7 @@ void test_rpc() {
   {
     RPC_CORE_LOG("1. 收发消息完整测试");
     // 注册监听
-    rpc->subscribe("cmd1", [&](const std::string& msg) -> std::string {
+    rpc_s->subscribe("cmd1", [&](const std::string& msg) -> std::string {
       RPC_CORE_LOGI("get cmd1: %s", msg.c_str());
       ASSERT(msg == "test");
       return "ok";
@@ -59,7 +67,7 @@ void test_rpc() {
 
     // 请求支持很多方法 可根据需求使用所需部分
     bool pass = false;
-    auto request = rpc->cmd("cmd1")
+    auto request = rpc_c->cmd("cmd1")
                        ->msg(std::string("test"))
                        ->rsp([&](const std::string& rsp) {
                          RPC_CORE_LOGI("get rsp from cmd1: %s", rsp.c_str());
@@ -112,7 +120,7 @@ void test_rpc() {
           ASSERT(rsp == "ok");
           pass = true;
         })
-        ->call(rpc);
+        ->call(rpc_c);
     ASSERT(pass);
 
     RPC_CORE_LOGI("no_such_cmd");
@@ -127,7 +135,7 @@ void test_rpc() {
           ASSERT(type == finally_t::no_such_cmd);
           pass = true;
         })
-        ->call(rpc);
+        ->call(rpc_c);
     ASSERT(pass);
   }
 
@@ -139,12 +147,12 @@ void test_rpc() {
     customType.ids = {1, 2, 3};
     customType.name = "test";
 
-    rpc->subscribe("cmd2", [&](const CustomType& msg) -> CustomType {
+    rpc_s->subscribe("cmd2", [&](const CustomType& msg) -> CustomType {
       RPC_CORE_LOGI("get cmd2");
       ASSERT(msg == customType);
       return customType;
     });
-    rpc->cmd("cmd2")
+    rpc_c->cmd("cmd2")
         ->msg(customType)
         ->rsp([&](const CustomType& rsp) {
           RPC_CORE_LOGI("get rsp from cmd2");
@@ -159,10 +167,10 @@ void test_rpc() {
   {
     bool pass = false;
     bool pass_finally = false;
-    rpc->subscribe("cmd3", [&](const std::string& msg) {
+    rpc_s->subscribe("cmd3", [&](const std::string& msg) {
       return msg;
     });
-    rpc->cmd("cmd3")
+    rpc_c->cmd("cmd3")
         ->msg(std::string("test"))
         ->rsp([&](const std::string& rsp) {
           ASSERT(rsp == "test");
@@ -178,7 +186,7 @@ void test_rpc() {
     ASSERT(pass_finally);
 
     pass_finally = false;
-    rpc->cmd("cmd3")
+    rpc_c->cmd("cmd3")
         ->msg(std::string("test"))
         ->finally([&](finally_t type) {
           ASSERT(type == finally_t::no_need_rsp);
@@ -195,12 +203,12 @@ void test_rpc() {
     {
       bool pass_cmd = false;
       bool pass_rsp = false;
-      rpc->subscribe("cmd4", [&](const std::string& msg) -> std::string {
+      rpc_s->subscribe("cmd4", [&](const std::string& msg) -> std::string {
         ASSERT(msg == "test");
         pass_cmd = true;
         return "test";
       });
-      rpc->cmd("cmd4")
+      rpc_c->cmd("cmd4")
           ->msg(std::string("test"))
           ->rsp([&](const std::string& msg) {
             ASSERT(msg == "test");
@@ -214,11 +222,11 @@ void test_rpc() {
     RPC_CORE_LOG("4.2 有参数 无返回");
     {
       bool pass_cmd = false;
-      rpc->subscribe("cmd4", [&](const std::string& msg) {
+      rpc_s->subscribe("cmd4", [&](const std::string& msg) {
         ASSERT(msg == "test");
         pass_cmd = true;
       });
-      rpc->cmd("cmd4")->msg(std::string("test"))->call();
+      rpc_c->cmd("cmd4")->msg(std::string("test"))->call();
       ASSERT(pass_cmd);
     }
 
@@ -226,11 +234,11 @@ void test_rpc() {
     {
       bool pass_cmd = false;
       bool pass_rsp = false;
-      rpc->subscribe("cmd4", [&]() -> std::string {
+      rpc_s->subscribe("cmd4", [&]() -> std::string {
         pass_cmd = true;
         return "test";
       });
-      rpc->cmd("cmd4")
+      rpc_c->cmd("cmd4")
           ->rsp([&](const std::string& msg) {
             pass_rsp = true;
             ASSERT(msg == "test");
@@ -243,10 +251,10 @@ void test_rpc() {
     RPC_CORE_LOG("4.4 无参数 无返回");
     {
       bool pass_cmd = false;
-      rpc->subscribe("cmd4", [&]() {
+      rpc_s->subscribe("cmd4", [&]() {
         pass_cmd = true;
       });
-      rpc->cmd("cmd4")->call();
+      rpc_c->cmd("cmd4")->call();
       ASSERT(pass_cmd);
     }
   }
@@ -254,7 +262,7 @@ void test_rpc() {
   RPC_CORE_LOG("5. ping pong测试");
   {
     bool pass = false;
-    rpc->ping("test")
+    rpc_c->ping("test")
         ->rsp([&](const std::string& payload) {
           RPC_CORE_LOGI("get rsp from ping: %s", payload.c_str());
           ASSERT(payload == "test");
@@ -267,7 +275,7 @@ void test_rpc() {
   RPC_CORE_LOG("6. dispose测试");
   {
     bool pass = false;
-    auto request = rpc->ping("test")
+    auto request = rpc_c->ping("test")
                        ->rsp([&](const std::string& payload) {
                          RPC_CORE_UNUSED(payload);
                          ASSERT(false);
@@ -288,12 +296,12 @@ void test_rpc() {
   RPC_CORE_LOG("7. future模式测试");
   {
     {
-      auto result = rpc->ping("test")->future<std::string>().get();
+      auto result = rpc_c->ping("test")->future<std::string>().get();
       ASSERT(result.type == finally_t::normal);
       ASSERT(result.data == "test");
     }
     {
-      auto result = rpc->ping()->future<void>().get();
+      auto result = rpc_c->ping()->future<void>().get();
       ASSERT(result.type == finally_t::normal);
     }
   }
@@ -302,7 +310,7 @@ void test_rpc() {
   RPC_CORE_LOG("8. 未ready的rpc对象");
   {
     bool pass = false;
-    auto rpc_tmp = rpc::create(connection);
+    auto rpc_tmp = rpc::create(loopback.first);
     rpc_tmp->cmd("cmd")->call();  // should not crash
     rpc_tmp->cmd("cmd")
         ->finally([&](finally_t type) {
