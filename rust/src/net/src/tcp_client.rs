@@ -149,6 +149,10 @@ impl TcpClient {
         host: String,
         port: u16,
     ) -> Result<TcpStream, Box<dyn Error + Send + Sync>> {
+        let mut host = host;
+        if host == "localhost" {
+            host = "127.0.0.1".parse().unwrap();
+        }
         let addr = (host, port).to_socket_addrs()?.next().unwrap();
         let stream = TcpStream::connect(addr).await?;
         Ok(stream)
