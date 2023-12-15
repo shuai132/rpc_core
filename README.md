@@ -30,7 +30,14 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 * RAII-based `dispose` for automatic cancel request
 * Timeout and Retry API
 * Support `std::future` interface
-* Language support list: [C++](./include) [Rust](./rust)
+
+## Language supports
+
+* C++
+    - [asio_net](https://github.com/shuai132/asio_net): based on [asio](https://think-async.com/Asio/#)
+
+* Rust
+    - [./rust](./rust): based on [tokio](https://github.com/tokio-rs/tokio)
 
 ## Requirements
 

@@ -6,12 +6,12 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["liushuai <770722922@qq.com>"]
 homepage = "https://github.com/shuai132/rpc_core"
 repository = "https://github.com/shuai132/rpc_core"
 description = "a tiny rpc library for rust"
 categories = ["rpc", "rpc-core", "rpc-core-net"]
-license = "MIT OR Apache-2.0"
+license = "MIT"
 edition = "2021"
 rust-version = "1.56"

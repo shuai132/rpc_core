@@ -12,7 +12,7 @@ edition = { workspace = true }
 rust-version = { workspace = true }
 
 [dependencies]
-rpc-core = { version = "0.2.0", path = "../core" }
+rpc-core = { version = "0.2.1", path = "../core" }
 bitflags = "2.4"
 log = "0.4"
 tokio = { version = "1", features = ["rt", "net", "io-util", "macros"] }
