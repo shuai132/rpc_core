@@ -148,6 +148,10 @@ json: `{"id":1,"age":18,"name":"test"}`
 * [json.hpp](include/rpc_core/plugin/json.hpp)  
   A flexible way to use `nlohmann/json`
 
+# License
+
+This project is licensed under the [MIT license](LICENSE).
+
 ## Links
 
 * Implementation based on asio: [asio_net](https://github.com/shuai132/asio_net)  
