@@ -5,6 +5,7 @@ project(rpc_core CXX)
 option(RPC_CORE_BUILD_TEST "" OFF)
 option(RPC_CORE_TEST_PLUGIN "" OFF)
 option(RPC_CORE_TEST_LINK_PTHREAD "" OFF)
+option(RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON "" OFF)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(RPC_CORE_BUILD_TEST ON)
@@ -15,6 +16,10 @@ add_compile_options(-Wall -Wunused-parameter)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE include)
+
+if (RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON)
+    target_compile_definitions(${PROJECT_NAME} INTERFACE -DRPC_CORE_SERIALIZE_USE_NLOHMANN_JSON)
+endif ()
 
 if (RPC_CORE_BUILD_TEST)
     set(EXAMPLE_COMPILE_DEFINE

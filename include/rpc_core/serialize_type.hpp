@@ -4,10 +4,15 @@
 #include "config.hpp"
 
 // include
+#include "detail/log.h"
 #include "detail/noncopyable.hpp"
 #include "detail/string_view.hpp"
 #include "serialize/detail/auto_size.hpp"
 #include "type.hpp"
+
+#ifdef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
+#include "nlohmann/json.hpp"
+#endif
 
 namespace rpc_core {
 
@@ -53,16 +58,30 @@ inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive&
 
 template <typename T>
 inline std::string serialize(T&& t) {
+#ifndef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
   serialize_oarchive ar;
   std::forward<T>(t) >> ar;
   return std::move(ar.data);
+#else
+  return nlohmann::json(t).dump(-1);
+#endif
 }
 
 template <typename T>
 inline bool deserialize(const detail::string_view& data, T& t) {
+#ifndef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
   serialize_iarchive ar(data);
   t << ar;
   return !ar.error;
+#else
+  try {
+    t = nlohmann::json::parse(data.data(), data.data() + data.size()).get<T>();
+    return true;
+  } catch (std::exception& e) {
+    RPC_CORE_LOGE("deserialize: %s", e.what());
+    return false;
+  }
+#endif
 }
 
 template <typename T, typename std::enable_if<detail::is_auto_size_type<T>::value, int>::type = 0>
