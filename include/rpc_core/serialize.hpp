@@ -3,6 +3,16 @@
 // config
 #include "config.hpp"
 
+#if defined(RPC_CORE_SERIALIZE_USE_CUSTOM)
+
+#include RPC_CORE_SERIALIZE_USE_CUSTOM
+
+#elif defined(RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON)
+
+#include "serialize_nlohmann_json.hpp"
+
+#else
+
 // type traits
 #include "detail/type_traits.hpp"
 
@@ -32,3 +42,5 @@
 #include "serialize/type_ptr.hpp"
 #include "serialize/type_struct.hpp"
 #include "serialize/type_void.hpp"
+
+#endif
