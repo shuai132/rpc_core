@@ -17,6 +17,8 @@ pub struct TcpChannel {
     send_queue: RefCell<VecDeque<Vec<u8>>>,
     send_queue_notify: Notify,
     quit_notify: Notify,
+    read_quit_finish_notify: Notify,
+    write_quit_finish_notify: Notify,
     is_open: RefCell<bool>,
 }
 
@@ -29,6 +31,8 @@ impl TcpChannel {
             send_queue: VecDeque::new().into(),
             send_queue_notify: Notify::new(),
             quit_notify: Notify::new(),
+            read_quit_finish_notify: Notify::new(),
+            write_quit_finish_notify: Notify::new(),
             is_open: false.into(),
         })
     }
@@ -81,6 +85,13 @@ impl TcpChannel {
         }
     }
 
+    pub async fn wait_close_finish(&self) {
+        tokio::join!(
+            self.read_quit_finish_notify.notified(),
+            self.write_quit_finish_notify.notified(),
+        );
+    }
+
     pub fn do_open(self: &Rc<Self>, stream: TcpStream) {
         if *self.is_open.borrow() {
             self.do_close();
@@ -111,6 +122,7 @@ impl TcpChannel {
                         }
                     }
                     trace!("loop exit: read");
+                    this.read_quit_finish_notify.notify_one();
                 });
             } else {
                 let this = this.clone();
@@ -129,6 +141,7 @@ impl TcpChannel {
                         }
                     }
                     trace!("loop exit: read");
+                    this.read_quit_finish_notify.notify_one();
                 });
             }
 
@@ -158,6 +171,7 @@ impl TcpChannel {
                     }
                 }
                 trace!("loop exit: write");
+                this.write_quit_finish_notify.notify_one();
             });
         });
     }

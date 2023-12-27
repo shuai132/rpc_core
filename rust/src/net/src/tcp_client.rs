@@ -123,10 +123,14 @@ impl TcpClient {
 
         let this_weak = self.this.borrow().clone();
         tokio::task::spawn_local(async move {
+            let this = this_weak.upgrade().unwrap();
+            if this.channel.is_open() {
+                this.channel.close();
+                this.channel.wait_close_finish().await;
+            }
             debug!("connect_tcp: {host} {port}");
             let result = TcpClient::connect_tcp(host, port).await;
             debug!("connect_tcp: {result:?}");
-            let this = this_weak.upgrade().unwrap();
 
             match result {
                 Ok(stream) => {
