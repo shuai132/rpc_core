@@ -76,6 +76,12 @@ impl RpcClient {
                 this.inner.borrow().tcp_client.on_close(move || {
                     let this = this_weak.upgrade().unwrap();
                     this.inner.borrow().rpc.as_ref().unwrap().set_ready(false);
+                    {
+                        let inner = this.inner.borrow();
+                        if let Some(on_close) = inner.on_close.as_ref() {
+                            on_close();
+                        }
+                    }
                 });
             }
             this.inner.borrow_mut().rpc.as_ref().unwrap().set_ready(true);

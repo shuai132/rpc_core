@@ -77,12 +77,7 @@ impl TcpChannel {
     }
 
     pub fn close(&self) {
-        *self.is_open.borrow_mut() = false;
-        self.send_queue.borrow_mut().clear();
-        self.send_queue_notify.notify_one();
-        if let Some(on_close) = self.on_close.take() {
-            on_close();
-        }
+        self.do_close();
     }
 
     pub async fn wait_close_finish(&self) {
@@ -171,24 +166,25 @@ impl TcpChannel {
                     }
                 }
                 trace!("loop exit: write");
+
+                if let Some(on_close) = this.on_close.borrow().as_ref() {
+                    on_close();
+                }
                 this.write_quit_finish_notify.notify_one();
             });
         });
     }
 
-    pub fn do_close(&self) {
+    fn do_close(&self) {
         if !*self.is_open.borrow() {
             return;
         }
         *self.is_open.borrow_mut() = false;
         self.quit_notify.notify_waiters();
         self.send_queue_notify.notify_one();
-        if let Some(on_close) = self.on_close.borrow().as_ref() {
-            on_close();
-        }
     }
 
-    pub async fn do_read_data(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
+    async fn do_read_data(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
         let mut buffer = vec![];
         let read_result = read_half.read_buf(&mut buffer).await.ok();
 
@@ -203,7 +199,7 @@ impl TcpChannel {
         };
     }
 
-    pub async fn do_read_header(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
+    async fn do_read_header(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
         let mut buffer = [0u8; 4];
         let read_result = read_half.read_exact(&mut buffer).await.ok();
 

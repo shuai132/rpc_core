@@ -62,7 +62,7 @@ impl RpcServer {
             let rpc = if let Some(rpc) = this.config.borrow().rpc.clone() {
                 if rpc.is_ready() {
                     debug!("rpc already connected");
-                    tcp_channel.do_close();
+                    tcp_channel.close();
                     return;
                 }
                 rpc

@@ -43,7 +43,7 @@ impl TcpClient {
 
         r.channel.on_close(move || {
             if let Some(this) = this_weak.upgrade() {
-                if let Some(on_close) = this.on_close.take() {
+                if let Some(on_close) = this.on_close.borrow().as_ref() {
                     on_close();
                 }
                 tokio::task::spawn_local(async move {
