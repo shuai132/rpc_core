@@ -35,6 +35,7 @@ impl RpcClient {
                 rpc: None,
             })
         });
+
         let this_weak = Rc::downgrade(&r);
         r.inner.borrow_mut().tcp_client.on_open(move || {
             let this = this_weak.upgrade().unwrap();
@@ -93,6 +94,18 @@ impl RpcClient {
                 }
             }
         });
+
+        let this_weak = Rc::downgrade(&r);
+        r.inner.borrow_mut().tcp_client.on_open_failed(move |e| {
+            let this = this_weak.upgrade().unwrap();
+            {
+                let inner = this.inner.borrow();
+                if let Some(on_open_failed) = inner.on_open_failed.as_ref() {
+                    on_open_failed(e);
+                }
+            }
+        });
+
         r
     }
 
