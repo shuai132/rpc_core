@@ -1,8 +1,7 @@
 use log::info;
 
-use rpc_core::rpc::Rpc;
-use rpc_core_net::config_builder::RpcConfigBuilder;
-use rpc_core_net::rpc_server;
+use rpc_core::net::config_builder::TcpConfigBuilder;
+use rpc_core::net::tcp_server;
 
 fn main() {
     std::env::set_var("RUST_LOG", "trace");
@@ -16,16 +15,13 @@ fn main() {
     runtime.block_on(async {
         let local = tokio::task::LocalSet::new();
         local.run_until(async move {
-            let rpc = Rpc::new(None);
-            rpc.subscribe("cmd", |msg: String| -> String {
-                info!("cmd: {msg}");
-                "world".to_string()
-            });
-
-            let server = rpc_server::RpcServer::new(6666, RpcConfigBuilder::new().rpc(Some(rpc.clone())).build());
+            let server = tcp_server::TcpServer::new(6666, TcpConfigBuilder::new().auto_pack(false).build());
             server.on_session(move |session| {
                 info!("on_open");
                 let session = session.upgrade().unwrap();
+                session.on_data(|data| {
+                    info!("on_data: {}", String::from_utf8_lossy(data.as_slice()));
+                });
                 session.on_close(|| {
                     info!("on_close");
                 });

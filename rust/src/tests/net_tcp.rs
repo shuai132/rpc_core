@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use log::info;
 
-use rpc_core_net::{tcp_client, tcp_server};
-use rpc_core_net::config_builder::TcpConfigBuilder;
+use rpc_core::net::{tcp_client, tcp_server};
+use rpc_core::net::config_builder::TcpConfigBuilder;
 
 #[test]
 fn net_tcp() {

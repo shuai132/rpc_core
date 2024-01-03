@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::Notify;
 
-use crate::config::TcpConfig;
+use crate::net::config::TcpConfig;
 
 pub struct TcpChannel {
     config: Rc<RefCell<TcpConfig>>,

@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use log::info;
 
+use rpc_core::net::{rpc_client, rpc_server};
+use rpc_core::net::config_builder::RpcConfigBuilder;
 use rpc_core::rpc::Rpc;
-use rpc_core_net::{rpc_client, rpc_server};
-use rpc_core_net::config_builder::RpcConfigBuilder;
 
 #[test]
 fn net_rpc() {

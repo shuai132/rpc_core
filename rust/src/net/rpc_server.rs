@@ -3,11 +3,10 @@ use std::rc::{Rc, Weak};
 
 use log::{debug, trace};
 
-use rpc_core::rpc::{Rpc, RpcProto};
-
-use crate::config::RpcConfig;
-use crate::detail::tcp_channel::TcpChannel;
-use crate::tcp_server::TcpServer;
+use crate::net::config::RpcConfig;
+use crate::net::detail::tcp_channel::TcpChannel;
+use crate::net::tcp_server::TcpServer;
+use crate::rpc::{Rpc, RpcProto};
 
 pub struct RpcSession {
     pub rpc: RefCell<Rc<Rpc>>,

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::config::{RpcConfig, TcpConfig};
+use crate::net::config::{RpcConfig, TcpConfig};
 
 pub struct TcpConfigBuilder {
     auto_pack: bool,
@@ -66,7 +66,7 @@ impl TcpConfigBuilder {
 }
 
 pub struct RpcConfigBuilder {
-    rpc: Option<Rc<rpc_core::rpc::Rpc>>,
+    rpc: Option<Rc<crate::rpc::Rpc>>,
     ping_interval_ms: u32,
     pong_timeout_ms: u32,
     enable_ipv6: bool,
@@ -90,7 +90,7 @@ impl RpcConfigBuilder {
         }
     }
 
-    pub fn rpc(mut self, rpc: Option<Rc<rpc_core::rpc::Rpc>>) -> Self {
+    pub fn rpc(mut self, rpc: Option<Rc<crate::rpc::Rpc>>) -> Self {
         self.rpc = rpc;
         self
     }

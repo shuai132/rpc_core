@@ -2,11 +2,10 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
-use rpc_core::connection::Connection;
-use rpc_core::rpc::Rpc;
-
-use crate::config::RpcConfig;
-use crate::tcp_client::TcpClient;
+use crate::connection::Connection;
+use crate::net::config::RpcConfig;
+use crate::net::tcp_client::TcpClient;
+use crate::rpc::Rpc;
 
 pub struct RpcClientImpl {
     tcp_client: Rc<TcpClient>,
@@ -31,7 +30,7 @@ impl RpcClient {
                 on_open: None,
                 on_open_failed: None,
                 on_close: None,
-                connection: rpc_core::connection::DefaultConnection::new(),
+                connection: crate::connection::DefaultConnection::new(),
                 rpc: None,
             })
         });

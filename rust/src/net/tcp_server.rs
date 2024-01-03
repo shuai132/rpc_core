@@ -7,8 +7,8 @@ use tokio::net::TcpListener;
 use tokio::select;
 use tokio::sync::Notify;
 
-use crate::config::TcpConfig;
-use crate::detail::tcp_channel::TcpChannel;
+use crate::net::config::TcpConfig;
+use crate::net::detail::tcp_channel::TcpChannel;
 
 pub struct TcpServer {
     port: RefCell<u16>,

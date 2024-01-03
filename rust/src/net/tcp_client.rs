@@ -6,8 +6,8 @@ use std::rc::{Rc, Weak};
 use log::debug;
 use tokio::net::TcpStream;
 
-use crate::config::TcpConfig;
-use crate::detail::tcp_channel::TcpChannel;
+use crate::net::config::TcpConfig;
+use crate::net::detail::tcp_channel::TcpChannel;
 
 pub struct TcpClient {
     host: RefCell<String>,
