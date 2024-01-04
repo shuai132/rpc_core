@@ -46,7 +46,9 @@ impl TcpServer {
 
         tokio::task::spawn_local(async move {
             debug!("listen: {port}");
-            let listener = TcpListener::bind(SocketAddr::new("0.0.0.0".parse().unwrap(), port)).await.unwrap();
+            let listener = TcpListener::bind(SocketAddr::new("0.0.0.0".parse().unwrap(), port))
+                .await
+                .unwrap();
             loop {
                 let this = this_weak.upgrade().unwrap();
                 select! {
@@ -81,9 +83,9 @@ impl TcpServer {
     }
 
     pub fn on_session<F>(&self, callback: F)
-        where F: Fn(Weak<TcpChannel>) + 'static,
+    where
+        F: Fn(Weak<TcpChannel>) + 'static,
     {
         *self.on_session.borrow_mut() = Some(Box::new(callback));
     }
 }
-

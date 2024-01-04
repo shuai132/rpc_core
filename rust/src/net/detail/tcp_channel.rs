@@ -42,13 +42,15 @@ impl TcpChannel {
     }
 
     pub fn on_data<F>(&self, callback: F)
-        where F: Fn(Vec<u8>) + 'static,
+    where
+        F: Fn(Vec<u8>) + 'static,
     {
         *self.on_data.borrow_mut() = Some(Box::new(callback));
     }
 
     pub fn on_close<F>(&self, callback: F)
-        where F: Fn() + 'static,
+    where
+        F: Fn() + 'static,
     {
         *self.on_close.borrow_mut() = Some(Box::new(callback));
     }

@@ -36,8 +36,8 @@ impl MsgDispatcher {
         let this_weak = Rc::downgrade(&dispatcher);
         dispatcher.borrow_mut().this = this_weak.clone();
 
-        conn.borrow_mut().set_recv_package_impl(Box::new(
-            move |payload| {
+        conn.borrow_mut()
+            .set_recv_package_impl(Box::new(move |payload| {
                 if this_weak.strong_count() == 0 {
                     return;
                 }
@@ -46,8 +46,7 @@ impl MsgDispatcher {
                 } else {
                     error!("deserialize error");
                 }
-            }
-        ));
+            }));
         dispatcher
     }
 }
@@ -65,25 +64,38 @@ impl MsgDispatcher {
         }
     }
 
-    pub fn subscribe_rsp(&mut self, seq: SeqType, rsp_handle: Rc<RspHandle>, timeout_cb: Option<Rc<TimeoutCb>>, timeout_ms: u32) {
+    pub fn subscribe_rsp(
+        &mut self,
+        seq: SeqType,
+        rsp_handle: Rc<RspHandle>,
+        timeout_cb: Option<Rc<TimeoutCb>>,
+        timeout_ms: u32,
+    ) {
         self.rsp_handle_map.insert(seq, rsp_handle);
         if let Some(timer_impl) = &self.timer_impl {
             let this_weak = self.this.clone();
-            timer_impl(timeout_ms, Box::new(move || {
-                if this_weak.strong_count() == 0 {
-                    debug!("seq:{} timeout after destroy", seq);
-                    return;
-                }
-
-                let this = this_weak.upgrade().unwrap();
-                let mut this = this.borrow_mut();
-                if let Some(_) = this.rsp_handle_map.remove(&seq) {
-                    if let Some(timeout_cb) = &timeout_cb {
-                        timeout_cb();
+            timer_impl(
+                timeout_ms,
+                Box::new(move || {
+                    if this_weak.strong_count() == 0 {
+                        debug!("seq:{} timeout after destroy", seq);
+                        return;
                     }
-                    trace!("Timeout seq={}, rsp_handle_map.size={}", seq, this.rsp_handle_map.len());
-                }
-            }));
+
+                    let this = this_weak.upgrade().unwrap();
+                    let mut this = this.borrow_mut();
+                    if let Some(_) = this.rsp_handle_map.remove(&seq) {
+                        if let Some(timeout_cb) = &timeout_cb {
+                            timeout_cb();
+                        }
+                        trace!(
+                            "Timeout seq={}, rsp_handle_map.size={}",
+                            seq,
+                            this.rsp_handle_map.len()
+                        );
+                    }
+                }),
+            );
         } else {
             warn!("no timeout will cause memory leak!");
         }
@@ -131,7 +143,15 @@ impl MsgDispatcher {
             }
         } else if msg.type_.contains(MsgType::Response) {
             // pong or response
-            debug!("<= seq:{} type:{}", msg.seq, if msg.type_.contains(MsgType::Pong) { "pong" } else {"rsp"});
+            debug!(
+                "<= seq:{} type:{}",
+                msg.seq,
+                if msg.type_.contains(MsgType::Pong) {
+                    "pong"
+                } else {
+                    "rsp"
+                }
+            );
             if let Some(handle) = self.rsp_handle_map.remove(&msg.seq) {
                 if handle(msg) {
                     trace!("rsp_handle_map.size={}", self.rsp_handle_map.len());
@@ -148,7 +168,8 @@ impl MsgDispatcher {
     }
 
     pub fn set_timer_impl<F>(&mut self, timer_impl: F)
-        where F: Fn(u32, Box<TimeoutCb>) + 'static
+    where
+        F: Fn(u32, Box<TimeoutCb>) + 'static,
     {
         self.timer_impl = Some(Rc::new(timer_impl));
     }

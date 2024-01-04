@@ -82,25 +82,29 @@ impl TcpClient {
     }
 
     pub fn on_open<F>(&self, callback: F)
-        where F: Fn() + 'static,
+    where
+        F: Fn() + 'static,
     {
         *self.on_open.borrow_mut() = Some(Box::new(callback));
     }
 
     pub fn on_open_failed<F>(&self, callback: F)
-        where F: Fn(&dyn Error) + 'static,
+    where
+        F: Fn(&dyn Error) + 'static,
     {
         *self.on_open_failed.borrow_mut() = Some(Box::new(callback));
     }
 
     pub fn on_data<F>(&self, callback: F)
-        where F: Fn(Vec<u8>) + 'static,
+    where
+        F: Fn(Vec<u8>) + 'static,
     {
         self.channel.on_data(callback);
     }
 
     pub fn on_close<F>(&self, callback: F)
-        where F: Fn() + 'static,
+    where
+        F: Fn() + 'static,
     {
         *self.on_close.borrow_mut() = Some(Box::new(callback));
     }
@@ -163,9 +167,15 @@ impl TcpClient {
     }
 
     async fn check_reconnect(&self) {
-        if !self.channel.is_open() && !*self.reconnect_timer_running.borrow() && *self.reconnect_ms.borrow() > 0 {
+        if !self.channel.is_open()
+            && !*self.reconnect_timer_running.borrow()
+            && *self.reconnect_ms.borrow() > 0
+        {
             *self.reconnect_timer_running.borrow_mut() = true;
-            tokio::time::sleep(tokio::time::Duration::from_millis((*self.reconnect_ms.borrow()).into())).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(
+                (*self.reconnect_ms.borrow()).into(),
+            ))
+            .await;
             if *self.reconnect_timer_running.borrow() {
                 *self.reconnect_timer_running.borrow_mut() = false;
             } else {
@@ -177,4 +187,3 @@ impl TcpClient {
         }
     }
 }
-

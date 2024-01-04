@@ -24,7 +24,8 @@ impl RpcSession {
     }
 
     pub fn on_close<F>(&self, callback: F)
-        where F: Fn() + 'static,
+    where
+        F: Fn() + 'static,
     {
         *self.on_close.borrow_mut() = Some(Box::new(callback));
     }
@@ -74,17 +75,23 @@ impl RpcServer {
 
             {
                 let rs_weak = rs_weak.clone();
-                rpc.get_connection().borrow_mut().set_send_package_impl(Box::new(move |package: Vec<u8>| {
-                    if let Some(rs) = rs_weak.upgrade() {
-                        rs.channel.upgrade().unwrap().send(package);
-                    }
-                }));
+                rpc.get_connection()
+                    .borrow_mut()
+                    .set_send_package_impl(Box::new(move |package: Vec<u8>| {
+                        if let Some(rs) = rs_weak.upgrade() {
+                            rs.channel.upgrade().unwrap().send(package);
+                        }
+                    }));
             }
             {
                 let rs_weak = rs_weak.clone();
                 tcp_channel.on_data(move |package| {
                     if let Some(rs) = rs_weak.upgrade() {
-                        rs.rpc.borrow().get_connection().borrow().on_recv_package(package);
+                        rs.rpc
+                            .borrow()
+                            .get_connection()
+                            .borrow()
+                            .on_recv_package(package);
                     }
                 });
             }
@@ -129,9 +136,9 @@ impl RpcServer {
     }
 
     pub fn on_session<F>(&self, callback: F)
-        where F: Fn(Weak<RpcSession>) + 'static,
+    where
+        F: Fn(Weak<RpcSession>) + 'static,
     {
         *self.on_session.borrow_mut() = Some(Box::new(callback));
     }
 }
-

@@ -8,9 +8,7 @@ pub struct Dispose {
 
 impl Dispose {
     pub fn new() -> Dispose {
-        Dispose {
-            requests: vec![],
-        }
+        Dispose { requests: vec![] }
     }
 
     pub fn dismiss(&mut self) {

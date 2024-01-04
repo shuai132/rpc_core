@@ -32,7 +32,7 @@ impl RpcClient {
                 on_close: None,
                 connection: crate::connection::DefaultConnection::new(),
                 rpc: None,
-            })
+            }),
         });
 
         let this_weak = Rc::downgrade(&r);
@@ -50,27 +50,37 @@ impl RpcClient {
 
             {
                 let this_weak = this_weak.clone();
-                this.inner.borrow().connection.borrow_mut().set_send_package_impl(Box::new(move |package: Vec<u8>| {
-                    if let Some(this) = this_weak.upgrade() {
-                        this.inner.borrow().tcp_client.send(package);
-                    }
-                }));
+                this.inner
+                    .borrow()
+                    .connection
+                    .borrow_mut()
+                    .set_send_package_impl(Box::new(move |package: Vec<u8>| {
+                        if let Some(this) = this_weak.upgrade() {
+                            this.inner.borrow().tcp_client.send(package);
+                        }
+                    }));
             }
             {
                 let this_weak = this_weak.clone();
                 this.inner.borrow().tcp_client.on_data(move |package| {
                     if let Some(this) = this_weak.upgrade() {
-                        this.inner.borrow().connection.borrow_mut().on_recv_package(package);
+                        this.inner
+                            .borrow()
+                            .connection
+                            .borrow_mut()
+                            .on_recv_package(package);
                     }
                 });
             }
 
-            this.inner.borrow_mut().rpc.as_ref().unwrap().set_timer(|ms: u32, handle: Box<dyn Fn()>| {
-                tokio::task::spawn_local(async move {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
-                    handle();
-                });
-            });
+            this.inner.borrow_mut().rpc.as_ref().unwrap().set_timer(
+                |ms: u32, handle: Box<dyn Fn()>| {
+                    tokio::task::spawn_local(async move {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
+                        handle();
+                    });
+                },
+            );
             {
                 let this_weak = this_weak.clone();
                 this.inner.borrow().tcp_client.on_close(move || {
@@ -84,7 +94,12 @@ impl RpcClient {
                     }
                 });
             }
-            this.inner.borrow_mut().rpc.as_ref().unwrap().set_ready(true);
+            this.inner
+                .borrow_mut()
+                .rpc
+                .as_ref()
+                .unwrap()
+                .set_ready(true);
 
             {
                 let this = this.inner.borrow();
@@ -129,21 +144,23 @@ impl RpcClient {
     }
 
     pub fn on_open<F>(&self, callback: F)
-        where F: Fn(Rc<Rpc>) + 'static,
+    where
+        F: Fn(Rc<Rpc>) + 'static,
     {
         self.inner.borrow_mut().on_open = Some(Box::new(callback));
     }
 
     pub fn on_open_failed<F>(&self, callback: F)
-        where F: Fn(&dyn Error) + 'static,
+    where
+        F: Fn(&dyn Error) + 'static,
     {
         self.inner.borrow_mut().on_open_failed = Some(Box::new(callback));
     }
 
     pub fn on_close<F>(&self, callback: F)
-        where F: Fn() + 'static,
+    where
+        F: Fn() + 'static,
     {
         self.inner.borrow_mut().on_close = Some(Box::new(callback));
     }
 }
-

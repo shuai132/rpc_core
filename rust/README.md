@@ -17,7 +17,7 @@ Or add the following line to your Cargo.toml:
 
 ```toml
 [dependencies]
-rpc-core = { version = "0.3.1", features = ["net"] }
+rpc-core = { version = "0.3.2", features = ["net"] }
 ```
 
 # Example

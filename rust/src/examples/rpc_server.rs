@@ -15,28 +15,32 @@ fn main() {
 
     runtime.block_on(async {
         let local = tokio::task::LocalSet::new();
-        local.run_until(async move {
-            let rpc = Rpc::new(None);
-            rpc.subscribe("cmd", |msg: String| -> String {
-                info!("cmd: {msg}");
-                "world".to_string()
-            });
-
-            let server = rpc_server::RpcServer::new(6666, RpcConfigBuilder::new().rpc(Some(rpc.clone())).build());
-            server.on_session(move |session| {
-                info!("on_open");
-                let session = session.upgrade().unwrap();
-                session.on_close(|| {
-                    info!("on_close");
+        local
+            .run_until(async move {
+                let rpc = Rpc::new(None);
+                rpc.subscribe("cmd", |msg: String| -> String {
+                    info!("cmd: {msg}");
+                    "world".to_string()
                 });
-            });
 
-            info!("start...");
-            server.start();
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1000)).await;
-            }
-        }).await;
+                let server = rpc_server::RpcServer::new(
+                    6666,
+                    RpcConfigBuilder::new().rpc(Some(rpc.clone())).build(),
+                );
+                server.on_session(move |session| {
+                    info!("on_open");
+                    let session = session.upgrade().unwrap();
+                    session.on_close(|| {
+                        info!("on_close");
+                    });
+                });
+
+                info!("start...");
+                server.start();
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1000)).await;
+                }
+            })
+            .await;
     });
 }
-

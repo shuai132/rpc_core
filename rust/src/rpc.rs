@@ -45,59 +45,74 @@ impl Rpc {
     }
 
     pub fn subscribe<C, F, P, R>(&self, cmd: C, handle: F)
-        where
-            C: ToString,
-            P: for<'de> serde::Deserialize<'de>,
-            R: serde::Serialize,
-            F: Fn(P) -> R + 'static,
+    where
+        C: ToString,
+        P: for<'de> serde::Deserialize<'de>,
+        R: serde::Serialize,
+        F: Fn(P) -> R + 'static,
     {
-        self.inner.borrow_mut().dispatcher.borrow_mut().subscribe_cmd(cmd.to_string(), Box::new(move |msg| -> Option<MsgWrapper>{
-            if let Ok(value) = msg.unpack_as::<P>() {
-                let rsp: R = handle(value);
-                Some(MsgWrapper::make_rsp(msg.seq, rsp))
-            } else {
-                None
-            }
-        }));
+        self.inner
+            .borrow_mut()
+            .dispatcher
+            .borrow_mut()
+            .subscribe_cmd(
+                cmd.to_string(),
+                Box::new(move |msg| -> Option<MsgWrapper> {
+                    if let Ok(value) = msg.unpack_as::<P>() {
+                        let rsp: R = handle(value);
+                        Some(MsgWrapper::make_rsp(msg.seq, rsp))
+                    } else {
+                        None
+                    }
+                }),
+            );
     }
 
     pub fn unsubscribe<C>(&self, cmd: C)
-        where C: ToString
+    where
+        C: ToString,
     {
-        self.inner.borrow_mut().dispatcher.borrow_mut().unsubscribe_cmd(cmd.to_string());
+        self.inner
+            .borrow_mut()
+            .dispatcher
+            .borrow_mut()
+            .unsubscribe_cmd(cmd.to_string());
     }
 
-    pub fn create_request(&self) -> Rc<Request>
-    {
+    pub fn create_request(&self) -> Rc<Request> {
         Request::create_with_rpc(self.inner.borrow().weak.clone())
     }
 
     pub fn cmd<T>(&self, cmd: T) -> Rc<Request>
-        where T: ToString
+    where
+        T: ToString,
     {
         let r = self.create_request();
         r.cmd(cmd.to_string());
         r
     }
 
-    pub fn ping(&self) -> Rc<Request>
-    {
+    pub fn ping(&self) -> Rc<Request> {
         let r = self.create_request();
         r.ping();
         r
     }
 
-    pub fn ping_msg(&self, payload: impl ToString) -> Rc<Request>
-    {
+    pub fn ping_msg(&self, payload: impl ToString) -> Rc<Request> {
         let r = self.create_request();
         r.ping().msg(payload.to_string());
         r
     }
 
     pub fn set_timer<F>(&self, timer_impl: F)
-        where F: Fn(u32, Box<TimeoutCb>) + 'static
+    where
+        F: Fn(u32, Box<TimeoutCb>) + 'static,
     {
-        self.inner.borrow_mut().dispatcher.borrow_mut().set_timer_impl(timer_impl);
+        self.inner
+            .borrow_mut()
+            .dispatcher
+            .borrow_mut()
+            .set_timer_impl(timer_impl);
     }
 
     pub fn set_ready(&self, ready: bool) {
@@ -125,7 +140,12 @@ impl RpcProto for Rpc {
             let inner = self.inner.borrow_mut();
             let request = request.inner.borrow_mut();
             if request.need_rsp {
-                inner.dispatcher.borrow_mut().subscribe_rsp(request.seq, request.rsp_handle.as_ref().unwrap().clone(), request.timeout_cb.clone(), request.timeout_ms);
+                inner.dispatcher.borrow_mut().subscribe_rsp(
+                    request.seq,
+                    request.rsp_handle.as_ref().unwrap().clone(),
+                    request.timeout_cb.clone(),
+                    request.timeout_ms,
+                );
             }
             msg = MsgWrapper {
                 seq: request.seq,
@@ -147,7 +167,16 @@ impl RpcProto for Rpc {
             payload = coder::serialize(&msg);
             connection = inner.connection.clone();
         }
-        debug!("=> seq:{} type:{} {}", msg.seq, if msg.type_.contains(MsgType::Ping) { "ping" } else {"cmd"}, msg.cmd);
+        debug!(
+            "=> seq:{} type:{} {}",
+            msg.seq,
+            if msg.type_.contains(MsgType::Ping) {
+                "ping"
+            } else {
+                "cmd"
+            },
+            msg.cmd
+        );
         connection.borrow().send_package(payload);
     }
 

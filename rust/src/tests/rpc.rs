@@ -35,7 +35,8 @@ fn rpc() {
     // test code
     let pass = Rc::new(RefCell::new(false));
     let pass_clone = pass.clone();
-    rpc_c.cmd("cmd")
+    rpc_c
+        .cmd("cmd")
         .msg("hello")
         .rsp(move |msg: String| {
             assert_eq!(msg, "world");
@@ -52,7 +53,8 @@ fn rpc() {
     *pass.borrow_mut() = false;
     let pass_clone = pass.clone();
     rpc_c.ping();
-    rpc_c.ping_msg("hello")
+    rpc_c
+        .ping_msg("hello")
         .rsp(move |msg: String| {
             info!("rsp: {}", msg);
             *pass_clone.borrow_mut() = true;
@@ -65,7 +67,8 @@ fn rpc() {
         let request = rpc_core::request::Request::new();
         let pass = Rc::new(RefCell::new(false));
         let pass_clone = pass.clone();
-        request.cmd("cmd")
+        request
+            .cmd("cmd")
             .msg("hello")
             .rsp(move |msg: String| {
                 assert_eq!(msg, "world");
@@ -85,7 +88,8 @@ fn rpc() {
         let pass = Rc::new(RefCell::new(false));
         let pass_clone = pass.clone();
         let request = rpc_c.cmd("cmd");
-        request.msg("hello")
+        request
+            .msg("hello")
             .rsp(|_: String| {
                 assert!(false);
             })

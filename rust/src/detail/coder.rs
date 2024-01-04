@@ -37,7 +37,10 @@ pub fn deserialize(payload: &Vec<u8>) -> Option<MsgWrapper> {
         cmd_len = *(p as *const u16);
         p = p.add(2);
 
-        msg.cmd = String::from_utf8_unchecked(Vec::from(std::slice::from_raw_parts(p as *mut u8, cmd_len as usize)));
+        msg.cmd = String::from_utf8_unchecked(Vec::from(std::slice::from_raw_parts(
+            p as *mut u8,
+            cmd_len as usize,
+        )));
         p = p.add(cmd_len as usize);
 
         msg.type_ = MsgType::from_bits(*p).unwrap();

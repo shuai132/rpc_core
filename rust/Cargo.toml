@@ -1,6 +1,6 @@
 [package]
 name = "rpc-core"
-version = "0.3.1"
+version = "0.3.2"
 description = "a tiny rpc library for rust"
 categories = ["rpc", "rpc-core"]
 homepage = "https://github.com/shuai132/rpc_core/tree/master/rust"
@@ -25,6 +25,9 @@ tokio-stream = { version = "0.1", optional = true }
 default = []
 full = ["net"]
 net = ["tokio", "tokio-stream"]
+
+[package.metadata.docs.rs]
+features = ["full"]
 
 [dev-dependencies]
 env_logger = "0.10.0"

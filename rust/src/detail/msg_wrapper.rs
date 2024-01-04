@@ -35,11 +35,17 @@ impl MsgWrapper {
     }
 
     pub fn dump(&self) -> String {
-        format!("seq:{}, type:{}, cmd:{}", self.seq, self.type_.bits(), self.cmd)
+        format!(
+            "seq:{}, type:{}, cmd:{}",
+            self.seq,
+            self.type_.bits(),
+            self.cmd
+        )
     }
 
     pub fn unpack_as<'a, T>(&'a self) -> Result<T, Error>
-        where T: serde::Deserialize<'a>
+    where
+        T: serde::Deserialize<'a>,
     {
         let r = serde_json::from_slice::<T>(self.data.as_slice());
         if r.is_err() {
@@ -49,7 +55,8 @@ impl MsgWrapper {
     }
 
     pub fn make_rsp<R>(seq: SeqType, rsp: R) -> MsgWrapper
-        where R: serde::Serialize
+    where
+        R: serde::Serialize,
     {
         let mut msg = MsgWrapper::new();
         msg.type_ = MsgType::Response;

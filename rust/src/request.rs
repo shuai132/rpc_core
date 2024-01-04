@@ -101,23 +101,23 @@ impl Request {
         r
     }
 
-    pub fn cmd<'a>(self: &'a Rc<Self>, cmd: impl ToString) -> &'a Rc<Self>
-    {
+    pub fn cmd<'a>(self: &'a Rc<Self>, cmd: impl ToString) -> &'a Rc<Self> {
         self.inner.borrow_mut().cmd = cmd.to_string();
         self
     }
 
     pub fn msg<'a, T>(self: &'a Rc<Self>, msg: T) -> &'a Rc<Self>
-        where T: serde::Serialize
+    where
+        T: serde::Serialize,
     {
         self.inner.borrow_mut().payload = serde_json::to_string(&msg).unwrap().into_bytes().into();
         self
     }
 
     pub fn rsp<'a, F, P>(self: &'a Rc<Self>, cb: F) -> &'a Rc<Self>
-        where
-            P: for<'de> serde::Deserialize<'de>,
-            F: Fn(P) + 'static,
+    where
+        P: for<'de> serde::Deserialize<'de>,
+        F: Fn(P) + 'static,
     {
         {
             let weak = Rc::downgrade(&self);
@@ -154,7 +154,8 @@ impl Request {
     }
 
     pub fn finally<'a, F>(self: &'a Rc<Self>, finally: F) -> &'a Rc<Self>
-        where F: Fn(FinallyType) + 'static
+    where
+        F: Fn(FinallyType) + 'static,
     {
         self.inner.borrow_mut().finally = Some(Box::new(finally));
         self
@@ -170,7 +171,9 @@ impl Request {
 
         self.inner.borrow_mut().self_keeper = Some(self.clone());
 
-        if self.inner.borrow().rpc.is_none() || self.inner.borrow().rpc.as_ref().unwrap().strong_count() == 0 {
+        if self.inner.borrow().rpc.is_none()
+            || self.inner.borrow().rpc.as_ref().unwrap().strong_count() == 0
+        {
             self.on_finish(FinallyType::RpcExpired);
             return;
         }
@@ -205,7 +208,8 @@ impl Request {
     }
 
     pub fn timeout<'a, F>(self: &'a Rc<Self>, timeout_cb: F) -> &'a Rc<Self>
-        where F: Fn() + 'static,
+    where
+        F: Fn() + 'static,
     {
         let weak = Rc::downgrade(&self);
         self.inner.borrow_mut().timeout_cb = Some(Rc::new(Box::new(move || {
@@ -227,8 +231,7 @@ impl Request {
         self
     }
 
-    pub fn add_to<'a>(self: &'a Rc<Self>, dispose: &mut Dispose) -> &'a Rc<Self>
-    {
+    pub fn add_to<'a>(self: &'a Rc<Self>, dispose: &mut Dispose) -> &'a Rc<Self> {
         dispose.add(&self);
         self
     }
@@ -282,7 +285,10 @@ pub struct FutureRet<R> {
 impl<R> FutureRet<R> {
     pub fn unwrap(self) -> R {
         if self.type_ != FinallyType::Normal {
-            panic!("called `FutureRet::unwrap()` on FinallyType::{:?}", self.type_);
+            panic!(
+                "called `FutureRet::unwrap()` on FinallyType::{:?}",
+                self.type_
+            );
         }
         match self.result {
             Some(val) => val,
@@ -293,7 +299,8 @@ impl<R> FutureRet<R> {
 
 impl Request {
     pub async fn future<R>(self: &Rc<Self>) -> FutureRet<R>
-        where R: for<'de> serde::Deserialize<'de> + 'static,
+    where
+        R: for<'de> serde::Deserialize<'de> + 'static,
     {
         struct FutureResultInner<R> {
             ready: bool,
@@ -318,14 +325,16 @@ impl Request {
         self.rsp(move |msg: R| {
             let mut result = result_c1.borrow_mut();
             result.result = Some(msg);
-        }).finally(move |finally| {
+        })
+        .finally(move |finally| {
             let mut result = result_c2.borrow_mut();
             result.ready = true;
             result.finally_type = finally;
             if let Some(waker) = std::mem::replace(&mut result.waker, None) {
                 waker.wake();
             }
-        }).call();
+        })
+        .call();
 
         impl<R> Future for FutureResult<R> {
             type Output = FutureRet<R>;
