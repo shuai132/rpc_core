@@ -12,6 +12,9 @@ on:
       - 'include/**'
       - 'test/**'
 
+env:
+  RUST_BACKTRACE: 1
+
 jobs:
   Linux:
     runs-on: ubuntu-latest

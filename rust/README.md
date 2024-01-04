@@ -17,7 +17,7 @@ Or add the following line to your Cargo.toml:
 
 ```toml
 [dependencies]
-rpc-core = { version = "0.3.0", features = ["net"] }
+rpc-core = { version = "0.3.1", features = ["net"] }
 ```
 
 # Example
@@ -77,13 +77,13 @@ See `examples` for details: [src/examples](src/examples)
 
 * client
     ```rust
-    fn client() {
+    async fn client() {
         let rpc = Rpc::new(None);
         let client = rpc_client::RpcClient::new(RpcConfigBuilder::new().rpc(Some(rpc.clone())).build());
         client.set_reconnect(1000);
         client.open("localhost", 6666);
 
-        let result = rpc_c.cmd("cmd").msg("hello").future::<String>().await;
+        let result = rpc.cmd("cmd").msg("hello").future::<String>().await;
         assert_eq!(result.result.unwrap(), "world");
     }
     ```

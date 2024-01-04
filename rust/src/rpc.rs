@@ -147,7 +147,7 @@ impl RpcProto for Rpc {
             payload = coder::serialize(&msg);
             connection = inner.connection.clone();
         }
-        debug!("=> seq:{} type:{} {}", msg.seq, if msg.type_.contains( MsgType::Ping) { "ping" } else {"cmd"}, msg.cmd);
+        debug!("=> seq:{} type:{} {}", msg.seq, if msg.type_.contains(MsgType::Ping) { "ping" } else {"cmd"}, msg.cmd);
         connection.borrow().send_package(payload);
     }
 
