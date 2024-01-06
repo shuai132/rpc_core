@@ -303,54 +303,57 @@ impl Request {
         R: for<'de> serde::Deserialize<'de> + 'static,
     {
         struct FutureResultInner<R> {
-            ready: bool,
-            result: Option<R>,
-            finally_type: FinallyType,
+            result: Option<FutureRet<R>>,
             waker: Option<Waker>,
         }
         struct FutureResult<R> {
             inner: Rc<RefCell<FutureResultInner<R>>>,
         }
+        impl<R> Future for FutureResult<R> {
+            type Output = FutureRet<R>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut result = self.inner.borrow_mut();
+                if let Some(result) = result.result.take() {
+                    Poll::Ready(result)
+                } else {
+                    if result.waker.is_none() {
+                        result.waker = Some(cx.waker().clone());
+                    }
+                    Poll::Pending
+                }
+            }
+        }
+
         let result = FutureResult {
             inner: Rc::new(RefCell::new(FutureResultInner {
-                ready: false,
                 result: None,
-                finally_type: FinallyType::Normal,
                 waker: None,
             })),
         };
-
         let result_c1 = result.inner.clone();
         let result_c2 = result.inner.clone();
         self.rsp(move |msg: R| {
             let mut result = result_c1.borrow_mut();
-            result.result = Some(msg);
+            result.result = Some(FutureRet {
+                type_: FinallyType::Normal,
+                result: Some(msg),
+            });
         })
         .finally(move |finally| {
             let mut result = result_c2.borrow_mut();
-            result.ready = true;
-            result.finally_type = finally;
+            if result.result.is_some() {
+                result.result.as_mut().unwrap().type_ = finally;
+            } else {
+                result.result = Some(FutureRet {
+                    type_: finally,
+                    result: None,
+                });
+            }
             if let Some(waker) = std::mem::replace(&mut result.waker, None) {
                 waker.wake();
             }
         })
         .call();
-
-        impl<R> Future for FutureResult<R> {
-            type Output = FutureRet<R>;
-            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                let mut result = self.inner.borrow_mut();
-                if result.ready {
-                    Poll::Ready(FutureRet {
-                        type_: result.finally_type.clone(),
-                        result: result.result.take(),
-                    })
-                } else {
-                    result.waker = Some(cx.waker().clone());
-                    Poll::Pending
-                }
-            }
-        }
 
         result.await
     }
