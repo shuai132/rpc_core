@@ -25,29 +25,29 @@ pub struct MsgDispatcher {
 
 impl MsgDispatcher {
     pub fn new(conn: Rc<RefCell<dyn Connection>>) -> Rc<RefCell<Self>> {
-        let dispatcher = Rc::new(RefCell::new(Self {
-            conn: Rc::downgrade(&conn),
-            cmd_handle_map: HashMap::new(),
-            rsp_handle_map: HashMap::new(),
-            timer_impl: None,
-            this: Weak::default(),
-        }));
+        Rc::<RefCell<Self>>::new_cyclic(|this_weak| {
+            let dispatcher = RefCell::new(Self {
+                conn: Rc::downgrade(&conn),
+                cmd_handle_map: HashMap::new(),
+                rsp_handle_map: HashMap::new(),
+                timer_impl: None,
+                this: this_weak.clone().into(),
+            });
 
-        let this_weak = Rc::downgrade(&dispatcher);
-        dispatcher.borrow_mut().this = this_weak.clone();
-
-        conn.borrow_mut()
-            .set_recv_package_impl(Box::new(move |payload| {
-                if this_weak.strong_count() == 0 {
-                    return;
-                }
-                if let Some(msg) = coder::deserialize(&payload) {
-                    this_weak.upgrade().unwrap().borrow_mut().dispatch(msg);
-                } else {
-                    error!("deserialize error");
-                }
-            }));
-        dispatcher
+            let this_weak = this_weak.clone();
+            conn.borrow_mut()
+                .set_recv_package_impl(Box::new(move |payload| {
+                    let Some(this) = this_weak.upgrade() else {
+                        return;
+                    };
+                    if let Some(msg) = coder::deserialize(&payload) {
+                        this.borrow_mut().dispatch(msg);
+                    } else {
+                        error!("deserialize error");
+                    }
+                }));
+            dispatcher
+        })
     }
 }
 
@@ -77,12 +77,11 @@ impl MsgDispatcher {
             timer_impl(
                 timeout_ms,
                 Box::new(move || {
-                    if this_weak.strong_count() == 0 {
+                    let Some(this) = this_weak.upgrade() else {
                         debug!("seq:{} timeout after destroy", seq);
                         return;
-                    }
+                    };
 
-                    let this = this_weak.upgrade().unwrap();
                     let mut this = this.borrow_mut();
                     if let Some(_) = this.rsp_handle_map.remove(&seq) {
                         if let Some(timeout_cb) = &timeout_cb {

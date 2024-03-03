@@ -46,81 +46,84 @@ pub struct RpcServer {
 
 impl RpcServer {
     pub fn new(port: u16, config: RpcConfig) -> Rc<Self> {
-        let tcp_config = config.to_tcp_config();
-        let config = Rc::new(RefCell::new(config));
-        let r = Rc::new(Self {
-            config,
-            server: TcpServer::new(port, tcp_config),
-            on_session: None.into(),
-            this: Weak::new().into(),
-        });
-        let this_weak = Rc::downgrade(&r);
-        *r.this.borrow_mut() = this_weak.clone().into();
-        r.server.on_session(move |session| {
-            let this = this_weak.upgrade().unwrap();
-            let tcp_channel = session.upgrade().unwrap();
-            let rpc = if let Some(rpc) = this.config.borrow().rpc.clone() {
-                if rpc.is_ready() {
-                    debug!("rpc already connected");
-                    tcp_channel.close();
-                    return;
-                }
-                rpc
-            } else {
-                Rpc::new(None)
+        Rc::new_cyclic(|this_weak| {
+            let tcp_config = config.to_tcp_config();
+            let config = Rc::new(RefCell::new(config));
+
+            let r = Self {
+                config,
+                server: TcpServer::new(port, tcp_config),
+                on_session: None.into(),
+                this: this_weak.clone().into(),
             };
 
-            let rpc_session = RpcSession::new(rpc.clone(), Rc::downgrade(&tcp_channel));
-            let rs_weak = Rc::downgrade(&rpc_session);
-
-            {
-                let rs_weak = rs_weak.clone();
-                rpc.get_connection()
-                    .borrow_mut()
-                    .set_send_package_impl(Box::new(move |package: Vec<u8>| {
-                        if let Some(rs) = rs_weak.upgrade() {
-                            rs.channel.upgrade().unwrap().send(package);
-                        }
-                    }));
-            }
-            {
-                let rs_weak = rs_weak.clone();
-                tcp_channel.on_data(move |package| {
-                    if let Some(rs) = rs_weak.upgrade() {
-                        rs.rpc
-                            .borrow()
-                            .get_connection()
-                            .borrow()
-                            .on_recv_package(package);
+            let this_weak = this_weak.clone();
+            r.server.on_session(move |session| {
+                let this = this_weak.upgrade().unwrap();
+                let tcp_channel = session.upgrade().unwrap();
+                let rpc = if let Some(rpc) = this.config.borrow().rpc.clone() {
+                    if rpc.is_ready() {
+                        debug!("rpc already connected");
+                        tcp_channel.close();
+                        return;
                     }
-                });
-            }
+                    rpc
+                } else {
+                    Rpc::new(None)
+                };
 
-            rpc.set_timer(|ms: u32, handle: Box<dyn Fn()>| {
-                tokio::task::spawn_local(async move {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
-                    handle();
-                });
-            });
-            {
-                // bind rpc_session lifecycle to tcp_session and end with on_close
-                let rs = rpc_session.clone();
-                // let tc_weak = Rc::downgrade(&tcp_channel);
-                tcp_channel.on_close(move || {
-                    rs.rpc.borrow_mut().set_ready(false);
-                    // *tc_weak.upgrade().unwrap().on_close.borrow_mut() = None;
-                });
-            }
-            rpc_session.rpc.borrow_mut().set_ready(true);
+                let rpc_session = RpcSession::new(rpc.clone(), Rc::downgrade(&tcp_channel));
+                let rs_weak = Rc::downgrade(&rpc_session);
 
-            {
-                let on_session = this.on_session.borrow();
-                if let Some(on_session) = on_session.as_ref() {
-                    on_session(rs_weak);
+                {
+                    let rs_weak = rs_weak.clone();
+                    rpc.get_connection()
+                        .borrow_mut()
+                        .set_send_package_impl(Box::new(move |package: Vec<u8>| {
+                            if let Some(rs) = rs_weak.upgrade() {
+                                rs.channel.upgrade().unwrap().send(package);
+                            }
+                        }));
                 }
-            }
-        });
-        r
+                {
+                    let rs_weak = rs_weak.clone();
+                    tcp_channel.on_data(move |package| {
+                        if let Some(rs) = rs_weak.upgrade() {
+                            rs.rpc
+                                .borrow()
+                                .get_connection()
+                                .borrow()
+                                .on_recv_package(package);
+                        }
+                    });
+                }
+
+                rpc.set_timer(|ms: u32, handle: Box<dyn Fn()>| {
+                    tokio::task::spawn_local(async move {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
+                        handle();
+                    });
+                });
+                {
+                    // bind rpc_session lifecycle to tcp_session and end with on_close
+                    let rs = rpc_session.clone();
+                    // let tc_weak = Rc::downgrade(&tcp_channel);
+                    tcp_channel.on_close(move || {
+                        rs.rpc.borrow_mut().set_ready(false);
+                        // *tc_weak.upgrade().unwrap().on_close.borrow_mut() = None;
+                    });
+                }
+                rpc_session.rpc.borrow_mut().set_ready(true);
+
+                {
+                    let on_session = this.on_session.borrow();
+                    if let Some(on_session) = on_session.as_ref() {
+                        on_session(rs_weak);
+                    }
+                }
+            });
+            r
+        })
     }
 
     pub fn downgrade(&self) -> Weak<Self> {

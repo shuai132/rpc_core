@@ -21,17 +21,13 @@ pub struct TcpServer {
 // public
 impl TcpServer {
     pub fn new(port: u16, config: TcpConfig) -> Rc<Self> {
-        let config = Rc::new(RefCell::new(config));
-        let r = Rc::new(Self {
+        Rc::new_cyclic(|this_weak| Self {
             port: port.into(),
-            config: config.clone(),
+            config: Rc::new(RefCell::new(config)),
             on_session: None.into(),
             quit_notify: Notify::new(),
-            this: Weak::new().into(),
-        });
-        let this_weak = Rc::downgrade(&r);
-        *r.this.borrow_mut() = this_weak.clone().into();
-        r
+            this: this_weak.clone().into(),
+        })
     }
 
     pub fn downgrade(&self) -> Weak<Self> {

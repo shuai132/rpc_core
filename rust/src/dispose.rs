@@ -34,10 +34,11 @@ impl DisposeProto for Dispose {
 
     fn remove(&mut self, request: &Rc<Request>) {
         if let Some(index) = self.requests.iter().position(|r| {
-            if r.strong_count() == 0 {
+            let Some(r) = r.upgrade() else {
                 return true;
-            }
-            if Rc::ptr_eq(r.upgrade().as_ref().unwrap(), request) {
+            };
+
+            if Rc::ptr_eq(&r, request) {
                 return true;
             }
             return false;

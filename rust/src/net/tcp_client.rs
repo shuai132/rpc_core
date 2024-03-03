@@ -25,33 +25,35 @@ pub struct TcpClient {
 // public
 impl TcpClient {
     pub fn new(config: TcpConfig) -> Rc<Self> {
-        let config = Rc::new(RefCell::new(config));
-        let r = Rc::new(Self {
-            host: "".to_string().into(),
-            port: 0.into(),
-            config: config.clone(),
-            on_open: None.into(),
-            on_open_failed: None.into(),
-            on_close: None.into(),
-            reconnect_ms: 0.into(),
-            reconnect_timer_running: false.into(),
-            channel: TcpChannel::new(config),
-            this: Weak::new().into(),
-        });
-        let this_weak = Rc::downgrade(&r);
-        *r.this.borrow_mut() = this_weak.clone().into();
+        Rc::<Self>::new_cyclic(|this_weak| {
+            let config = Rc::new(RefCell::new(config));
+            let r = Self {
+                host: "".to_string().into(),
+                port: 0.into(),
+                config: config.clone(),
+                on_open: None.into(),
+                on_open_failed: None.into(),
+                on_close: None.into(),
+                reconnect_ms: 0.into(),
+                reconnect_timer_running: false.into(),
+                channel: TcpChannel::new(config),
+                this: this_weak.clone().into(),
+            };
 
-        r.channel.on_close(move || {
-            if let Some(this) = this_weak.upgrade() {
+            let this_weak = this_weak.clone();
+            r.channel.on_close(move || {
+                let Some(this) = this_weak.upgrade() else {
+                    return;
+                };
                 if let Some(on_close) = this.on_close.borrow().as_ref() {
                     on_close();
                 }
                 tokio::task::spawn_local(async move {
                     this.check_reconnect().await;
                 });
-            }
-        });
-        r
+            });
+            r
+        })
     }
 
     pub fn downgrade(&self) -> Weak<Self> {
