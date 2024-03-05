@@ -12,7 +12,7 @@
 namespace rpc_core {
 namespace detail {
 
-class msg_dispatcher : noncopyable {
+class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, noncopyable {
  public:
   using cmd_handle = std::function<std::pair<bool, msg_wrapper>(msg_wrapper)>;
   using rsp_handle = std::function<bool(msg_wrapper)>;
@@ -21,17 +21,20 @@ class msg_dispatcher : noncopyable {
   using timer_impl = std::function<void(uint32_t ms, timeout_cb)>;
 
  public:
-  explicit msg_dispatcher(std::shared_ptr<connection> conn) : conn_(std::move(conn)) {
-    auto alive = std::weak_ptr<void>(is_alive_);
-    conn_->on_recv_package = ([this, RPC_CORE_MOVE_LAMBDA(alive)](const std::string& payload) {
-      if (alive.expired()) {
+  explicit msg_dispatcher(std::shared_ptr<connection> conn) : conn_(std::move(conn)) {}
+
+  void init() {
+    auto self = std::weak_ptr<msg_dispatcher>(shared_from_this());
+    conn_->on_recv_package = ([RPC_CORE_MOVE_LAMBDA(self)](const std::string& payload) {
+      auto self_lock = self.lock();
+      if (!self_lock) {
         RPC_CORE_LOGD("msg_dispatcher expired");
         return;
       }
       bool success;
       auto msg = coder::deserialize(payload, success);
       if (success) {
-        this->dispatch(std::move(msg));
+        self_lock->dispatch(std::move(msg));
       } else {
         RPC_CORE_LOGE("payload deserialize error");
       }
@@ -129,18 +132,19 @@ class msg_dispatcher : noncopyable {
     }
 
     rsp_handle_map_[seq] = std::move(handle);
-    auto alive = std::weak_ptr<void>(is_alive_);
-    timer_impl_(timeout_ms, [this, seq, RPC_CORE_MOVE_LAMBDA(timeout_cb), RPC_CORE_MOVE_LAMBDA(alive)] {
-      if (alive.expired()) {
+    auto self = std::weak_ptr<msg_dispatcher>(shared_from_this());
+    timer_impl_(timeout_ms, [RPC_CORE_MOVE_LAMBDA(self), seq, RPC_CORE_MOVE_LAMBDA(timeout_cb)] {
+      auto self_lock = self.lock();
+      if (!self_lock) {
         RPC_CORE_LOGD("seq:%u timeout after destroy", seq);
         return;
       }
-      auto it = this->rsp_handle_map_.find(seq);
-      if (it != this->rsp_handle_map_.cend()) {
+      auto it = self_lock->rsp_handle_map_.find(seq);
+      if (it != self_lock->rsp_handle_map_.cend()) {
         if (timeout_cb) {
           timeout_cb();
         }
-        this->rsp_handle_map_.erase(seq);
+        self_lock->rsp_handle_map_.erase(seq);
         RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, this->rsp_handle_map_.size());
       }
     });
@@ -155,7 +159,6 @@ class msg_dispatcher : noncopyable {
   std::map<cmd_type, cmd_handle> cmd_handle_map_;
   std::map<seq_type, rsp_handle> rsp_handle_map_;
   timer_impl timer_impl_;
-  std::shared_ptr<void> is_alive_ = std::make_shared<uint8_t>();
 };
 
 }  // namespace detail
