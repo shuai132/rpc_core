@@ -1,34 +1,33 @@
-// 1. 全局控制
-// L_O_G_NDEBUG                 关闭DEBUG日志（默认依据NDEBUG自动判断）
-// L_O_G_SHOW_DEBUG             强制开启DEBUG日志
-// L_O_G_DISABLE_ALL            关闭所有日志
-// L_O_G_DISABLE_COLOR          禁用颜色显示
-// L_O_G_LINE_END_CRLF          默认是\n结尾 添加此宏将以\r\n结尾
-// L_O_G_FOR_MCU                更适用于MCU环境
-// L_O_G_NOT_EXIT_ON_FATAL      FATAL默认退出程序 添加此宏将不退出
-// L_O_G_SHOW_FULL_PATH         显示文件绝对路径
+// 1. global control
+// L_O_G_NDEBUG                 disable debug log(auto by NDEBUG)
+// L_O_G_SHOW_DEBUG             force enable debug log
+// L_O_G_DISABLE_ALL            force disable all log
+// L_O_G_DISABLE_COLOR          disable color
+// L_O_G_LINE_END_CRLF
+// L_O_G_FOR_MCU
+// L_O_G_NOT_EXIT_ON_FATAL
+// L_O_G_SHOW_FULL_PATH
 //
-// c++11环境默认打开以下内容
-// L_O_G_ENABLE_THREAD_SAFE     线程安全
-// L_O_G_ENABLE_THREAD_ID       显示线程ID
-// L_O_G_ENABLE_DATE_TIME       显示日期
-// 分别可通过下列禁用
+// C++11 enable default:
+// L_O_G_ENABLE_THREAD_SAFE     thread safety
+// L_O_G_ENABLE_THREAD_ID       show thread id
+// L_O_G_ENABLE_DATE_TIME       show data time
+// can disable by define:
 // L_O_G_DISABLE_THREAD_SAFE
 // L_O_G_DISABLE_THREAD_ID
 // L_O_G_DISABLE_DATE_TIME
-// 可通过`L_O_G_GET_TID_CUSTOM`自定义获取线程ID的实现
 //
-// 2. 自定义实现
-// L_O_G_PRINTF_CUSTOM          自定义输出实现
-// 并添加实现`int L_O_G_PRINTF_CUSTOM(const char *fmt, ...)`
+// 2. custom implements
+// L_O_G_PRINTF_CUSTOM          int L_O_G_PRINTF_CUSTOM(const char *fmt, ...)
+// L_O_G_GET_TID_CUSTOM         uint32_t L_O_G_GET_TID_CUSTOM()
 //
-// 3. 在库中使用时
-// 3.1. 替换`RPC_CORE_LOG`为库名
-// 3.2. 定义`RPC_CORE_LOG_IN_LIB`
-// 3.3. 可配置项
-// RPC_CORE_LOG_SHOW_DEBUG               开启RPC_CORE_LOGD的输出
-// RPC_CORE_LOG_SHOW_VERBOSE             显示RPC_CORE_LOGV的输出
-// RPC_CORE_LOG_DISABLE_ALL              关闭所有日志
+// 3. use in library
+// 3.1. rename `RPC_CORE_LOG` to library name
+// 3.2. define `RPC_CORE_LOG_IN_LIB`
+// 3.3. configuration options
+// RPC_CORE_LOG_SHOW_DEBUG
+// RPC_CORE_LOG_SHOW_VERBOSE
+// RPC_CORE_LOG_DISABLE_ALL
 
 #pragma once
 
@@ -52,7 +51,7 @@
 #ifdef __cplusplus
 #include <cstring>
 #include <cstdlib>
-#if __cplusplus >= 201103L
+#if __cplusplus >= 201103L || defined(_MSC_VER)
 
 #if !defined(L_O_G_DISABLE_THREAD_SAFE) && !defined(L_O_G_ENABLE_THREAD_SAFE)
 #define L_O_G_ENABLE_THREAD_SAFE
@@ -134,9 +133,9 @@
 #ifndef RPC_CORE_LOG_PRINTF_DEFAULT
 #if defined(__ANDROID__) && !defined(ANDROID_STANDALONE)
 #include <android/log.h>
-#define RPC_CORE_LOG_PRINTF_DEFAULT(...) __android_log_print(ANDROID_L##OG_DEBUG, "RPC_CORE_LOG", __VA_ARGS__)
+#define RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ...) __android_log_print(ANDROID_L##OG_DEBUG, "RPC_CORE_LOG", fmt, __VA_ARGS__)
 #else
-#define RPC_CORE_LOG_PRINTF_DEFAULT(...) printf(__VA_ARGS__)
+#define RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ...) printf(fmt, __VA_ARGS__)
 #endif
 #endif
 
@@ -161,16 +160,16 @@ static std::mutex& mutex() {
 }
 };
 #endif
-#define L_O_G_PRINTF(...) { \
+#define L_O_G_PRINTF(fmt, ...) { \
   std::lock_guard<std::mutex> lock(L_O_G_NS_MUTEX::mutex()); \
-  RPC_CORE_LOG_PRINTF_DEFAULT(__VA_ARGS__); \
+  RPC_CORE_LOG_PRINTF_DEFAULT(fmt, __VA_ARGS__); \
 }
 #else
-#define L_O_G_PRINTF(...)       RPC_CORE_LOG_PRINTF_DEFAULT(__VA_ARGS__)
+#define L_O_G_PRINTF(fmt, ...)  RPC_CORE_LOG_PRINTF_DEFAULT(fmt, __VA_ARGS__)
 #endif
 #else
 extern int L_O_G_PRINTF_CUSTOM(const char *fmt, ...);
-#define L_O_G_PRINTF(...)       L_O_G_PRINTF_CUSTOM(__VA_ARGS__)
+#define L_O_G_PRINTF(fmt, ...)  L_O_G_PRINTF_CUSTOM(fmt, __VA_ARGS__)
 #endif
 #endif
 
@@ -181,6 +180,7 @@ extern int L_O_G_PRINTF_CUSTOM(const char *fmt, ...);
 #ifdef L_O_G_GET_TID_CUSTOM
 extern uint32_t L_O_G_GET_TID_CUSTOM();
 #elif defined(_WIN32)
+#include <Windows.h>
 #include <processthreadsapi.h>
 struct L_O_G_NS_GET_TID {
 static inline uint32_t get_tid() {
@@ -230,7 +230,13 @@ static inline std::string get_time() {
   std::time_t time = std::chrono::system_clock::to_time_t(now);
   auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
   std::stringstream ss;
-  ss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << '.' << std::setw(3) << std::setfill('0') << ms.count();
+  std::tm dst; // NOLINT
+#ifdef _MSC_VER
+  ::localtime_s(&dst, &time);
+#else
+  dst = *std::localtime(&time);
+#endif
+  ss << std::put_time(&dst, "%Y-%m-%d %H:%M:%S") << '.' << std::setw(3) << std::setfill('0') << ms.count();
   return ss.str();
 }
 };
