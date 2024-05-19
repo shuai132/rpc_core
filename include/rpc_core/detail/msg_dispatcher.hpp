@@ -89,7 +89,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           break;
         }
         const auto& cb = it->second;
-        if (not cb) {
+        if (!cb) {
           RPC_CORE_LOGE("rsp can not be null");
           return;
         }

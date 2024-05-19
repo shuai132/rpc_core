@@ -37,7 +37,7 @@ struct msg_wrapper : copyable {  // NOLINT
   std::pair<bool, T> unpack_as() const {
     T message;
     bool ok = deserialize(data, message);
-    if (not ok) {
+    if (!ok) {
       RPC_CORE_LOGE("deserialize error, msg info:%s", dump().c_str());
     }
     return std::make_pair(ok, std::move(message));
