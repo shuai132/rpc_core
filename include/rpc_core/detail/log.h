@@ -4,9 +4,10 @@
 // L_O_G_DISABLE_ALL            force disable all log
 // L_O_G_DISABLE_COLOR          disable color
 // L_O_G_LINE_END_CRLF
-// L_O_G_FOR_MCU
-// L_O_G_NOT_EXIT_ON_FATAL
 // L_O_G_SHOW_FULL_PATH
+// L_O_G_FOR_MCU
+// L_O_G_FREERTOS
+// L_O_G_NOT_EXIT_ON_FATAL
 //
 // C++11 enable default:
 // L_O_G_ENABLE_THREAD_SAFE     thread safety
@@ -99,7 +100,7 @@
 
 #define RPC_CORE_LOG_WITH_COLOR
 
-#if defined(_WIN32) || (defined(__ANDROID__) && !defined(ANDROID_STANDALONE)) || defined(L_O_G_FOR_MCU)
+#if defined(_WIN32) || (defined(__ANDROID__) && !defined(ANDROID_STANDALONE)) || defined(L_O_G_FOR_MCU) || defined(ESP_PLATFORM)
 #undef RPC_CORE_LOG_WITH_COLOR
 #endif
 
@@ -133,9 +134,9 @@
 #ifndef RPC_CORE_LOG_PRINTF_DEFAULT
 #if defined(__ANDROID__) && !defined(ANDROID_STANDALONE)
 #include <android/log.h>
-#define RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ...) __android_log_print(ANDROID_L##OG_DEBUG, "RPC_CORE_LOG", fmt, __VA_ARGS__)
+#define RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ...) __android_log_print(ANDROID_L##OG_DEBUG, "RPC_CORE_LOG", fmt, ##__VA_ARGS__)
 #else
-#define RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ...) printf(fmt, __VA_ARGS__)
+#define RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #endif
 #endif
 
@@ -162,14 +163,14 @@ static std::mutex& mutex() {
 #endif
 #define L_O_G_PRINTF(fmt, ...) { \
   std::lock_guard<std::mutex> lock(L_O_G_NS_MUTEX::mutex()); \
-  RPC_CORE_LOG_PRINTF_DEFAULT(fmt, __VA_ARGS__); \
+  RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ##__VA_ARGS__); \
 }
 #else
-#define L_O_G_PRINTF(fmt, ...)  RPC_CORE_LOG_PRINTF_DEFAULT(fmt, __VA_ARGS__)
+#define L_O_G_PRINTF(fmt, ...)  RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ##__VA_ARGS__)
 #endif
 #else
 extern int L_O_G_PRINTF_CUSTOM(const char *fmt, ...);
-#define L_O_G_PRINTF(fmt, ...)  L_O_G_PRINTF_CUSTOM(fmt, __VA_ARGS__)
+#define L_O_G_PRINTF(fmt, ...)  L_O_G_PRINTF_CUSTOM(fmt, ##__VA_ARGS__)
 #endif
 #endif
 
@@ -193,6 +194,13 @@ static inline uint32_t get_tid() {
 struct L_O_G_NS_GET_TID {
 static inline uint32_t get_tid() {
   return syscall(SYS_gettid);
+}
+};
+#elif defined(L_O_G_FREERTOS) || defined(FREERTOS_CONFIG_H)
+#include <FreeRTOS.h>
+struct L_O_G_NS_GET_TID {
+static inline uint32_t get_tid() {
+  return (uint32_t)xTaskGetCurrentTaskHandle();
 }
 };
 #else /* for mac, bsd.. */
