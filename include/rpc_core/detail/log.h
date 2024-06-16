@@ -197,7 +197,7 @@ static inline uint32_t get_tid() {
 }
 };
 #elif defined(L_O_G_FREERTOS) || defined(FREERTOS_CONFIG_H)
-#include <FreeRTOS.h>
+#include <freertos/FreeRTOS.h>
 struct L_O_G_NS_GET_TID {
 static inline uint32_t get_tid() {
   return (uint32_t)xTaskGetCurrentTaskHandle();
