@@ -11,23 +11,71 @@ on:
       - 'rust/**'
 
 jobs:
-  Linux:
-    runs-on: ubuntu-latest
+  build-and-test:
+
+    name: ${{ matrix.toolchain }}-${{ matrix.configuration }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        toolchain:
+          - linux-gcc
+          - macos-clang
+          - windows-msvc
+          - windows-mingw
+
+        configuration:
+          - Debug
+          - Release
+
+        include:
+          - toolchain: linux-gcc
+            os: ubuntu-latest
+            compiler: gcc
+            env:
+              CMAKE_OPTIONS: "-DRPC_CORE_TEST_PLUGIN=ON"
+
+          - toolchain: macos-clang
+            os: macos-latest
+            compiler: clang
+            env:
+              CMAKE_OPTIONS: "-DRPC_CORE_TEST_PLUGIN=ON"
+
+          - toolchain: windows-msvc
+            os: windows-latest
+            compiler: msvc
+
+          - toolchain: windows-mingw
+            os: windows-latest
+            compiler: mingw
+            env:
+              CMAKE_OPTIONS: "-G \"MinGW Makefiles\""
+
     steps:
       - uses: actions/checkout@v3
 
-      - name: CMake
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DRPC_CORE_TEST_PLUGIN=ON ..
+      - name: Configure (${{ matrix.configuration }})
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ${{ matrix.env.CMAKE_OPTIONS }}
 
       - name: Init thirdparty
-        run: cd build && make rpc_core_test_init
+        if: matrix.os != 'windows-latest'
+        run: cmake --build build --target rpc_core_test_init
 
-      - name: Build
-        working-directory: build
-        run: make -j2
+      - name: Build with ${{ matrix.compiler }}
+        run: cmake --build build --config ${{ matrix.configuration }}
 
-      - name: Run
+      - name: Test(Unix)
+        if: matrix.os != 'windows-latest'
         working-directory: build
-        run: ./rpc_core_test
+        run: |
+          ./rpc_core_test
+
+      - name: Test(Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: build
+        shell: powershell
+        run: |
+          if ("${{ matrix.compiler }}" -eq "msvc" ) { cd ${{ matrix.configuration }} }
+          ./rpc_core_test.exe

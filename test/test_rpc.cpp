@@ -39,7 +39,7 @@ void test_rpc() {
   {
     // The Receiver
     rpc_s->subscribe("cmd", [](const std::string& msg) -> std::string {
-      assert(msg == "hello");
+      ASSERT(msg == "hello");
       return "world";
     });
 
@@ -47,7 +47,7 @@ void test_rpc() {
     rpc_c->cmd("cmd")
         ->msg(std::string("hello"))
         ->rsp([](const std::string& rsp) {
-          assert(rsp == "world");
+          ASSERT(rsp == "world");
         })
         ->call();
   }
