@@ -28,7 +28,7 @@
   inline serialize_iarchive& operator<<(type_raw& t, serialize_iarchive& ia) {       \
     type_auto impl;                                                                  \
     impl << ia;                                                                      \
-    t = impl.value;                                                                  \
+    t = (type_raw)impl.value;                                                        \
     return ia;                                                                       \
   }
 

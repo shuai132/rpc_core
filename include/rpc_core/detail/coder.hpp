@@ -11,7 +11,7 @@ class coder {
     std::string payload;
     payload.reserve(PayloadMinLen + msg.cmd.size() + msg.data.size());
     payload.append((char*)&msg.seq, 4);
-    uint16_t cmdLen = msg.cmd.length();
+    auto cmdLen = (uint16_t)msg.cmd.length();
     payload.append((char*)&cmdLen, 2);
     payload.append((char*)msg.cmd.data(), cmdLen);
     payload.append((char*)&msg.type, 1);

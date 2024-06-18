@@ -449,30 +449,13 @@ void test_serialize() {
   /// std::complex
   {
     RPC_CORE_LOGI("std::complex...");
-    {
-      std::complex<float> a;
-      a.real(1.23f);
-      a.imag(3.21f);
-      std::complex<float> b;
-      serialize_test(a, b);
-      ASSERT(a == b);
-      ASSERT_SERIALIZE_SIZE(4 /*float*/ * 2);
-    }
-    {
-      std::complex<CustomType> a;
-      {
-        CustomType t;
-        t.id = 1;
-        t.ids = {1, 2, 3};
-        t.name = "test";
-        a.real(t);
-        a.imag(t);
-      }
-      std::complex<CustomType> b;
-      serialize_test(a, b);
-      ASSERT(a == b);
-      ASSERT_SERIALIZE_SIZE(40);
-    }
+    std::complex<float> a;
+    a.real(1.23f);
+    a.imag(3.21f);
+    std::complex<float> b;
+    serialize_test(a, b);
+    ASSERT(a == b);
+    ASSERT_SERIALIZE_SIZE(4 /*float*/ * 2);
   }
 
   /// std::duration

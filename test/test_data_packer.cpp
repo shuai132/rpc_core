@@ -61,8 +61,8 @@ static void test_random() {
 
   RPC_CORE_LOGI("packing...");
   auto payload = packer.pack(TEST_PAYLOAD);
-  const uint32_t payloadSize = payload.size();
-  RPC_CORE_LOGI("payloadSize:%u", payloadSize);
+  const size_t payloadSize = payload.size();
+  RPC_CORE_LOGI("payloadSize:%zu", payloadSize);
   ASSERT(payloadSize == TestAddCount * 10 + 4);
 
   RPC_CORE_LOGI("******test normal******");
@@ -71,12 +71,12 @@ static void test_random() {
   pass = false;
 
   RPC_CORE_LOGI("******test random******");
-  uint32_t sendLeft = payloadSize;
-  std::default_random_engine generator(time(nullptr));  // NOLINT
+  size_t sendLeft = payloadSize;
+  std::default_random_engine generator((unsigned)std::chrono::system_clock::now().time_since_epoch().count());
   std::uniform_int_distribution<int> dis(1, 10);
   auto random = std::bind(dis, generator);  // NOLINT
   while (sendLeft > 0) {
-    uint32_t randomSize = random();
+    size_t randomSize = random();
     // RPC_CORE_LOGI("random: %u,  %u", randomSize, sendLeft);
     size_t needSend = std::min(randomSize, sendLeft);
     packer.feed(payload.data() + (payloadSize - sendLeft), needSend);

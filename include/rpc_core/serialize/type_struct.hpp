@@ -169,7 +169,7 @@ serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   if (ia.error) return ia;
   detail::auto_size auto_size;
   int cost = auto_size.deserialize(ia.data);
-  uint32_t size = auto_size.value;
+  auto size = auto_size.value;
   ia.data += cost;
 
   serialize_iarchive tmp(detail::string_view(ia.data, size));

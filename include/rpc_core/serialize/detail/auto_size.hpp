@@ -20,7 +20,7 @@ struct auto_size_type {
     uint8_t effective_bytes = sizeof(int_impl_t);
     auto value_tmp = value;
     if (value_tmp < 0) {
-      value_tmp = -value_tmp;
+      value_tmp = ~value_tmp + 1;
     }
     for (int i = sizeof(int_impl_t) - 1; i >= 0; --i) {
       if ((value_tmp >> (i * 8)) & 0xff) {
@@ -51,7 +51,7 @@ struct auto_size_type {
     }
     memcpy(&value, p + 1, size_bytes);
     if (negative) {
-      value = -value;
+      value = ~value + 1;
     }
     return size_bytes + 1;
   }

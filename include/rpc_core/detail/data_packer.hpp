@@ -53,7 +53,7 @@ class data_packer : detail::noncopyable {
     /// wait header(4 bytes)
     if (header_len_now_ + size < 4) {
       buffer_.insert(buffer_.size(), (char *)data, size);
-      header_len_now_ += size;
+      header_len_now_ += (uint32_t)size;
       return true;
     }
 
