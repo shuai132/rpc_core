@@ -8,15 +8,13 @@ Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
 
-The complete rpc frameworks (such as `gRPC` and `brpc`) have complex functions
-and are not practical on embedded platforms.
+Full-feature rpc frameworks (e.g. `gRPC` and `brpc`) very complex and not suitable for embedded systems.
 
-This project offers a lightweight and user-friendly rpc library that is better suited for one-to-one rpc calls.
+This project offers a lightweight and user-friend rpc library that is better suited for one-to-one rpc calls.
 It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 
 Note:
-This project solely offers the protocol layer and API,
-and `does not include the implementation of the transport layer`.
+This project only offers the protocol layer and API, it **does not** include the implementation of the transport layer.
 For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Features
@@ -31,13 +29,15 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 * Timeout and Retry API
 * Support `std::future` interface
 
-## Language supports
+## TCP-based implementations
 
 * C++
-    - [asio_net](https://github.com/shuai132/asio_net): based on [asio](https://think-async.com/Asio/#)
+    - [asio_net](https://github.com/shuai132/asio_net): based on [asio](https://think-async.com/Asio/#)  
+      Support macOS, Linux, Windows, iOS, Android, etc. and can be used on MCUs that support asio, such as ESP32.
 
 * Rust
-    - [./rust](./rust): based on [tokio](https://github.com/tokio-rs/tokio)
+    - [./rust](./rust): based on [tokio](https://github.com/tokio-rs/tokio)  
+      Support callback and async/await, details: [README.md](./rust/README.md)
 
 ## Requirements
 
@@ -154,8 +154,7 @@ This project is licensed under the [MIT license](LICENSE).
 
 ## Links
 
-* Implementation based on asio: [asio_net](https://github.com/shuai132/asio_net)  
-  support macOS, Linux, Windows, iOS, Android, etc. and can be used on MCUs that support asio, such as ESP32.
+* Implementation based on asio: [asio_net](https://github.com/shuai132/asio_net)
 
 
 * Implementation suitable for ESP8266: [esp_rpc](https://github.com/shuai132/esp_rpc)
