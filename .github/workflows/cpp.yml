@@ -57,7 +57,7 @@ jobs:
               CMAKE_OPTIONS: "-G \"MinGW Makefiles\""
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Configure (${{ matrix.configuration }})
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ${{ matrix.env.CMAKE_OPTIONS }}

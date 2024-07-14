@@ -2,13 +2,15 @@
 
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/cpp/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=cpp)
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/rust/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=rust)
+[![Release](https://img.shields.io/github/release/shuai132/rpc_core.svg)](https://github.com/shuai132/rpc_core/releases)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 a tiny c++11 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
 Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
 
-Full-feature rpc frameworks (e.g. `gRPC` and `brpc`) very complex and not suitable for embedded systems.
+Full-feature rpc frameworks (e.g. `gRPC` and `bRPC`) very complex and not suitable for embedded systems.
 
 This project offers a lightweight and user-friend rpc library that is better suited for one-to-one rpc calls.
 It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
@@ -152,7 +154,7 @@ json: `{"id":1,"age":18,"name":"test"}`
 
 This project is licensed under the [MIT license](LICENSE).
 
-## Links
+# Links
 
 * Implementation based on asio: [asio_net](https://github.com/shuai132/asio_net)
 
