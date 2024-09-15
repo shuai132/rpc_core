@@ -45,21 +45,17 @@ impl Rpc {
         R: serde::Serialize,
         F: Fn(P) -> R + 'static,
     {
-        self.inner
-            .borrow_mut()
-            .dispatcher
-            .borrow_mut()
-            .subscribe_cmd(
-                cmd.to_string(),
-                Box::new(move |msg| -> Option<MsgWrapper> {
-                    if let Ok(value) = msg.unpack_as::<P>() {
-                        let rsp: R = handle(value);
-                        Some(MsgWrapper::make_rsp(msg.seq, rsp))
-                    } else {
-                        None
-                    }
-                }),
-            );
+        self.inner.borrow().dispatcher.borrow_mut().subscribe_cmd(
+            cmd.to_string(),
+            Box::new(move |msg| -> Option<MsgWrapper> {
+                if let Ok(value) = msg.unpack_as::<P>() {
+                    let rsp: R = handle(value);
+                    Some(MsgWrapper::make_rsp(msg.seq, rsp))
+                } else {
+                    None
+                }
+            }),
+        );
     }
 
     pub fn unsubscribe<C>(&self, cmd: C)
@@ -67,7 +63,7 @@ impl Rpc {
         C: ToString,
     {
         self.inner
-            .borrow_mut()
+            .borrow()
             .dispatcher
             .borrow_mut()
             .unsubscribe_cmd(cmd.to_string());
@@ -103,7 +99,7 @@ impl Rpc {
         F: Fn(u32, Box<TimeoutCb>) + 'static,
     {
         self.inner
-            .borrow_mut()
+            .borrow()
             .dispatcher
             .borrow_mut()
             .set_timer_impl(timer_impl);
@@ -131,8 +127,8 @@ impl Rpc {
         let payload;
         let connection;
         {
-            let inner = self.inner.borrow_mut();
-            let request = request.inner.borrow_mut();
+            let inner = self.inner.borrow();
+            let request = request.inner.borrow();
             if request.need_rsp {
                 inner.dispatcher.borrow_mut().subscribe_rsp(
                     request.seq,

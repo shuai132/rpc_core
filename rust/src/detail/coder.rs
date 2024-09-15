@@ -43,7 +43,7 @@ pub fn deserialize(payload: &Vec<u8>) -> Option<MsgWrapper> {
         )));
         p = p.add(cmd_len as usize);
 
-        msg.type_ = MsgType::from_bits(*p).unwrap();
+        msg.type_ = MsgType::from_bits(*p)?;
         p = p.add(1);
 
         msg.data = Vec::from(std::slice::from_raw_parts(p, pend.offset_from(p) as usize));
