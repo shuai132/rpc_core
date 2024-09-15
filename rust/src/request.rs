@@ -9,11 +9,11 @@ use log::debug;
 use crate::detail::msg_dispatcher::{RspHandle, TimeoutCb};
 use crate::detail::msg_wrapper::MsgType;
 use crate::dispose::Dispose;
-use crate::rpc::RpcProto;
+use crate::rpc::Rpc;
 use crate::type_def::{CmdType, SeqType};
 
 pub struct RequestImpl {
-    rpc: Option<Weak<dyn RpcProto>>,
+    rpc: Option<Weak<Rpc>>,
     self_weak: Weak<Request>,
     self_keeper: Option<Rc<Request>>,
     pub(crate) seq: SeqType,
@@ -33,11 +33,6 @@ pub struct RequestImpl {
 
 pub struct Request {
     pub(crate) inner: RefCell<RequestImpl>,
-}
-
-pub trait DisposeProto {
-    fn add(&mut self, request: &Rc<Request>);
-    fn remove(&mut self, request: &Rc<Request>);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -95,7 +90,7 @@ impl Request {
         r
     }
 
-    pub fn create_with_rpc(rpc: Weak<dyn RpcProto>) -> Rc<Self> {
+    pub fn create_with_rpc(rpc: Weak<Rpc>) -> Rc<Self> {
         let r = Self::new();
         r.inner.borrow_mut().rpc = Some(rpc);
         r
@@ -192,7 +187,7 @@ impl Request {
         }
     }
 
-    pub fn call_with_rpc(self: &Rc<Self>, rpc: Rc<dyn RpcProto>) {
+    pub fn call_with_rpc(self: &Rc<Self>, rpc: Rc<Rpc>) {
         self.inner.borrow_mut().rpc = Some(Rc::downgrade(&rpc));
         self.call();
     }
@@ -257,12 +252,12 @@ impl Request {
         self
     }
 
-    pub fn rpc<'a>(self: &'a Rc<Self>, rpc: Weak<dyn RpcProto>) -> &'a Rc<Self> {
+    pub fn rpc<'a>(self: &'a Rc<Self>, rpc: Weak<Rpc>) -> &'a Rc<Self> {
         self.inner.borrow_mut().rpc = Some(rpc);
         self
     }
 
-    pub fn get_rpc(&self) -> Option<Weak<dyn RpcProto>> {
+    pub fn get_rpc(&self) -> Option<Weak<Rpc>> {
         self.inner.borrow().rpc.clone()
     }
 

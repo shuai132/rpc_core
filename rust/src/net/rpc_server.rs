@@ -6,7 +6,7 @@ use log::{debug, trace};
 use crate::net::config::RpcConfig;
 use crate::net::detail::tcp_channel::TcpChannel;
 use crate::net::tcp_server::TcpServer;
-use crate::rpc::{Rpc, RpcProto};
+use crate::rpc::Rpc;
 
 pub struct RpcSession {
     pub rpc: RefCell<Rc<Rpc>>,

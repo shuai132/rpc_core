@@ -10,12 +10,6 @@ use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
 use crate::request::Request;
 use crate::type_def::SeqType;
 
-pub trait RpcProto {
-    fn make_seq(&self) -> SeqType;
-    fn send_request(&self, request: &Request);
-    fn is_ready(&self) -> bool;
-}
-
 pub struct RpcImpl {
     weak: Weak<Rpc>,
     connection: Rc<RefCell<dyn Connection>>,
@@ -124,15 +118,15 @@ impl Rpc {
     }
 }
 
-impl RpcProto for Rpc {
-    fn make_seq(&self) -> SeqType {
+impl Rpc {
+    pub fn make_seq(&self) -> SeqType {
         let mut inner = self.inner.borrow_mut();
         let seq = inner.seq;
         inner.seq += 1;
         seq
     }
 
-    fn send_request(&self, request: &Request) {
+    pub fn send_request(&self, request: &Request) {
         let msg;
         let payload;
         let connection;
@@ -180,7 +174,7 @@ impl RpcProto for Rpc {
         connection.borrow().send_package(payload);
     }
 
-    fn is_ready(&self) -> bool {
+    pub fn is_ready(&self) -> bool {
         self.inner.borrow().is_ready
     }
 }

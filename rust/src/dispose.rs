@@ -1,6 +1,6 @@
 use std::rc::{Rc, Weak};
 
-use crate::request::{DisposeProto, Request};
+use crate::request::Request;
 
 pub struct Dispose {
     requests: Vec<Weak<Request>>,
@@ -27,12 +27,12 @@ impl Drop for Dispose {
     }
 }
 
-impl DisposeProto for Dispose {
-    fn add(&mut self, request: &Rc<Request>) {
+impl Dispose {
+    pub fn add(&mut self, request: &Rc<Request>) {
         self.requests.push(Rc::downgrade(&request));
     }
 
-    fn remove(&mut self, request: &Rc<Request>) {
+    pub fn remove(&mut self, request: &Rc<Request>) {
         if let Some(index) = self.requests.iter().position(|r| {
             let Some(r) = r.upgrade() else {
                 return true;
