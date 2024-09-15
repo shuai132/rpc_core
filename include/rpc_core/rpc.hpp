@@ -11,11 +11,13 @@
 #include "detail/callable/callable.hpp"
 #include "detail/msg_dispatcher.hpp"
 #include "detail/noncopyable.hpp"
-#include "request.hpp"
 
 namespace rpc_core {
 
-class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, public request::rpc_proto {
+class request;
+using request_s = std::shared_ptr<request>;
+
+class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
  public:
   using timeout_cb = detail::msg_dispatcher::timeout_cb;
 
@@ -34,7 +36,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
     RPC_CORE_LOGD("rpc: %p", this);
   }
 
-  ~rpc() override {
+  ~rpc() {
     RPC_CORE_LOGD("~rpc: %p", this);
   };
 
@@ -64,38 +66,20 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   }
 
  public:
-  inline request_s create_request() {
-    return request::create(shared_from_this());
-  }
+  inline request_s create_request();
 
-  inline request_s cmd(cmd_type cmd) {
-    return create_request()->cmd(std::move(cmd));
-  }
+  inline request_s cmd(cmd_type cmd);
 
-  inline request_s ping(std::string payload = {}) {  // NOLINT
-    return create_request()->ping()->msg(std::move(payload));
-  }
+  inline request_s ping(std::string payload = {});
 
  public:
-  seq_type make_seq() override {
+  inline seq_type make_seq() {
     return seq_++;
   }
 
-  void send_request(request const* request) override {
-    if (request->need_rsp_) {
-      dispatcher_->subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);
-    }
-    detail::msg_wrapper msg;
-    msg.type = static_cast<detail::msg_wrapper::msg_type>(detail::msg_wrapper::command | (request->is_ping_ ? detail::msg_wrapper::ping : 0) |
-                                                          (request->need_rsp_ ? detail::msg_wrapper::need_rsp : 0));
-    msg.cmd = request->cmd_;
-    msg.seq = request->seq_;
-    msg.request_payload = &request->payload_;
-    RPC_CORE_LOGD("=> seq:%u type:%s %s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::ping) ? "ping" : "cmd", msg.cmd.c_str());
-    conn_->send_package_impl(detail::coder::serialize(msg));
-  }
+  inline void send_request(request const* request);
 
-  inline bool is_ready() const override {
+  inline bool is_ready() const {
     return is_ready_;
   }
 
@@ -163,5 +147,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc>, publi
   seq_type seq_{0};
   bool is_ready_ = false;
 };
+
+using rpc_s = std::shared_ptr<rpc>;
 
 }  // namespace rpc_core

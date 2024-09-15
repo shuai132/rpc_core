@@ -15,19 +15,19 @@
 
 namespace rpc_core {
 
-class dispose : detail::noncopyable, public request::dispose_proto {
+class dispose : detail::noncopyable {
  public:
   static std::shared_ptr<dispose> create() {
     return std::make_shared<dispose>();
   }
 
  public:
-  void add(const request_s& request) override {
+  void add(const request_s& request) {
     RPC_CORE_LOGV("add: ptr:%p", request.get());
     requests_.push_back(request_w{request});
   }
 
-  void remove(const request_s& request) override {
+  void remove(const request_s& request) {
     RPC_CORE_LOGV("remove: ptr:%p", request.get());
     auto iter = std::remove_if(requests_.begin(), requests_.end(), [&](request_w& param) {
       auto r = param.lock();
@@ -47,7 +47,7 @@ class dispose : detail::noncopyable, public request::dispose_proto {
     requests_.clear();
   }
 
-  ~dispose() override {
+  ~dispose() {
     RPC_CORE_LOGD("~dispose: size:%zu", requests_.size());
     dismiss();
   }

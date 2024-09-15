@@ -19,27 +19,17 @@
 
 namespace rpc_core {
 
+class rpc;
+using rpc_s = std::shared_ptr<rpc>;
+using rpc_w = std::weak_ptr<rpc>;
+class dispose;
+
 class request : detail::noncopyable, public std::enable_shared_from_this<request> {
   friend class rpc;
 
  public:
   using request_s = std::shared_ptr<request>;
   using request_w = std::weak_ptr<request>;
-
-  struct rpc_proto {
-    virtual ~rpc_proto() = default;
-    virtual seq_type make_seq() = 0;
-    virtual void send_request(request const*) = 0;
-    virtual bool is_ready() const = 0;
-  };
-  using send_proto_s = std::shared_ptr<rpc_proto>;
-  using send_proto_w = std::weak_ptr<rpc_proto>;
-
-  struct dispose_proto {
-    virtual ~dispose_proto() = default;
-    virtual void add(const request_s& request) = 0;
-    virtual void remove(const request_s& request) = 0;
-  };
 
   enum class finally_t : int {
     normal = 0,
@@ -77,7 +67,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
  public:
   template <typename... Args>
   static request_s create(Args&&... args) {
-    auto r = std::shared_ptr<request>(new request(std::forward<Args>(args)...), [](request* p) {
+    auto r = request_s(new request(std::forward<Args>(args)...), [](request* p) {
       delete p;
     });
     r->timeout(nullptr);
@@ -85,7 +75,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
  public:
-  std::shared_ptr<request> cmd(cmd_type cmd) {
+  request_s cmd(cmd_type cmd) {
     cmd_ = std::move(cmd);
     return shared_from_this();
   }
@@ -154,12 +144,12 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    * @param finally
    * @return
    */
-  std::shared_ptr<request> finally(std::function<void(finally_t)> finally) {
+  request_s finally(std::function<void(finally_t)> finally) {
     finally_ = std::move(finally);
     return shared_from_this();
   }
 
-  std::shared_ptr<request> finally(RPC_CORE_MOVE_PARAM(std::function<void()>) finally) {
+  request_s finally(RPC_CORE_MOVE_PARAM(std::function<void()>) finally) {
     finally_ = [RPC_CORE_MOVE_LAMBDA(finally)](finally_t t) {
       RPC_CORE_UNUSED(t);
       finally();
@@ -167,40 +157,14 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  void call(const send_proto_s& rpc = nullptr) {
-    waiting_rsp_ = true;
-
-    if (canceled_) {
-      on_finish(finally_t::canceled);
-      return;
-    }
-
-    self_keeper_ = shared_from_this();
-    if (rpc) {
-      rpc_ = rpc;
-    } else if (rpc_.expired()) {
-      on_finish(finally_t::rpc_expired);
-      return;
-    }
-
-    auto r = rpc_.lock();
-    if (!r->is_ready()) {
-      on_finish(finally_t::rpc_not_ready);
-      return;
-    }
-    seq_ = r->make_seq();
-    r->send_request(this);
-    if (!need_rsp_) {
-      on_finish(finally_t::no_need_rsp);
-    }
-  }
+  inline void call(const rpc_s& rpc = nullptr);
 
   request_s ping() {
     is_ping_ = true;
     return shared_from_this();
   }
 
-  std::shared_ptr<request> timeout_ms(uint32_t timeout_ms) {
+  request_s timeout_ms(uint32_t timeout_ms) {
     timeout_ms_ = timeout_ms;
     return shared_from_this();
   }
@@ -208,7 +172,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   /**
    * timeout callback for wait `rsp`
    */
-  std::shared_ptr<request> timeout(RPC_CORE_MOVE_PARAM(std::function<void()>) timeout_cb) {
+  request_s timeout(RPC_CORE_MOVE_PARAM(std::function<void()>) timeout_cb) {
     timeout_cb_ = [this, RPC_CORE_MOVE_LAMBDA(timeout_cb)] {
       if (timeout_cb) {
         timeout_cb();
@@ -225,11 +189,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  request_s add_to(dispose_proto& dispose) {
-    auto self = shared_from_this();
-    dispose.add(self);
-    return self;
-  }
+  inline request_s add_to(dispose& dispose);
 
   request_s cancel() {
     canceled(true);
@@ -259,12 +219,12 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  std::shared_ptr<request> rpc(send_proto_w rpc) {
+  request_s rpc(rpc_w rpc) {
     rpc_ = std::move(rpc);
     return shared_from_this();
   }
 
-  send_proto_w rpc() {
+  rpc_w rpc() {
     return rpc_;
   }
 
@@ -272,7 +232,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return canceled_;
   }
 
-  std::shared_ptr<request> canceled(bool canceled) {
+  request_s canceled(bool canceled) {
     canceled_ = canceled;
     return shared_from_this();
   }
@@ -286,14 +246,14 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   struct future_ret;
 
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  std::future<future_ret<R>> future(const send_proto_s& rpc = nullptr);
+  std::future<future_ret<R>> future(const rpc_s& rpc = nullptr);
 
   template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  std::future<future_ret<void>> future(const send_proto_s& rpc = nullptr);
+  std::future<future_ret<void>> future(const rpc_s& rpc = nullptr);
 #endif
 
  private:
-  explicit request(const send_proto_s& rpc = nullptr) : rpc_(rpc) {
+  explicit request(const rpc_s& rpc = nullptr) : rpc_(rpc) {
     RPC_CORE_LOGD("request: %p", this);
   }
   ~request() {
@@ -313,7 +273,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
  private:
-  send_proto_w rpc_;
+  rpc_w rpc_;
   request_s self_keeper_;
   seq_type seq_{};
   cmd_type cmd_;
@@ -343,7 +303,7 @@ struct request::future_ret<void> {
 };
 
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
-std::future<request::future_ret<R>> request::future(const request::send_proto_s& rpc) {
+std::future<request::future_ret<R>> request::future(const rpc_s& rpc) {
   auto promise = std::make_shared<std::promise<future_ret<R>>>();
   rsp([promise](R r) {
     promise->set_value({finally_t::normal, std::move(r)});
@@ -358,7 +318,7 @@ std::future<request::future_ret<R>> request::future(const request::send_proto_s&
 }
 
 template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
-std::future<request::future_ret<void>> request::future(const request::send_proto_s& rpc) {
+std::future<request::future_ret<void>> request::future(const rpc_s& rpc) {
   auto promise = std::make_shared<std::promise<request::future_ret<void>>>();
   rsp([promise] {
     promise->set_value({request::finally_t::normal});
