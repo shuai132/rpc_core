@@ -24,9 +24,10 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
  public:
   template <typename... Args>
   static std::shared_ptr<rpc> create(Args&&... args) {
-    return std::shared_ptr<rpc>(new rpc(std::forward<Args>(args)...), [](rpc* p) {
-      delete p;
-    });
+    struct helper : public rpc {
+      explicit helper(Args&&... a) : rpc(std::forward<Args>(a)...) {}
+    };
+    return std::make_shared<helper>(std::forward<Args>(args)...);
   }
 
  private:

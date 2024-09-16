@@ -67,9 +67,10 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
  public:
   template <typename... Args>
   static request_s create(Args&&... args) {
-    auto r = request_s(new request(std::forward<Args>(args)...), [](request* p) {
-      delete p;
-    });
+    struct helper : public request {
+      explicit helper(Args&&... a) : request(std::forward<Args>(a)...) {}
+    };
+    auto r = std::make_shared<helper>(std::forward<Args>(args)...);
     r->timeout(nullptr);
     return r;
   }
