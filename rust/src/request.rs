@@ -96,12 +96,12 @@ impl Request {
         r
     }
 
-    pub fn cmd<'a>(self: &'a Rc<Self>, cmd: impl ToString) -> &'a Rc<Self> {
+    pub fn cmd(self: &Rc<Self>, cmd: impl ToString) -> &Rc<Self> {
         self.inner.borrow_mut().cmd = cmd.to_string();
         self
     }
 
-    pub fn msg<'a, T>(self: &'a Rc<Self>, msg: T) -> &'a Rc<Self>
+    pub fn msg<T>(self: &Rc<Self>, msg: T) -> &Rc<Self>
     where
         T: serde::Serialize,
     {
@@ -115,7 +115,7 @@ impl Request {
         F: Fn(P) + 'static,
     {
         {
-            let weak = Rc::downgrade(&self);
+            let weak = Rc::downgrade(self);
             let mut request = self.inner.borrow_mut();
             request.need_rsp = true;
             request.rsp_handle = Some(Rc::new(move |msg| -> bool {
@@ -148,7 +148,7 @@ impl Request {
         self
     }
 
-    pub fn finally<'a, F>(self: &'a Rc<Self>, finally: F) -> &'a Rc<Self>
+    pub fn finally<F>(self: &Rc<Self>, finally: F) -> &Rc<Self>
     where
         F: Fn(FinallyType) + 'static,
     {
@@ -192,21 +192,21 @@ impl Request {
         self.call();
     }
 
-    pub fn ping<'a>(self: &'a Rc<Self>) -> &'a Rc<Self> {
+    pub fn ping(self: &Rc<Self>) -> &Rc<Self> {
         self.inner.borrow_mut().is_ping = true;
         self
     }
 
-    pub fn timeout_ms<'a>(self: &'a Rc<Self>, timeout_ms: u32) -> &'a Rc<Self> {
+    pub fn timeout_ms(self: &Rc<Self>, timeout_ms: u32) -> &Rc<Self> {
         self.inner.borrow_mut().timeout_ms = timeout_ms;
         self
     }
 
-    pub fn timeout<'a, F>(self: &'a Rc<Self>, timeout_cb: F) -> &'a Rc<Self>
+    pub fn timeout<F>(self: &Rc<Self>, timeout_cb: F) -> &Rc<Self>
     where
         F: Fn() + 'static,
     {
-        let weak = Rc::downgrade(&self);
+        let weak = Rc::downgrade(self);
         self.inner.borrow_mut().timeout_cb = Some(Rc::new(Box::new(move || {
             let this = weak.upgrade();
             if this.is_none() {
@@ -226,33 +226,33 @@ impl Request {
         self
     }
 
-    pub fn add_to<'a>(self: &'a Rc<Self>, dispose: &mut Dispose) -> &'a Rc<Self> {
-        dispose.add(&self);
+    pub fn add_to(self: &Rc<Self>, dispose: &mut Dispose) -> &Rc<Self> {
+        dispose.add(self);
         self
     }
 
-    pub fn cancel<'a>(self: &'a Rc<Self>) -> &'a Rc<Self> {
+    pub fn cancel(self: &Rc<Self>) -> &Rc<Self> {
         self.canceled(true);
         self.on_finish(FinallyType::Canceled);
         self
     }
 
-    pub fn reset_cancel<'a>(self: &'a Rc<Self>) -> &'a Rc<Self> {
+    pub fn reset_cancel(self: &Rc<Self>) -> &Rc<Self> {
         self.canceled(false);
         self
     }
 
-    pub fn retry<'a>(self: &'a Rc<Self>, count: i32) -> &'a Rc<Self> {
+    pub fn retry(self: &Rc<Self>, count: i32) -> &Rc<Self> {
         self.inner.borrow_mut().retry_count = count;
         self
     }
 
-    pub fn disable_rsp<'a>(self: &'a Rc<Self>) -> &'a Rc<Self> {
+    pub fn disable_rsp(self: &Rc<Self>) -> &Rc<Self> {
         self.inner.borrow_mut().need_rsp = false;
         self
     }
 
-    pub fn rpc<'a>(self: &'a Rc<Self>, rpc: Weak<Rpc>) -> &'a Rc<Self> {
+    pub fn rpc(self: &Rc<Self>, rpc: Weak<Rpc>) -> &Rc<Self> {
         self.inner.borrow_mut().rpc = Some(rpc);
         self
     }
@@ -265,7 +265,7 @@ impl Request {
         self.inner.borrow().canceled
     }
 
-    pub fn canceled<'a>(self: &'a Rc<Self>, canceled: bool) -> &'a Rc<Self> {
+    pub fn canceled(self: &Rc<Self>, canceled: bool) -> &Rc<Self> {
         self.inner.borrow_mut().canceled = canceled;
         self
     }
@@ -344,7 +344,7 @@ impl Request {
                     result: None,
                 });
             }
-            if let Some(waker) = std::mem::replace(&mut result.waker, None) {
+            if let Some(waker) = result.waker.take() {
                 waker.wake();
             }
         })

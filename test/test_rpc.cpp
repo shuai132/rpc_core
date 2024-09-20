@@ -111,6 +111,15 @@ void test_rpc() {
     request->call();
     ASSERT(!pass);
 
+    request->reset_cancel();
+    {  // remove
+      dispose dispose;
+      request->add_to(dispose);
+      dispose.remove(request);
+    }
+    request->call();
+    ASSERT(pass);
+
     RPC_CORE_LOGI("先创建request");
     pass = false;
     request::create()

@@ -34,7 +34,7 @@ class dispose : detail::noncopyable {
       if (!r) return true;
       return r == request;
     });
-    requests_.erase(iter);
+    requests_.erase(iter, requests_.end());
   }
 
   void dismiss() {

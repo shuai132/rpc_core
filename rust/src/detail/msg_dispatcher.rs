@@ -31,7 +31,7 @@ impl MsgDispatcher {
                 cmd_handle_map: HashMap::new(),
                 rsp_handle_map: HashMap::new(),
                 timer_impl: None,
-                this: this_weak.clone().into(),
+                this: this_weak.clone(),
             });
 
             let this_weak = this_weak.clone();
@@ -57,7 +57,7 @@ impl MsgDispatcher {
     }
 
     pub fn unsubscribe_cmd(&mut self, cmd: String) {
-        if let Some(_) = self.cmd_handle_map.remove(&cmd) {
+        if self.cmd_handle_map.remove(&cmd).is_some() {
             debug!("erase cmd: {}", cmd);
         } else {
             debug!("not subscribe cmd for: {}", cmd);
@@ -83,7 +83,7 @@ impl MsgDispatcher {
                     };
 
                     let mut this = this.borrow_mut();
-                    if let Some(_) = this.rsp_handle_map.remove(&seq) {
+                    if this.rsp_handle_map.remove(&seq).is_some() {
                         if let Some(timeout_cb) = &timeout_cb {
                             timeout_cb();
                         }

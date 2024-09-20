@@ -61,7 +61,7 @@ impl MsgWrapper {
         let mut msg = MsgWrapper::new();
         msg.type_ = MsgType::Response;
         msg.seq = seq;
-        msg.data = serde_json::to_string(&rsp).unwrap().into_bytes().into();
+        msg.data = serde_json::to_string(&rsp).unwrap().into_bytes();
         msg
     }
 }

@@ -2,13 +2,14 @@ use std::rc::{Rc, Weak};
 
 use crate::request::Request;
 
+#[derive(Default)]
 pub struct Dispose {
     requests: Vec<Weak<Request>>,
 }
 
 impl Dispose {
     pub fn new() -> Dispose {
-        Dispose { requests: vec![] }
+        Dispose::default()
     }
 
     pub fn dismiss(&mut self) {
@@ -29,21 +30,16 @@ impl Drop for Dispose {
 
 impl Dispose {
     pub fn add(&mut self, request: &Rc<Request>) {
-        self.requests.push(Rc::downgrade(&request));
+        self.requests.push(Rc::downgrade(request));
     }
 
     pub fn remove(&mut self, request: &Rc<Request>) {
-        if let Some(index) = self.requests.iter().position(|r| {
-            let Some(r) = r.upgrade() else {
-                return true;
-            };
-
-            if Rc::ptr_eq(&r, request) {
-                return true;
+        self.requests.retain(|r| {
+            !if let Some(r) = r.upgrade() {
+                Rc::ptr_eq(&r, request)
+            } else {
+                true
             }
-            return false;
-        }) {
-            self.requests.remove(index);
-        }
+        });
     }
 }

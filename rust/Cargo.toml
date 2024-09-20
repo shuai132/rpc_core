@@ -2,14 +2,14 @@
 name = "rpc-core"
 version = "0.3.2"
 description = "a tiny rpc library for rust"
-categories = ["rpc", "rpc-core"]
+categories = ["network-programming", "embedded"]
 homepage = "https://github.com/shuai132/rpc_core/tree/master/rust"
 repository = "https://github.com/shuai132/rpc_core"
 authors = ["liushuai <770722922@qq.com>"]
 readme = "README.md"
 license = "MIT"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.60"
 autotests = true
 
 [dependencies]
@@ -30,7 +30,7 @@ net = ["tokio", "tokio-stream"]
 features = ["full"]
 
 [dev-dependencies]
-env_logger = "0.10.0"
+env_logger = "0.11.5"
 
 [[test]]
 name = "rpc"

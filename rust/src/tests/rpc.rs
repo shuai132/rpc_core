@@ -80,6 +80,7 @@ fn rpc() {
 
     info!("--- test dispose ---");
     {
+        info!("--- dispose test RAII ---");
         rpc_s.subscribe("cmd", |_: String| -> String {
             assert!(false);
             "".to_string()
@@ -100,6 +101,30 @@ fn rpc() {
         {
             let mut dispose = rpc_core::dispose::Dispose::new();
             request.add_to(&mut dispose);
+        }
+        request.call();
+        assert!(*pass.borrow());
+    }
+    {
+        info!("--- dispose test remove ---");
+        rpc_s.subscribe("cmd", |_: String| -> String { "".to_string() });
+
+        let pass = Rc::new(RefCell::new(false));
+        let pass_clone = pass.clone();
+        let request = rpc_c.cmd("cmd");
+        request
+            .msg("hello")
+            .rsp(|_: String| {
+                assert!(true);
+            })
+            .finally(move |t| {
+                assert_eq!(t, FinallyType::Normal);
+                *pass_clone.borrow_mut() = true;
+            });
+        {
+            let mut dispose = rpc_core::dispose::Dispose::new();
+            request.add_to(&mut dispose);
+            dispose.remove(&request);
         }
         request.call();
         assert!(*pass.borrow());

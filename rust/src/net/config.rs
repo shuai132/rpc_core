@@ -24,7 +24,7 @@ impl TcpConfig {
 
 impl TcpConfig {
     pub fn init(&mut self) {
-        if !self.auto_pack && self.max_body_size == std::u32::MAX {
+        if !self.auto_pack && self.max_body_size == u32::MAX {
             self.max_body_size = 1024;
         }
     }

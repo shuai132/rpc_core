@@ -23,6 +23,7 @@ pub struct Rpc {
 }
 
 impl Rpc {
+    #[allow(clippy::unwrap_or_default)]
     pub fn new(connection: Option<Rc<RefCell<dyn Connection>>>) -> Rc<Rpc> {
         let connection = connection.unwrap_or(DefaultConnection::new());
         let rpc = Rc::new(Rpc {
@@ -137,20 +138,18 @@ impl Rpc {
                     request.timeout_ms,
                 );
             }
+            let mut type_ = MsgType::Command;
+            if request.is_ping {
+                type_ |= MsgType::Ping;
+            }
+            if request.need_rsp {
+                type_ |= MsgType::NeedRsp;
+            }
             msg = MsgWrapper {
                 seq: request.seq,
-                type_: (|| {
-                    let mut type_val = MsgType::Command;
-                    if request.is_ping {
-                        type_val |= MsgType::Ping;
-                    }
-                    if request.need_rsp {
-                        type_val |= MsgType::NeedRsp;
-                    }
-                    type_val
-                })(),
+                type_,
                 cmd: request.cmd.clone(),
-                data: request.payload.clone().unwrap_or(vec![]),
+                data: request.payload.clone().unwrap_or_default(),
                 request_payload: None,
             };
 

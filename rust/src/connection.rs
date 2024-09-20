@@ -45,6 +45,7 @@ impl Connection for DefaultConnection {
 pub struct LoopbackConnection;
 
 impl LoopbackConnection {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> (
         Rc<RefCell<DefaultConnection>>,
         Rc<RefCell<DefaultConnection>>,

@@ -190,7 +190,7 @@ impl TcpChannel {
         let mut buffer = vec![];
         let read_result = read_half.read_buf(&mut buffer).await.ok();
 
-        return if read_result.is_some() && !buffer.is_empty() {
+        if read_result.is_some() && !buffer.is_empty() {
             if let Some(on_data) = self.on_data.borrow().as_ref() {
                 on_data(buffer);
             }
@@ -198,27 +198,27 @@ impl TcpChannel {
         } else {
             self.do_close();
             false
-        };
+        }
     }
 
     async fn do_read_header(&self, read_half: &mut ReadHalf<TcpStream>) -> bool {
         let mut buffer = [0u8; 4];
         let read_result = read_half.read_exact(&mut buffer).await.ok();
 
-        return if read_result.is_some() {
+        if read_result.is_some() {
             let body_size = u32::from_le_bytes(buffer);
             self.do_read_body(read_half, body_size).await
         } else {
             self.do_close();
             false
-        };
+        }
     }
 
     async fn do_read_body(&self, read_half: &mut ReadHalf<TcpStream>, body_size: u32) -> bool {
         let mut buffer: Vec<u8> = vec![0; body_size as usize];
         let read_result = read_half.read_exact(&mut buffer).await.ok();
 
-        return if read_result.is_some() {
+        if read_result.is_some() {
             if let Some(on_data) = self.on_data.borrow().as_ref() {
                 on_data(buffer);
             }
@@ -226,7 +226,7 @@ impl TcpChannel {
         } else {
             self.do_close();
             false
-        };
+        }
     }
 }
 

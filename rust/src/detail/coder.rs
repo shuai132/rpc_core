@@ -4,8 +4,7 @@ use crate::type_def::SeqType;
 const PAYLOAD_MIN_LEN: usize = 4 /*seq*/ + 2 /*cmdLen*/ + 1 /*type*/;
 
 pub fn serialize(msg: &MsgWrapper) -> Vec<u8> {
-    let mut payload: Vec<u8> = vec![];
-    payload.reserve(PAYLOAD_MIN_LEN);
+    let mut payload: Vec<u8> = Vec::with_capacity(PAYLOAD_MIN_LEN);
     payload.extend_from_slice(&msg.seq.to_le_bytes());
     let cmd_len: u16 = msg.cmd.len() as u16;
     payload.extend_from_slice(&cmd_len.to_le_bytes());
@@ -20,7 +19,7 @@ pub fn serialize(msg: &MsgWrapper) -> Vec<u8> {
     payload
 }
 
-pub fn deserialize(payload: &Vec<u8>) -> Option<MsgWrapper> {
+pub fn deserialize(payload: &[u8]) -> Option<MsgWrapper> {
     if payload.len() < PAYLOAD_MIN_LEN {
         return None;
     }
@@ -33,8 +32,7 @@ pub fn deserialize(payload: &Vec<u8>) -> Option<MsgWrapper> {
         msg.seq = *(p as *const SeqType);
         p = p.add(4);
 
-        let cmd_len: u16;
-        cmd_len = *(p as *const u16);
+        let cmd_len: u16 = *(p as *const u16);
         p = p.add(2);
 
         msg.cmd = String::from_utf8_unchecked(Vec::from(std::slice::from_raw_parts(
