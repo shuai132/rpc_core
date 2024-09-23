@@ -9,7 +9,7 @@ authors = ["liushuai <770722922@qq.com>"]
 readme = "README.md"
 license = "MIT"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.81"
 autotests = true
 
 [dependencies]

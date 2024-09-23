@@ -364,7 +364,7 @@ impl Request {
         request.waiting_rsp = false;
         debug!("on_finish: cmd:{} type:{:?}", request.cmd, type_);
         request.finally_type = type_;
-        if let Some(finally) = request.finally.take() {
+        if let Some(finally) = request.finally.as_ref() {
             finally(request.finally_type.clone());
         }
         request.self_keeper = None;
