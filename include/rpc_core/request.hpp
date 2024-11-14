@@ -4,7 +4,7 @@
 #include <memory>
 #include <utility>
 
-#ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
+#ifdef RPC_CORE_FEATURE_FUTURE
 #include <future>
 #endif
 
@@ -238,19 +238,35 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-#ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
+  template <typename T>
+  struct future_ret;
+
+#ifdef RPC_CORE_FEATURE_FUTURE
   /**
    * Future pattern
    * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
    */
-  template <typename T>
-  struct future_ret;
-
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
   std::future<future_ret<R>> future(const rpc_s& rpc = nullptr);
 
-  template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
+  template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
   std::future<future_ret<void>> future(const rpc_s& rpc = nullptr);
+#endif
+
+#ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
+  template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
+  auto async_call();
+
+  template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
+  auto async_call();
+#endif
+
+#ifdef RPC_CORE_FEATURE_ASYNC_CUSTOM
+  template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
+  auto RPC_CORE_FEATURE_ASYNC_CUSTOM();
+
+  template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
+  auto RPC_CORE_FEATURE_ASYNC_CUSTOM();
 #endif
 
  private:
@@ -291,7 +307,6 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   bool is_ping_ = false;
 };
 
-#ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
 template <typename T>
 struct request::future_ret {
   finally_t type;
@@ -303,6 +318,7 @@ struct request::future_ret<void> {
   finally_t type;
 };
 
+#ifdef RPC_CORE_FEATURE_FUTURE
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
 std::future<request::future_ret<R>> request::future(const rpc_s& rpc) {
   auto promise = std::make_shared<std::promise<future_ret<R>>>();
@@ -331,6 +347,55 @@ std::future<request::future_ret<void>> request::future(const rpc_s& rpc) {
   });
   call(rpc);
   return promise->get_future();
+}
+#endif
+
+#ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
+template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
+auto request::async_call() {
+  asio::use_awaitable_t<> use_awaitable = {};
+  return asio::async_initiate<asio::use_awaitable_t<>, void(rpc_core::request::future_ret<R>)>(
+      [this]<typename Handler>(Handler&& h) mutable {
+        auto handler = std::make_shared<Handler>(std::forward<Handler>(h));
+        rsp([handler](R data) mutable {
+          rpc_core::request::future_ret<R> ret;
+          ret.type = finally_t::normal;
+          ret.data = std::move(data);
+          (*handler)(std::move(ret));
+        });
+        finally([handler = std::move(handler)](finally_t type) {
+          if (type != finally_t::normal) {
+            rpc_core::request::future_ret<R> ret;
+            ret.type = type;
+            (*handler)(std::move(ret));
+          }
+        });
+        call();
+      },
+      use_awaitable);
+}
+
+template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
+auto request::async_call() {
+  asio::use_awaitable_t<> use_awaitable = {};
+  return asio::async_initiate<asio::use_awaitable_t<>, void(rpc_core::request::future_ret<void>)>(
+      [this]<typename Handler>(Handler&& h) mutable {
+        auto handler = std::make_shared<Handler>(std::forward<Handler>(h));
+        rsp([handler]() mutable {
+          rpc_core::request::future_ret<R> ret;
+          ret.type = finally_t::normal;
+          (*handler)(std::move(ret));
+        });
+        finally([handler = std::move(handler)](finally_t type) {
+          if (type != finally_t::normal) {
+            rpc_core::request::future_ret<R> ret;
+            ret.type = type;
+            (*handler)(std::move(ret));
+          }
+        });
+        call();
+      },
+      use_awaitable);
 }
 #endif
 

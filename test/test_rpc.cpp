@@ -301,7 +301,7 @@ void test_rpc() {
     ASSERT(pass);
   }
 
-#ifndef RPC_CORE_FEATURE_DISABLE_FUTURE
+#ifdef RPC_CORE_FEATURE_FUTURE
   RPC_CORE_LOG("7. future模式测试");
   {
     {
@@ -310,7 +310,7 @@ void test_rpc() {
       ASSERT(result.data == "test");
     }
     {
-      auto result = rpc_c->ping()->future<void>().get();
+      auto result = rpc_c->ping()->future().get();
       ASSERT(result.type == finally_t::normal);
     }
   }

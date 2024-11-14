@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/release/shuai132/rpc_core.svg)](https://github.com/shuai132/rpc_core/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-a tiny c++14 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
+a tiny C++14 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
 Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
@@ -30,6 +30,7 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 * RAII-based `dispose` for automatic cancel request
 * Timeout and Retry API
 * Support `std::future` interface
+* Support `co_await`, depend on `C++20` and `asio`, or custom implementation
 
 ## TCP-based implementations
 
@@ -65,11 +66,20 @@ rpc->cmd("cmd")
       assert(rsp == "world");
     })
     ->call();
+
+// Or use C++20 co_await with asio
+auto rsp = co_await rpc->cmd("cmd")->msg(std::string("hello"))->async_call<std::string>();
+assert(rsp.data == "world");
+
+// Or you can use custom async implementation, and co_await it!
 ```
 
-`msg` and `rsp` support any serializable type, see [Serialization](#Serialization).
+Addition:
 
-Detailed usages and unittests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
+1. `msg` and `rsp` support any serializable type, see [Serialization](#Serialization).
+2. Detailed usages and unittests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
+3. There is an example shows custom async
+   impl: [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.cpp)
 
 ## Serialization
 
