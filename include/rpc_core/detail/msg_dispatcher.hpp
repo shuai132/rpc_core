@@ -24,8 +24,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   explicit msg_dispatcher(std::shared_ptr<connection> conn) : conn_(std::move(conn)) {}
 
   void init() {
-    auto self = std::weak_ptr<msg_dispatcher>(shared_from_this());
-    conn_->on_recv_package = ([RPC_CORE_MOVE_LAMBDA(self)](const std::string& payload) {
+    conn_->on_recv_package = ([self = std::weak_ptr<msg_dispatcher>(shared_from_this())](const std::string& payload) {
       auto self_lock = self.lock();
       if (!self_lock) {
         RPC_CORE_LOGD("msg_dispatcher expired");
@@ -122,7 +121,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
     }
   }
 
-  void subscribe_rsp(seq_type seq, rsp_handle handle, RPC_CORE_MOVE_PARAM(timeout_cb) timeout_cb, uint32_t timeout_ms) {
+  void subscribe_rsp(seq_type seq, rsp_handle handle, timeout_cb timeout_cb, uint32_t timeout_ms) {
     RPC_CORE_LOGD("subscribe_rsp seq:%u", seq);
     if (handle == nullptr) return;
 
@@ -132,8 +131,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
     }
 
     rsp_handle_map_[seq] = std::move(handle);
-    auto self = std::weak_ptr<msg_dispatcher>(shared_from_this());
-    timer_impl_(timeout_ms, [RPC_CORE_MOVE_LAMBDA(self), seq, RPC_CORE_MOVE_LAMBDA(timeout_cb)] {
+    timer_impl_(timeout_ms, [self = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq, timeout_cb = std::move(timeout_cb)] {
       auto self_lock = self.lock();
       if (!self_lock) {
         RPC_CORE_LOGD("seq:%u timeout after destroy", seq);

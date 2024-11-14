@@ -88,12 +88,12 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   template <typename F, typename std::enable_if<callable_traits<F>::argc, int>::type = 0>
-  request_s rsp(RPC_CORE_MOVE_PARAM(F) cb) {
+  request_s rsp(F cb) {
     using T = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
 
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb)](detail::msg_wrapper msg) {
+    this->rsp_handle_ = [this, cb = std::move(cb)](detail::msg_wrapper msg) mutable {
       if (canceled_) {
         on_finish(finally_t::canceled);
         return true;
@@ -118,10 +118,10 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   template <typename F, typename std::enable_if<!callable_traits<F>::argc, int>::type = 0>
-  request_s rsp(RPC_CORE_MOVE_PARAM(F) cb) {
+  request_s rsp(F cb) {
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, RPC_CORE_MOVE_LAMBDA(cb)](const detail::msg_wrapper& msg) {
+    this->rsp_handle_ = [this, cb = std::move(cb)](const detail::msg_wrapper& msg) mutable {
       RPC_CORE_UNUSED(msg);
       if (canceled_) {
         on_finish(finally_t::canceled);
@@ -150,8 +150,8 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  request_s finally(RPC_CORE_MOVE_PARAM(std::function<void()>) finally) {
-    finally_ = [RPC_CORE_MOVE_LAMBDA(finally)](finally_t t) {
+  request_s finally(std::function<void()> finally) {
+    finally_ = [finally = std::move(finally)](finally_t t) mutable {
       RPC_CORE_UNUSED(t);
       finally();
     };
@@ -173,8 +173,8 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   /**
    * timeout callback for wait `rsp`
    */
-  request_s timeout(RPC_CORE_MOVE_PARAM(std::function<void()>) timeout_cb) {
-    timeout_cb_ = [this, RPC_CORE_MOVE_LAMBDA(timeout_cb)] {
+  request_s timeout(std::function<void()> timeout_cb) {
+    timeout_cb_ = [this, timeout_cb = std::move(timeout_cb)]() mutable {
       if (timeout_cb) {
         timeout_cb();
       }

@@ -15,7 +15,7 @@ if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(RPC_CORE_BUILD_TEST ON)
 endif ()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 if (MSVC)
     add_compile_options(/Zc:preprocessor)
     add_compile_options(/utf-8)

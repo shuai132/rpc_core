@@ -330,6 +330,18 @@ void test_rpc() {
         ->call();
     ASSERT(pass);
   }
+
+  RPC_CORE_LOG("9. 测试编译lambda capture mutable");
+  {
+    auto rpc = rpc::create();
+    std::string tmp;
+    rpc->subscribe("", [tmp]() mutable {
+      tmp = "";
+    });
+    rpc->cmd("")->rsp([tmp]() mutable {
+      tmp = "";
+    });
+  }
 }
 
 }  // namespace rpc_core_test

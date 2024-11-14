@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/release/shuai132/rpc_core.svg)](https://github.com/shuai132/rpc_core/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-a tiny c++11 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
+a tiny c++14 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
 Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
@@ -43,7 +43,7 @@ For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Requirements
 
-* C++11
+* C++14
 * Provide your connection implementation: [connection](include/rpc_core/connection.hpp)  
   NOTICE: complete data packets are required for data transmission, such as `websocket`.  
   If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented.

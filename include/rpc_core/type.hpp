@@ -8,14 +8,6 @@
 
 namespace rpc_core {
 
-#if __cplusplus >= 201402L
-#define RPC_CORE_MOVE_LAMBDA(arg) arg = std::move(arg)
-#define RPC_CORE_MOVE_PARAM(arg) arg
-#else
-#define RPC_CORE_MOVE_LAMBDA(arg) arg
-#define RPC_CORE_MOVE_PARAM(arg) const arg&
-#endif
-
 #define RPC_CORE_UNUSED(x) (void)x
 
 using cmd_type = std::string;
