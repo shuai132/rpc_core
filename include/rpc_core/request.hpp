@@ -87,7 +87,38 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  template <typename F, typename std::enable_if<callable_traits<F>::argc, int>::type = 0>
+  template <typename F, typename std::enable_if<callable_traits<F>::argc == 2, int>::type = 0>
+  request_s rsp(F cb) {
+    using T = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
+
+    need_rsp_ = true;
+    auto self = shared_from_this();
+    this->rsp_handle_ = [this, cb = std::move(cb)](detail::msg_wrapper msg) mutable {
+      if (canceled_) {
+        on_finish(finally_t::canceled);
+        return true;
+      }
+
+      if (msg.type & detail::msg_wrapper::msg_type::no_such_cmd) {
+        on_finish(finally_t::no_such_cmd);
+        return true;
+      }
+
+      auto rsp = msg.unpack_as<T>();
+      if (rsp.first) {
+        cb(std::move(rsp.second), finally_t::normal);
+        on_finish(finally_t::normal);
+        return true;
+      } else {
+        cb({}, finally_t::rsp_serialize_error);
+        on_finish(finally_t::rsp_serialize_error);
+        return false;
+      }
+    };
+    return self;
+  }
+
+  template <typename F, typename std::enable_if<callable_traits<F>::argc == 1, int>::type = 0>
   request_s rsp(F cb) {
     using T = detail::remove_cvref_t<typename callable_traits<F>::template argument_type<0>>;
 
@@ -117,7 +148,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return self;
   }
 
-  template <typename F, typename std::enable_if<!callable_traits<F>::argc, int>::type = 0>
+  template <typename F, typename std::enable_if<callable_traits<F>::argc == 0, int>::type = 0>
   request_s rsp(F cb) {
     need_rsp_ = true;
     auto self = shared_from_this();
@@ -213,10 +244,20 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   /**
-   * Force to ignore `rsp` callback.
+   * Force ignoring `rsp` callback.
    */
   request_s disable_rsp() {
     need_rsp_ = false;
+    return shared_from_this();
+  }
+
+  request_s enable_rsp() {
+    need_rsp_ = true;
+    return shared_from_this();
+  }
+
+  request_s mark_need_rsp() {
+    rsp([] {});
     return shared_from_this();
   }
 
@@ -239,7 +280,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   template <typename T>
-  struct future_ret;
+  struct result;
 
 #ifdef RPC_CORE_FEATURE_FUTURE
   /**
@@ -247,26 +288,26 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    * It is not recommended to use blocking interfaces unless you are very clear about what you are doing, as it is easy to cause deadlock.
    */
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  std::future<future_ret<R>> future(const rpc_s& rpc = nullptr);
+  std::future<result<R>> future(const rpc_s& rpc = nullptr);
 
   template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  std::future<future_ret<void>> future(const rpc_s& rpc = nullptr);
+  std::future<result<void>> future(const rpc_s& rpc = nullptr);
 #endif
 
 #ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  auto async_call();
+  asio::awaitable<result<R>> async_call();
 
   template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  auto async_call();
+  asio::awaitable<result<R>> async_call();
 #endif
 
 #ifdef RPC_CORE_FEATURE_ASYNC_CUSTOM
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  auto RPC_CORE_FEATURE_ASYNC_CUSTOM();
+  RPC_CORE_FEATURE_ASYNC_CUSTOM_R RPC_CORE_FEATURE_ASYNC_CUSTOM();
 
   template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  auto RPC_CORE_FEATURE_ASYNC_CUSTOM();
+  RPC_CORE_FEATURE_ASYNC_CUSTOM_R RPC_CORE_FEATURE_ASYNC_CUSTOM();
 #endif
 
  private:
@@ -308,42 +349,33 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 };
 
 template <typename T>
-struct request::future_ret {
+struct request::result {
   finally_t type;
   T data;
 };
 
 template <>
-struct request::future_ret<void> {
+struct request::result<void> {
   finally_t type;
 };
 
 #ifdef RPC_CORE_FEATURE_FUTURE
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
-std::future<request::future_ret<R>> request::future(const rpc_s& rpc) {
-  auto promise = std::make_shared<std::promise<future_ret<R>>>();
-  rsp([promise](R r) {
-    promise->set_value({finally_t::normal, std::move(r)});
-  });
-  finally([promise](finally_t type) {
-    if (type != finally_t::normal) {
-      promise->set_value({type, {}});
-    }
+std::future<request::result<R>> request::future(const rpc_s& rpc) {
+  auto promise = std::make_shared<std::promise<result<R>>>();
+  rsp([promise](R r, finally_t type) {
+    promise->set_value({type, std::move(r)});
   });
   call(rpc);
   return promise->get_future();
 }
 
 template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
-std::future<request::future_ret<void>> request::future(const rpc_s& rpc) {
-  auto promise = std::make_shared<std::promise<request::future_ret<void>>>();
-  rsp([promise] {
-    promise->set_value({request::finally_t::normal});
-  });
+std::future<request::result<void>> request::future(const rpc_s& rpc) {
+  auto promise = std::make_shared<std::promise<request::result<void>>>();
+  mark_need_rsp();
   finally([promise](request::finally_t type) {
-    if (type != request::finally_t::normal) {
-      promise->set_value({type});
-    }
+    promise->set_value({type});
   });
   call(rpc);
   return promise->get_future();
@@ -352,50 +384,38 @@ std::future<request::future_ret<void>> request::future(const rpc_s& rpc) {
 
 #ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
-auto request::async_call() {
-  asio::use_awaitable_t<> use_awaitable = {};
-  return asio::async_initiate<asio::use_awaitable_t<>, void(rpc_core::request::future_ret<R>)>(
-      [this]<typename Handler>(Handler&& h) mutable {
-        auto handler = std::make_shared<Handler>(std::forward<Handler>(h));
-        rsp([handler](R data) mutable {
-          rpc_core::request::future_ret<R> ret;
-          ret.type = finally_t::normal;
-          ret.data = std::move(data);
-          (*handler)(std::move(ret));
-        });
-        finally([handler = std::move(handler)](finally_t type) {
-          if (type != finally_t::normal) {
-            rpc_core::request::future_ret<R> ret;
-            ret.type = type;
-            (*handler)(std::move(ret));
-          }
+asio::awaitable<request::result<R>> request::async_call() {
+  auto executor = co_await asio::this_coro::executor;
+  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(rpc_core::request::result<R>)>(
+      [this, &executor](auto& self) mutable {
+        using ST = std::remove_reference<decltype(self)>::type;
+        auto self_sp = std::make_shared<ST>(std::forward<ST>(self));
+        rsp([&executor, self = std::move(self_sp)](R data, finally_t type) mutable {
+          asio::dispatch(executor, [self = std::move(self), data = std::move(data), type]() {
+            self->complete({type, data});
+          });
         });
         call();
       },
-      use_awaitable);
+      asio::use_awaitable);
 }
 
 template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
-auto request::async_call() {
-  asio::use_awaitable_t<> use_awaitable = {};
-  return asio::async_initiate<asio::use_awaitable_t<>, void(rpc_core::request::future_ret<void>)>(
-      [this]<typename Handler>(Handler&& h) mutable {
-        auto handler = std::make_shared<Handler>(std::forward<Handler>(h));
-        rsp([handler]() mutable {
-          rpc_core::request::future_ret<R> ret;
-          ret.type = finally_t::normal;
-          (*handler)(std::move(ret));
-        });
-        finally([handler = std::move(handler)](finally_t type) {
-          if (type != finally_t::normal) {
-            rpc_core::request::future_ret<R> ret;
-            ret.type = type;
-            (*handler)(std::move(ret));
-          }
+asio::awaitable<request::result<R>> request::async_call() {
+  auto executor = co_await asio::this_coro::executor;
+  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(rpc_core::request::result<R>)>(
+      [this, &executor](auto&& self) mutable {
+        using ST = std::remove_reference<decltype(self)>::type;
+        auto self_sp = std::make_shared<ST>(std::forward<ST>(self));
+        mark_need_rsp();
+        finally([&executor, self = std::move(self_sp)](finally_t type) mutable {
+          asio::dispatch(executor, [self = std::move(self), type] {
+            self->complete({type});
+          });
         });
         call();
       },
-      use_awaitable);
+      asio::use_awaitable);
 }
 #endif
 

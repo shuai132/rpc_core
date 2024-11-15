@@ -8,6 +8,8 @@
 a tiny C++14 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
 Arduino, STM32, ESP32/ESP8266, etc.)
 
+**Recommend TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)**
+
 ## Introduction
 
 Full-feature rpc frameworks (e.g. `gRPC` and `bRPC`) very complex and not suitable for embedded systems.
@@ -17,7 +19,7 @@ It supports all platforms and a wide range of microchips, including Arduino, STM
 
 Note:
 This project only offers the protocol layer and API, it **does not** include the implementation of the transport layer.
-For TCP-based implementations: [asio_net](https://github.com/shuai132/asio_net)
+For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Features
 
@@ -79,7 +81,7 @@ Addition:
 1. `msg` and `rsp` support any serializable type, see [Serialization](#Serialization).
 2. Detailed usages and unittests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
 3. There is an example shows custom async
-   impl: [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.cpp)
+   impl: [rpc_c_coroutine.hpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.hpp)
 
 ## Serialization
 

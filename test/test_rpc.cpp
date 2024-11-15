@@ -74,6 +74,7 @@ void test_rpc() {
                          ASSERT(rsp == "ok");
                          pass = true;
                        })
+                       // or: ->rsp([&](const std::string& msg, finally_t type){})
                        ->timeout([] {
                          RPC_CORE_LOGI("timeout");
                        })
@@ -319,7 +320,7 @@ void test_rpc() {
   RPC_CORE_LOG("8. 未ready的rpc对象");
   {
     bool pass = false;
-    auto rpc_tmp = rpc::create(loopback.first);
+    auto rpc_tmp = rpc::create();
     rpc_tmp->cmd("cmd")->call();  // should not crash
     rpc_tmp->cmd("cmd")
         ->finally([&](finally_t type) {
@@ -341,6 +342,27 @@ void test_rpc() {
     rpc->cmd("")->rsp([tmp]() mutable {
       tmp = "";
     });
+  }
+
+  RPC_CORE_LOG("10. rsp finally");
+  {
+    bool pass_cmd = false;
+    bool pass_rsp = false;
+    rpc_s->subscribe("cmd", [&](const std::string& msg) -> std::string {
+      ASSERT(msg == "test");
+      pass_cmd = true;
+      return "test";
+    });
+    rpc_c->cmd("cmd")
+        ->msg(std::string("test"))
+        ->rsp([&](const std::string& msg, finally_t type) {
+          ASSERT(msg == "test");
+          ASSERT(type == finally_t::normal);
+          pass_rsp = true;
+        })
+        ->call();
+    ASSERT(pass_cmd);
+    ASSERT(pass_rsp);
   }
 }
 
