@@ -12,7 +12,7 @@ Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
 
-Full-feature rpc frameworks (e.g. `gRPC` and `bRPC`) very complex and not suitable for embedded systems.
+Full-feature rpc frameworks (e.g. `gRPC` and `bRPC`) are very complex and not suitable for embedded systems.
 
 This project offers a lightweight and user-friend rpc library that is better suited for one-to-one rpc calls.
 It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
@@ -51,6 +51,7 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
   NOTICE: complete data packets are required for data transmission, such as `websocket`.  
   If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented.
   Or you can use [stream_connection](include/rpc_core/connection.hpp).
+* Optional: C++20 (for coroutine api, co_await async_call)
 
 ## Usage
 

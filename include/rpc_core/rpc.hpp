@@ -150,5 +150,6 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
 };
 
 using rpc_s = std::shared_ptr<rpc>;
+using rpc_w = std::weak_ptr<rpc>;
 
 }  // namespace rpc_core
