@@ -39,20 +39,9 @@ request_s request::add_to(dispose& dispose) {
   return self;
 }
 
-template <typename T>
-struct request::result {
-  finally_t type;
-  T data;
-};
-
-template <>
-struct request::result<void> {
-  finally_t type;
-};
-
 #ifdef RPC_CORE_FEATURE_FUTURE
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
-std::future<request::result<R>> request::future(const rpc_s& rpc) {
+std::future<result<R>> request::future(const rpc_s& rpc) {
   auto promise = std::make_shared<std::promise<result<R>>>();
   rsp([promise](R r, finally_t type) {
     promise->set_value({type, std::move(r)});
@@ -62,10 +51,10 @@ std::future<request::result<R>> request::future(const rpc_s& rpc) {
 }
 
 template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
-std::future<request::result<void>> request::future(const rpc_s& rpc) {
-  auto promise = std::make_shared<std::promise<request::result<void>>>();
+std::future<result<void>> request::future(const rpc_s& rpc) {
+  auto promise = std::make_shared<std::promise<result<void>>>();
   mark_need_rsp();
-  finally([promise](request::finally_t type) {
+  finally([promise](finally_t type) {
     promise->set_value({type});
   });
   call(rpc);
@@ -75,9 +64,9 @@ std::future<request::result<void>> request::future(const rpc_s& rpc) {
 
 #ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
-asio::awaitable<request::result<R>> request::async_call() {
+asio::awaitable<result<R>> request::async_call() {
   auto executor = co_await asio::this_coro::executor;
-  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(rpc_core::request::result<R>)>(
+  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
       [this, &executor](auto& self) mutable {
         using ST = std::remove_reference<decltype(self)>::type;
         auto self_sp = std::make_shared<ST>(std::forward<ST>(self));
@@ -92,9 +81,9 @@ asio::awaitable<request::result<R>> request::async_call() {
 }
 
 template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
-asio::awaitable<request::result<R>> request::async_call() {
+asio::awaitable<result<R>> request::async_call() {
   auto executor = co_await asio::this_coro::executor;
-  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(rpc_core::request::result<R>)>(
+  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
       [this, &executor](auto& self) mutable {
         using ST = std::remove_reference<decltype(self)>::type;
         auto self_sp = std::make_shared<ST>(std::forward<ST>(self));

@@ -79,7 +79,7 @@ void test_rpc() {
                          RPC_CORE_LOGI("timeout");
                        })
                        ->finally([](finally_t type) {
-                         RPC_CORE_LOGI("finally: type:%s", rpc_core::request::finally_t_str(type));
+                         RPC_CORE_LOGI("finally: type:%s", rpc_core::finally_t_str(type));
                        });
     RPC_CORE_LOGI("执行请求");
     ASSERT(!pass);

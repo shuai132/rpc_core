@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <memory>
 #include <utility>
 
@@ -15,6 +14,7 @@
 #include "detail/callable/callable.hpp"
 #include "detail/msg_wrapper.hpp"
 #include "detail/noncopyable.hpp"
+#include "result.hpp"
 #include "serialize.hpp"
 
 namespace rpc_core {
@@ -30,39 +30,6 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
  public:
   using request_s = std::shared_ptr<request>;
   using request_w = std::weak_ptr<request>;
-
-  enum class finally_t : int {
-    normal = 0,
-    no_need_rsp = 1,
-    timeout = 2,
-    canceled = 3,
-    rpc_expired = 4,
-    rpc_not_ready = 5,
-    rsp_serialize_error = 6,
-    no_such_cmd = 7,
-  };
-  static inline const char* finally_t_str(finally_t t) {
-    switch (t) {
-      case finally_t::normal:
-        return "normal";
-      case finally_t::no_need_rsp:
-        return "no_need_rsp";
-      case finally_t::timeout:
-        return "timeout";
-      case finally_t::canceled:
-        return "canceled";
-      case finally_t::rpc_expired:
-        return "rpc_expired";
-      case finally_t::rpc_not_ready:
-        return "rpc_not_ready";
-      case finally_t::rsp_serialize_error:
-        return "rsp_serialize_error";
-      case finally_t::no_such_cmd:
-        return "no_such_cmd";
-      default:
-        return "unknown";
-    }
-  }
 
  public:
   template <typename... Args>
@@ -285,9 +252,6 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     return shared_from_this();
   }
 
-  template <typename T>
-  struct result;
-
 #ifdef RPC_CORE_FEATURE_FUTURE
   /**
    * Future pattern
@@ -356,6 +320,5 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
 using request_s = request::request_s;
 using request_w = request::request_w;
-using finally_t = request::finally_t;
 
 }  // namespace rpc_core
