@@ -11,6 +11,7 @@
 #include "detail/callable/callable.hpp"
 #include "detail/msg_dispatcher.hpp"
 #include "detail/noncopyable.hpp"
+#include "request_response.hpp"
 
 namespace rpc_core {
 
@@ -55,11 +56,52 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
   }
 
  public:
-  template <typename F>
+  template <typename F, typename std::enable_if<!detail::fp_is_request_response<F>::value, int>::type = 0>
   void subscribe(const cmd_type& cmd, F handle) {
     constexpr bool F_ReturnIsEmpty = std::is_void<typename detail::callable_traits<F>::return_type>::value;
     constexpr bool F_ParamIsEmpty = detail::callable_traits<F>::argc == 0;
     subscribe_helper<F, F_ReturnIsEmpty, F_ParamIsEmpty>()(cmd, std::move(handle), dispatcher_.get());
+  }
+
+  template <typename F, typename std::enable_if<detail::fp_is_request_response<F>::value, int>::type = 0>
+  void subscribe(const cmd_type& cmd, F handle) {
+    static_assert(std::is_void<typename detail::callable_traits<F>::return_type>::value, "should return void");
+    static_assert(detail::callable_traits<F>::argc == 1, "should be request_response<>");
+    dispatcher_->subscribe_cmd(cmd, [handle = std::move(handle)](const detail::msg_wrapper& msg) mutable {
+      using request_response = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
+      using request_response_impl = typename request_response::element_type;
+      static_assert(detail::is_request_response<request_response>::value, "should be request_response<>");
+      using Req = decltype(request_response_impl::req);
+      using Rsp = decltype(request_response_impl::rsp_data);
+      request_response rr = request_response_impl::create();
+      auto r = msg.unpack_as<Req>();
+      // notice lifecycle: request_response hold async_helper
+      // but async_helper->is_ready will hold rr lifetime for check if it is ready and get data
+      // it will be release in msg_dispatcher after check
+      auto async_helper = std::make_shared<detail::async_helper>();
+      async_helper->is_ready = [rr] {
+        return rr->rsp_ready;
+      };
+      async_helper->get_data = [rr = rr.get()] {
+        return std::move(rr->rsp_data);
+      };
+      if (r.first) {
+        rr->req = std::move(r.second);
+        rr->rsp = [rr = rr.get(), hp = async_helper](Rsp rsp) mutable {
+          if (rr->rsp_ready) {
+            RPC_CORE_LOGD("rsp should only call once");
+            return;
+          }
+          rr->rsp_ready = true;
+          rr->rsp_data = std::move(rsp);
+          if (hp->send_async_response) {  // means after handle()
+            hp->send_async_response(serialize(std::move(rr->rsp_data)));
+          }
+        };
+        handle(std::move(rr));
+      }
+      return detail::msg_wrapper::make_rsp_async(msg.seq, std::move(async_helper), r.first);
+    });
   }
 
   inline void unsubscribe(const cmd_type& cmd) {

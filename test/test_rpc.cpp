@@ -364,6 +364,33 @@ void test_rpc() {
     ASSERT(pass_cmd);
     ASSERT(pass_rsp);
   }
+
+  RPC_CORE_LOG("11. subscribe async");
+  {
+    bool pass_cmd = false;
+    bool pass_rsp = false;
+
+    rpc_s->subscribe("cmd", [&](request_response<std::string, std::string> rr) {
+      ASSERT(rr->req == "test");
+      pass_cmd = true;
+      rr->rsp("test");
+      /// or you can set result on other thread
+      // std::thread([rr = std::move(rr)] {
+      //   std::this_thread::sleep_for(std::chrono::seconds(1));
+      //   rr->rsp("test"); // should post to rpc thread
+      // }).detach();
+    });
+    rpc_c->cmd("cmd")
+        ->msg(std::string("test"))
+        ->rsp([&](const std::string& msg, finally_t type) {
+          ASSERT(msg == "test");
+          ASSERT(type == finally_t::normal);
+          pass_rsp = true;
+        })
+        ->call();
+    ASSERT(pass_cmd);
+    ASSERT(pass_rsp);
+  }
 }
 
 }  // namespace rpc_core_test
