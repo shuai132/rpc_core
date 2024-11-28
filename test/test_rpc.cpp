@@ -8,23 +8,25 @@ namespace rpc_core_test {
 void test_rpc() {
   using namespace rpc_core;
 
-  // 此示例使用回环连接 实际使用时需自定义连接
+  // loopback connection for test purposes, a connection should be implemented in practical use
   auto loopback = loopback_connection::create();
 
-  // 创建rpc server
+  // create rpc as server
   auto rpc_s = rpc::create(loopback.first);
 
-  // 定时器实现 应配合当前应用的事件循环 以确保消息收发和超时回调在同一个线程
-  // 此示例使用回环连接 不做超时测试
+  // timer implementation:
+  // should be paired with the current application's event loop
+  // to ensure message sending, receiving and timeout callbacks occur on the same thread.
+  // this example uses a loopback connection and does not perform timeout testing
   rpc_s->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {
     RPC_CORE_UNUSED(ms);
     RPC_CORE_UNUSED(cb);
   });
 
-  // 已连接时设置ready
+  // mark as ready, on connected
   rpc_s->set_ready(true);
 
-  // 创建rpc client
+  // create rpc as client
   auto rpc_c = rpc::create(loopback.second);
   rpc_c->set_timer([](uint32_t ms, const rpc::timeout_cb& cb) {
     RPC_CORE_UNUSED(ms);
@@ -33,8 +35,9 @@ void test_rpc() {
   rpc_c->set_ready(true);
 
   /**
-   * 简单示例
-   * 以收发`std::string`为例，支持结构体和绝大多数STL容器（见序列化章节）。
+   * simple usage
+   * as an example, support send and receive std::string type
+   * also support structures and most STL containers (see serialization section)
    */
   {
     // The Receiver
@@ -53,19 +56,16 @@ void test_rpc() {
   }
 
   /**
-   * 详细测试
-   * 根据使用场景不同 提供以下几种方式
+   * detail usage
    */
   {
-    RPC_CORE_LOG("1. 收发消息完整测试");
-    // 注册监听
+    RPC_CORE_LOG("1. send and receive data");
     rpc_s->subscribe("cmd1", [&](const std::string& msg) -> std::string {
       RPC_CORE_LOGI("get cmd1: %s", msg.c_str());
       ASSERT(msg == "test");
       return "ok";
     });
 
-    // 请求支持很多方法 可根据需求使用所需部分
     bool pass = false;
     auto request = rpc_c->cmd("cmd1")
                        ->msg(std::string("test"))
@@ -74,36 +74,36 @@ void test_rpc() {
                          ASSERT(rsp == "ok");
                          pass = true;
                        })
-                       // or: ->rsp([&](const std::string& msg, finally_t type){})
+                       // or: ->rsp([](const std::string& msg, finally_t type){})
                        ->timeout([] {
                          RPC_CORE_LOGI("timeout");
                        })
                        ->finally([](finally_t type) {
                          RPC_CORE_LOGI("finally: type:%s", rpc_core::finally_t_str(type));
                        });
-    RPC_CORE_LOGI("执行请求");
+    RPC_CORE_LOGI("request->call()");
     ASSERT(!pass);
     request->call();
     ASSERT(pass);
 
-    /// 其他功能测试
-    RPC_CORE_LOGI("多次调用");
+    /// test other request api
+    RPC_CORE_LOGI("call() can more than once");
     pass = false;
     request->call();
     ASSERT(pass);
 
-    RPC_CORE_LOGI("测试取消");
+    RPC_CORE_LOGI("request can be cancel");
     pass = false;
     request->cancel();
     request->call();
     ASSERT(!pass);
 
-    RPC_CORE_LOGI("恢复取消");
+    RPC_CORE_LOGI("request can be resume");
     request->reset_cancel();
     request->call();
     ASSERT(pass);
 
-    RPC_CORE_LOGI("添加到dispose");
+    RPC_CORE_LOGI("add to dispose, use RAII");
     pass = false;
     {  // RAII dispose
       dispose dispose;
@@ -121,7 +121,7 @@ void test_rpc() {
     request->call();
     ASSERT(pass);
 
-    RPC_CORE_LOGI("先创建request");
+    RPC_CORE_LOGI("can create request first");
     pass = false;
     request::create()
         ->cmd("cmd1")
@@ -149,7 +149,7 @@ void test_rpc() {
     ASSERT(pass);
   }
 
-  RPC_CORE_LOG("2. 复杂结构体类型测试（包含STL容器）");
+  RPC_CORE_LOG("2. test complex structures(including STL containers)");
   {
     bool pass = false;
     CustomType customType;
@@ -173,7 +173,7 @@ void test_rpc() {
     ASSERT(pass);
   }
 
-  RPC_CORE_LOG("3. finally测试");
+  RPC_CORE_LOG("3. test finally");
   {
     bool pass = false;
     bool pass_finally = false;
@@ -207,9 +207,9 @@ void test_rpc() {
     ASSERT(pass_finally);
   }
 
-  RPC_CORE_LOG("4. 多种使用场景测试");
+  RPC_CORE_LOG("4. test various usage");
   {
-    RPC_CORE_LOG("4.1 有参数 有返回");
+    RPC_CORE_LOG("4.1 has parameter, has return value");
     {
       bool pass_cmd = false;
       bool pass_rsp = false;
@@ -229,7 +229,7 @@ void test_rpc() {
       ASSERT(pass_rsp);
     }
 
-    RPC_CORE_LOG("4.2 有参数 无返回");
+    RPC_CORE_LOG("4.2 has parameter, no return value");
     {
       bool pass_cmd = false;
       rpc_s->subscribe("cmd4", [&](const std::string& msg) {
@@ -240,7 +240,7 @@ void test_rpc() {
       ASSERT(pass_cmd);
     }
 
-    RPC_CORE_LOG("4.3 无参数 有返回");
+    RPC_CORE_LOG("4.3 no parameter, has return value");
     {
       bool pass_cmd = false;
       bool pass_rsp = false;
@@ -258,7 +258,7 @@ void test_rpc() {
       ASSERT(pass_rsp);
     }
 
-    RPC_CORE_LOG("4.4 无参数 无返回");
+    RPC_CORE_LOG("4.4 no parameter, no return value");
     {
       bool pass_cmd = false;
       rpc_s->subscribe("cmd4", [&]() {
@@ -269,7 +269,7 @@ void test_rpc() {
     }
   }
 
-  RPC_CORE_LOG("5. ping pong测试");
+  RPC_CORE_LOG("5. test ping pong");
   {
     bool pass = false;
     rpc_c->ping("test")
@@ -282,7 +282,7 @@ void test_rpc() {
     ASSERT(pass);
   }
 
-  RPC_CORE_LOG("6. dispose测试");
+  RPC_CORE_LOG("6. test dispose");
   {
     bool pass = false;
     auto request = rpc_c->ping("test")
@@ -303,7 +303,7 @@ void test_rpc() {
   }
 
 #ifdef RPC_CORE_FEATURE_FUTURE
-  RPC_CORE_LOG("7. future模式测试");
+  RPC_CORE_LOG("7. test future api");
   {
     {
       auto result = rpc_c->ping("test")->future<std::string>().get();
@@ -317,7 +317,7 @@ void test_rpc() {
   }
 #endif
 
-  RPC_CORE_LOG("8. 未ready的rpc对象");
+  RPC_CORE_LOG("8. test rpc which not ready");
   {
     bool pass = false;
     auto rpc_tmp = rpc::create();
@@ -332,7 +332,7 @@ void test_rpc() {
     ASSERT(pass);
   }
 
-  RPC_CORE_LOG("9. 测试编译lambda capture mutable");
+  RPC_CORE_LOG("9. test compile: lambda capture mutable");
   {
     auto rpc = rpc::create();
     std::string tmp;
@@ -391,6 +391,51 @@ void test_rpc() {
     ASSERT(pass_cmd);
     ASSERT(pass_rsp);
   }
+
+  RPC_CORE_LOG("12. subscribe async: use coroutine or custom scheduler");
+#if 0
+  {
+    /// scheduler for dispatch rsp to asio context
+    auto scheduler_asio_dispatch = [&](auto handle) {
+      asio::dispatch(context, std::move(handle));
+    };
+    /// scheduler for use asio coroutine
+    auto scheduler_asio_coroutine = [&](auto handle) {
+      asio::co_spawn(context, [handle = std::move(handle)]() -> asio::awaitable<void> {
+        co_await handle();
+      }, asio::detached);
+    };
+
+    /// 1. common usage
+    rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) {
+      // call rsp when data ready
+      rr->rsp("world");
+      // or run on context thread
+      asio::dispatch(context, [rr = std::move(rr)]{ rr->rsp("world"); });
+      // or run on context thread, use asio coroutine
+      asio::co_spawn(context, [&, rr = std::move(rr)]() -> asio::awaitable<void> {
+        asio::steady_timer timer(context);
+        timer.expires_after(std::chrono::seconds(1));
+        co_await timer.async_wait();
+        rr->rsp("world");
+      }, asio::detached);
+    });
+
+    /// 2. custom scheduler, automatic dispatch
+    rpc->subscribe("cmd", [](const request_response<std::string, std::string>& rr) {
+      rr->rsp("world");
+    }, scheduler_asio_dispatch);
+
+    /// 3. custom scheduler, simple way to use asio coroutine
+    rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) -> asio::awaitable<void> {
+      LOG("session on cmd: %s", rr->req.c_str());
+      asio::steady_timer timer(context);
+      timer.expires_after(std::chrono::seconds(1));
+      co_await timer.async_wait();
+      rr->rsp("world");
+    }, scheduler_asio_coroutine);
+  }
+#endif
 }
 
 }  // namespace rpc_core_test

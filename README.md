@@ -29,10 +29,10 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 * Support any connection type (`tcp socket`, `serial port`, etc.)
 * High Performance Serialization, support most STL containers and user type
 * Serialization plugins implementations for `flatbuffers` and `nlohmann::json`
-* RAII-based `dispose` for automatic cancel request
-* Timeout and Retry API
-* Support `std::future` interface
 * Support `co_await`, depend on `C++20` and `asio`, or custom implementation
+* Support subscribe async callback, async coroutine, and custom scheduler
+* RAII-based `dispose` for automatic cancel request
+* Support timeout, retry, cancel api
 
 ## TCP-based implementations
 
@@ -55,6 +55,8 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Usage
 
+* async callback:
+
 ```c++
 // The Receiver
 rpc->subscribe("cmd", [](const std::string& msg) -> std::string {
@@ -69,17 +71,33 @@ rpc->cmd("cmd")
       assert(rsp == "world");
     })
     ->call();
-
-// Or use C++20 co_await with asio
-auto rsp = co_await rpc->cmd("cmd")->msg(std::string("hello"))->async_call<std::string>();
-assert(rsp.data == "world");
-
-// Or you can use custom async implementation, and co_await it!
 ```
 
-Addition:
+* async coroutine:
 
-1. `msg` and `rsp` support any serializable type, see [Serialization](#Serialization).
+```c++
+// The Receiver
+rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) -> asio::awaitable<void> {
+    assert(rr->req == "hello");
+    asio::steady_timer timer(context);
+    timer.expires_after(std::chrono::seconds(1));
+    co_await timer.async_wait();
+    rr->rsp("world");
+}, scheduler_asio_coroutine);
+
+// The Sender
+// use C++20 co_await with asio, or you can use custom async implementation, and co_await it!
+auto rsp = co_await rpc->cmd("cmd")->msg(std::string("hello"))->async_call<std::string>();
+assert(rsp.data == "world");
+```
+
+Inspect the code for more
+details: [rpc_s_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_s_coroutine.cpp)
+and [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.cpp)
+
+* Addition:
+
+1. `msg` and `rsp` support any serializable type, refer to [Serialization](#Serialization).
 2. Detailed usages and unittests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
 3. There is an example shows custom async
    impl: [rpc_c_coroutine.hpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.hpp)
@@ -87,6 +105,23 @@ Addition:
 ## Serialization
 
 High-performance and memory-saving binary serialization.
+
+### Why design a new serialization
+
+Fist of all, I want to keep `rpc_core` library standalone, without any dependencies, except for STL.
+
+Moreover, these serialization libraries do not align with my design goals:
+
+* protobuf library is too large for some platforms, and it's Varint, Zigzag, and GZIP will use a lot of cpu.
+* msgpack has similarity reason to protobuf.
+* flatbuffers serialized data is too large.
+
+Of course, when communicating across languages, it is recommended to use the above serialization libraries!
+
+Finally, it also provides a way to use thirdparty serialization libraries directly, refer
+to [Serialization Plugins](#Serialization-Plugins).
+
+### Usage
 
 For example, user data:
 

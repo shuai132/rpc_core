@@ -63,11 +63,19 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
     subscribe_helper<F, F_ReturnIsEmpty, F_ParamIsEmpty>()(cmd, std::move(handle), dispatcher_.get());
   }
 
+  template <class F>
+  using Scheduler = std::function<void(std::function<typename detail::callable_traits<F>::return_type()>)>;
+
   template <typename F, typename std::enable_if<detail::fp_is_request_response<F>::value, int>::type = 0>
   void subscribe(const cmd_type& cmd, F handle) {
     static_assert(std::is_void<typename detail::callable_traits<F>::return_type>::value, "should return void");
+    subscribe(cmd, std::move(handle), nullptr);
+  }
+
+  template <typename F, typename std::enable_if<detail::fp_is_request_response<F>::value, int>::type = 0>
+  void subscribe(const cmd_type& cmd, F handle, Scheduler<F> scheduler) {
     static_assert(detail::callable_traits<F>::argc == 1, "should be request_response<>");
-    dispatcher_->subscribe_cmd(cmd, [handle = std::move(handle)](const detail::msg_wrapper& msg) mutable {
+    dispatcher_->subscribe_cmd(cmd, [handle = std::move(handle), scheduler = std::move(scheduler)](const detail::msg_wrapper& msg) mutable {
       using request_response = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
       using request_response_impl = typename request_response::element_type;
       static_assert(detail::is_request_response<request_response>::value, "should be request_response<>");
@@ -98,7 +106,11 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
             hp->send_async_response(serialize(std::move(rr->rsp_data)));
           }
         };
-        handle(std::move(rr));
+        if (scheduler) {
+          scheduler(std::bind(handle, std::move(rr)));
+        } else {
+          (void)handle(std::move(rr));
+        }
       }
       return detail::msg_wrapper::make_rsp_async(msg.seq, std::move(async_helper), r.first);
     });
