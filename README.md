@@ -12,13 +12,13 @@ Arduino, STM32, ESP32/ESP8266, etc.)
 
 ## Introduction
 
-Full-feature rpc frameworks (e.g. `gRPC` and `bRPC`) are very complex and not suitable for embedded systems.
+Full-feature rpc frameworks (e.g. `gRPC` and `bRPC`) are very complex and not suitable for use on embedded platforms.
 
 This project offers a lightweight and user-friend rpc library that is better suited for one-to-one rpc calls.
 It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 
 Note:
-This project only offers the protocol layer and API, it **does not** include the implementation of the transport layer.
+This library only offers the protocol layer and API, it **does not** include the implementation of the transport layer.
 For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Features
@@ -33,6 +33,7 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 * Support subscribe async callback, async coroutine, and custom scheduler
 * RAII-based `dispose` for automatic cancel request
 * Support timeout, retry, cancel api
+* Comprehensive unittests
 
 ## TCP-based implementations
 
@@ -105,6 +106,12 @@ and [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rp
 ## Serialization
 
 High-performance and memory-saving binary serialization.
+
+* api is very simple to use: [include/rpc_core/serialize_api.hpp](include/rpc_core/serialize_api.hpp)
+* usage and comprehensive unittest: [test/test_serialize.cpp](test/test_serialize.cpp)
+* the design balance cpu and memory usage, and zero-copy if possible.
+* std::string is used as inner data container, it's serialize/deserialize is zero-overhead. so, it is recommended to use
+  std::string whenever possible, using it to store binary data is also a good choice.
 
 ### Why design a new serialization
 

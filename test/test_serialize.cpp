@@ -9,11 +9,11 @@ namespace rpc_core_test {
 static size_t last_serialize_size = 0;
 
 template <typename T, typename R>
-void serialize_test(const T& a, R& b) {
-  std::string data = rpc_core::serialize(a);
+void serialize_test(T&& a, R& b) {
+  std::string data = rpc_core::serialize(std::forward<T>(a));
   last_serialize_size = data.size();
   RPC_CORE_LOGI("  size: %zu", last_serialize_size);
-  bool ret = rpc_core::deserialize(data, b);
+  bool ret = rpc_core::deserialize(std::move(data), b);
   ASSERT(ret);
 }
 
@@ -166,11 +166,26 @@ void test_serialize() {
   /// std::string
   {
     RPC_CORE_LOGI("std::string...");
-    std::string a = "test";
+    const std::string test = "test";
+    std::string a = test;
     std::string b;
     serialize_test(a, b);
     ASSERT(b == a);
+    ASSERT(b == test);
     ASSERT_SERIALIZE_SIZE(a.size());
+  }
+
+  /// std::string zero overhead
+  {
+    RPC_CORE_LOGI("std::string is zero overhead...");
+    const std::string test = "test";
+    std::string a = test;
+    std::string b;
+    auto r = rpc_core::serialize(std::move(a));
+    rpc_core::deserialize(std::move(r), b);
+    ASSERT(a.empty());
+    ASSERT(r.empty());
+    ASSERT(b == test);
   }
 
   /// std::wstring

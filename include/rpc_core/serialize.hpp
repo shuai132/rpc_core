@@ -16,8 +16,8 @@
 // type traits
 #include "detail/type_traits.hpp"
 
-// serialize type
-#include "serialize_type.hpp"
+// serialize api
+#include "serialize_api.hpp"
 
 // raw type
 #include "serialize/type_raw.hpp"

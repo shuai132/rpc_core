@@ -33,9 +33,9 @@ inline serialize_oarchive& operator>>(serialize_oarchive&& t, serialize_oarchive
 
 struct serialize_iarchive : detail::noncopyable {
   serialize_iarchive() = default;
-  serialize_iarchive(detail::string_view sv) : data((char*)sv.data()), size(sv.size()) {}  // NOLINT(google-explicit-constructor)
-  serialize_iarchive(const char* data, size_t size) : data((char*)data), size(size) {}
-  char* data = nullptr;
+  explicit serialize_iarchive(const detail::string_view& sv) : data(sv.data()), size(sv.size()) {}
+  serialize_iarchive(const char* data, size_t size) : data(data), size(size) {}
+  const char* data = nullptr;
   size_t size = 0;
   bool error = false;
 };
@@ -49,20 +49,6 @@ inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive&
   ia.data += size.value;
   ia.size -= cost + size.value;
   return ia;
-}
-
-template <typename T>
-inline std::string serialize(T&& t) {
-  serialize_oarchive ar;
-  std::forward<T>(t) >> ar;
-  return std::move(ar.data);
-}
-
-template <typename T>
-inline bool deserialize(const detail::string_view& data, T& t) {
-  serialize_iarchive ar(data);
-  t << ar;
-  return !ar.error;
 }
 
 template <typename T, typename std::enable_if<detail::is_auto_size_type<T>::value, int>::type = 0>
