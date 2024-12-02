@@ -56,16 +56,17 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Usage
 
-* async callback:
+* basic usage:  
+  notice: both sender and receiver can use `subscribe` and `call` apis
 
 ```c++
-// The Receiver
+// receiver
 rpc->subscribe("cmd", [](const std::string& msg) -> std::string {
     assert(msg == "hello");
     return "world";
 });
 
-// The Sender
+// sender
 rpc->cmd("cmd")
     ->msg(std::string("hello"))
     ->rsp([](const std::string& rsp) {
@@ -74,10 +75,21 @@ rpc->cmd("cmd")
     ->call();
 ```
 
-* async coroutine:
+* async response:  
+  just use `request_response<>` type, with `scheduler` support
 
 ```c++
-// The Receiver
+rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) {
+    assert(rr->req == "hello");
+    rr->rsp("world"); // call rr->rsp() when data is ready
+}, scheduler);
+```
+
+* async call and response using c++20 coroutine:  
+  here is an example using asio, custom async/coroutine implementation is supported
+
+```c++
+// receiver
 rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) -> asio::awaitable<void> {
     assert(rr->req == "hello");
     asio::steady_timer timer(context);
@@ -86,7 +98,7 @@ rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) -> asio
     rr->rsp("world");
 }, scheduler_asio_coroutine);
 
-// The Sender
+// sender
 // use C++20 co_await with asio, or you can use custom async implementation, and co_await it!
 auto rsp = co_await rpc->cmd("cmd")->msg(std::string("hello"))->async_call<std::string>();
 assert(rsp.data == "world");
@@ -147,7 +159,7 @@ json: `{"id":1,"age":18,"name":"test"}`
 | json        |  31   |
 | flatbuffers |  44   |
 | protobuf    |  10   |
-| msgpack     |   8   |
+| msgpack     |  20   |
 | rpc_core    |   8   |
 
 - [x] [std::string](https://en.cppreference.com/w/cpp/string/basic_string)
