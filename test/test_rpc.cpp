@@ -390,6 +390,24 @@ void test_rpc() {
         ->call();
     ASSERT(pass_cmd);
     ASSERT(pass_rsp);
+
+    // check more type
+    rpc_s->subscribe("cmd2", [&](const request_response<uint32_t, std::vector<std::string>>& rr) {
+      ASSERT(rr->req == 999);
+      pass_cmd = true;
+      rr->rsp({{"test"}});
+    });
+    rpc_c->cmd("cmd2")
+        ->msg<uint32_t>(999)
+        ->rsp([&](std::vector<std::string> value, finally_t type) {
+          ASSERT(value.size() == 1);
+          ASSERT(value[0] == "test");
+          ASSERT(type == finally_t::normal);
+          pass_rsp = true;
+        })
+        ->call();
+    ASSERT(pass_cmd);
+    ASSERT(pass_rsp);
   }
 
   RPC_CORE_LOG("12. subscribe async: use coroutine or custom scheduler");

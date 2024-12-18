@@ -80,7 +80,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
       using request_response_impl = typename request_response::element_type;
       static_assert(detail::is_request_response<request_response>::value, "should be request_response<>");
       using Req = decltype(request_response_impl::req);
-      using Rsp = decltype(request_response_impl::rsp_data);
+      using Rsp = typename request_response_impl::RspType;
       request_response rr = request_response_impl::create();
       auto r = msg.unpack_as<Req>();
       // notice lifecycle: request_response hold async_helper
@@ -101,9 +101,9 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
             return;
           }
           rr->rsp_ready = true;
-          rr->rsp_data = std::move(rsp);
+          rr->rsp_data = serialize(std::move(rsp));
           if (hp->send_async_response) {  // means after handle()
-            hp->send_async_response(serialize(std::move(rr->rsp_data)));
+            hp->send_async_response(std::move(rr->rsp_data));
           }
         };
         if (scheduler) {

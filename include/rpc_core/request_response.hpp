@@ -33,7 +33,8 @@ struct request_response_impl : public std::enable_shared_from_this<request_respo
 
  public:
   Req req;
-  Rsp rsp_data;
+  using RspType = Rsp;
+  std::string rsp_data;  // serialized data
 
   bool rsp_ready{false};
   std::function<void(Rsp)> rsp;
