@@ -162,7 +162,7 @@ static std::mutex& mutex() {
 };
 #endif
 #define L_O_G_PRINTF(fmt, ...) { \
-  std::lock_guard<std::mutex> lock(L_O_G_NS_MUTEX::mutex()); \
+  std::lock_guard<std::mutex> L_O_G_NS_lock(L_O_G_NS_MUTEX::mutex()); \
   RPC_CORE_LOG_PRINTF_DEFAULT(fmt, ##__VA_ARGS__); \
 }
 #else
