@@ -128,14 +128,18 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
   inline request_s ping(std::string payload = {});
 
   template <typename Msg>
-  inline void call(cmd_type cmd, Msg&& message) {
-    this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->call();
-  }
+  inline void call(cmd_type cmd, Msg&& message);
 
   template <typename Msg, typename Rsp>
-  inline void call(cmd_type cmd, Msg&& message, Rsp&& rsp) {
-    this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->rsp(std::forward<Rsp>(rsp))->call();
-  }
+  inline void call(cmd_type cmd, Msg&& message, Rsp&& rsp);
+
+#ifdef RPC_CORE_FEATURE_CO_ASIO
+  template <typename R = void>
+  inline asio::awaitable<result<R>> co_call(cmd_type cmd);
+
+  template <typename R = void, typename Msg>
+  inline asio::awaitable<result<R>> co_call(cmd_type cmd, Msg&& message);
+#endif
 
  public:
   inline seq_type make_seq() {
