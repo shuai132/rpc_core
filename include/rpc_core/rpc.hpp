@@ -127,6 +127,16 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
 
   inline request_s ping(std::string payload = {});
 
+  template <typename Msg>
+  inline void call(cmd_type cmd, Msg&& message) {
+    this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->call();
+  }
+
+  template <typename Msg, typename Rsp>
+  inline void call(cmd_type cmd, Msg&& message, Rsp&& rsp) {
+    this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->rsp(std::forward<Rsp>(rsp))->call();
+  }
+
  public:
   inline seq_type make_seq() {
     return seq_++;
