@@ -141,6 +141,14 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
   inline asio::awaitable<result<R>> co_call(cmd_type cmd, Msg&& message);
 #endif
 
+#ifdef RPC_CORE_FEATURE_CO_CUSTOM
+  template <typename R = void>
+  inline RPC_CORE_FEATURE_CO_CUSTOM_R RPC_CORE_FEATURE_CO_CUSTOM(cmd_type cmd);
+
+  template <typename R = void, typename Msg>
+  inline RPC_CORE_FEATURE_CO_CUSTOM_R RPC_CORE_FEATURE_CO_CUSTOM(cmd_type cmd, Msg&& message);
+#endif
+
  public:
   inline seq_type make_seq() {
     return seq_++;
