@@ -113,7 +113,8 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           RPC_CORE_LOGD("no rsp for seq:%u", msg.seq);
           break;
         }
-        const auto& cb = it->second;
+        auto cb = std::move(it->second);
+        rsp_handle_map_.erase(it);
         if (!cb) {
           RPC_CORE_LOGE("rsp can not be null");
           return;
@@ -123,7 +124,6 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
         } else {
           RPC_CORE_LOGE("may deserialize error");
         }
-        rsp_handle_map_.erase(it);
       } break;
 
       default:
@@ -172,6 +172,14 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
         RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, this->rsp_handle_map_.size());
       }
     });
+  }
+
+  void unsubscribe_rsp(seq_type seq) {
+    auto it = rsp_handle_map_.find(seq);
+    if (it != rsp_handle_map_.cend()) {
+      RPC_CORE_LOGD("erase rsp seq:%u", seq);
+      rsp_handle_map_.erase(it);
+    }
   }
 
   inline void set_timer_impl(timer_impl timer_impl) {

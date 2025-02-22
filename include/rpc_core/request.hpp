@@ -190,11 +190,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
   inline request_s add_to(dispose& dispose);
 
-  request_s cancel() {
-    canceled(true);
-    on_finish(finally_t::canceled);
-    return shared_from_this();
-  }
+  inline request_s cancel();
 
   request_s reset_cancel() {
     canceled(false);

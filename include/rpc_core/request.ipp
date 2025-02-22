@@ -33,6 +33,18 @@ void request::call(const rpc_s& rpc) {
   }
 }
 
+request_s request::cancel() {
+  canceled(true);
+  if (need_rsp_ && waiting_rsp_) {
+    auto r = rpc_.lock();
+    if (r) {
+      r->unsubscribe_rsp(seq_);
+    }
+  }
+  on_finish(finally_t::canceled);
+  return shared_from_this();
+}
+
 request_s request::add_to(dispose& dispose) {
   auto self = shared_from_this();
   dispose.add(self);
