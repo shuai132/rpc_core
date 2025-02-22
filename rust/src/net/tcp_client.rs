@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::error::Error;
-use std::net::ToSocketAddrs;
 use std::rc::{Rc, Weak};
 
 use log::debug;
@@ -159,13 +158,12 @@ impl TcpClient {
         host: String,
         port: u16,
     ) -> Result<TcpStream, Box<dyn Error + Send + Sync>> {
-        let mut host = host;
-        if host == "localhost" {
-            host = "127.0.0.1".parse().unwrap();
-        }
-        let addr = (host, port).to_socket_addrs()?.next().unwrap();
-        let stream = TcpStream::connect(addr).await?;
-        Ok(stream)
+        let host = if host == "localhost" {
+            "127.0.0.1"
+        } else {
+            host.as_str()
+        };
+        Ok(TcpStream::connect((host, port)).await?)
     }
 
     async fn check_reconnect(&self) {
