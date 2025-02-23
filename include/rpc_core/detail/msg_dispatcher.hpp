@@ -151,12 +151,12 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
     RPC_CORE_LOGD("subscribe_rsp seq:%u", seq);
     if (handle == nullptr) return;
 
+    rsp_handle_map_[seq] = std::move(handle);
     if (timer_impl_ == nullptr) {
       RPC_CORE_LOGW("no timeout will cause memory leak!");
       return;
     }
 
-    rsp_handle_map_[seq] = std::move(handle);
     timer_impl_(timeout_ms, [self = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq, timeout_cb = std::move(timeout_cb)] {
       auto self_lock = self.lock();
       if (!self_lock) {

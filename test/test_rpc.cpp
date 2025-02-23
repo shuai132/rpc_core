@@ -58,6 +58,40 @@ void test_rpc() {
   }
 
   /**
+   * response handling must not depend on timeout support
+   */
+  {
+    RPC_CORE_LOG("0. response without timer");
+    auto connections = loopback_connection::create();
+    auto rpc_no_timer_s = rpc::create(connections.first);
+    auto rpc_no_timer_c = rpc::create(connections.second);
+    rpc_no_timer_s->set_ready(true);
+    rpc_no_timer_c->set_ready(true);
+
+    rpc_no_timer_s->subscribe("cmd_no_timer", [](const std::string& msg) -> std::string {
+      ASSERT(msg == "hello");
+      return "world";
+    });
+
+    bool pass_rsp = false;
+    bool pass_finally = false;
+    rpc_no_timer_c->cmd("cmd_no_timer")
+        ->msg(std::string("hello"))
+        ->rsp([&](const std::string& rsp) {
+          ASSERT(rsp == "world");
+          pass_rsp = true;
+        })
+        ->finally([&](finally_t type) {
+          ASSERT(type == finally_t::normal);
+          pass_finally = true;
+        })
+        ->call();
+
+    ASSERT(pass_rsp);
+    ASSERT(pass_finally);
+  }
+
+  /**
    * detail usage
    */
   {
