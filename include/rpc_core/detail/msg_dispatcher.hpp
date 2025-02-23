@@ -70,9 +70,10 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           }
           return;
         }
-        const auto& fn = it->second;
+        // Keep the same callable and its state alive even if it unsubscribes itself.
+        auto fn = it->second;
         const bool need_rsp = msg.type & msg_wrapper::need_rsp;
-        auto resp = fn(std::move(msg));
+        auto resp = (*fn)(std::move(msg));
         if (need_rsp) {
           auto state = resp.second.response_state;
           switch (state) {
@@ -134,7 +135,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
  public:
   inline void subscribe_cmd(const cmd_type& cmd, cmd_handle handle) {
     RPC_CORE_LOGD("subscribe cmd:%s", cmd.c_str());
-    cmd_handle_map_[cmd] = std::move(handle);
+    cmd_handle_map_[cmd] = std::make_shared<cmd_handle>(std::move(handle));
   }
 
   void unsubscribe_cmd(const cmd_type& cmd) {
@@ -188,7 +189,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
 
  private:
   std::shared_ptr<connection> conn_;
-  std::map<cmd_type, cmd_handle> cmd_handle_map_;
+  std::map<cmd_type, std::shared_ptr<cmd_handle>> cmd_handle_map_;
   std::map<seq_type, rsp_handle> rsp_handle_map_;
   timer_impl timer_impl_;
 };
