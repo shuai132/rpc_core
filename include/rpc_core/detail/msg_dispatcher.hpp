@@ -169,7 +169,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           timeout_cb();
         }
         self_lock->rsp_handle_map_.erase(seq);
-        RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, this->rsp_handle_map_.size());
+        RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, self_lock->rsp_handle_map_.size());
       }
     });
   }
