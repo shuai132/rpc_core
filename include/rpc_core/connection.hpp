@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -72,7 +73,7 @@ struct stream_connection : public connection {
       on_recv_package(std::move(payload));
     };
     on_recv_bytes = [this](const void *data, size_t size) {
-      data_packer_.feed(data, size);
+      return data_packer_.feed(data, size);
     };
   }
 
@@ -85,7 +86,8 @@ struct stream_connection : public connection {
 
  public:
   std::function<void(std::string)> send_bytes_impl;
-  std::function<void(const void *data, size_t size)> on_recv_bytes;
+  // false means invalid framing; stop receiving until reset() for a new stream.
+  std::function<bool(const void *data, size_t size)> on_recv_bytes;
 
  private:
   detail::data_packer data_packer_;

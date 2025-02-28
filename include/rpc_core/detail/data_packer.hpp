@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <string>
 
@@ -44,65 +46,73 @@ class data_packer : detail::noncopyable {
   }
 
  public:
-  bool feed(const void *data, size_t size) {  // NOLINT(misc-no-recursion)
-    if (body_size_ != 0) {
-      feed_body(data, size);
+  // After invalid framing, only reset() may start another stream.
+  bool feed(const void *data, size_t size) {
+    if (failed_) return false;
+    if (feeding_) {
+      if (size != 0) deferred_.append(static_cast<const char *>(data), size);
       return true;
     }
-
-    /// wait header(4 bytes)
-    if (header_len_now_ + size < 4) {
-      buffer_.insert(buffer_.size(), (char *)data, size);
-      header_len_now_ += (uint32_t)size;
-      return true;
-    }
-
-    /// herder data ready, start read body
-    // 1. read header, aka: body size
-    uint8_t header_len = 4 - header_len_now_;
-    size_t body_len = size - header_len;
-    for (int i = 0; i < header_len; ++i) {
-      buffer_.push_back(((char *)data)[i]);
-    }
-    body_size_ = *(uint32_t *)(buffer_.data());
-    buffer_.clear();
-    RPC_CORE_LOGV("feed: wait body_size: %u", body_size_);
-    if (body_size_ > max_body_size_) {
-      RPC_CORE_LOGW("body_size > max_body_size: %u > %u", body_size_, max_body_size_);
-      reset();
-      return false;
-    }
-
-    // 2. feed body
-    if (body_len != 0) {
-      feed_body((char *)data + header_len, body_len);
+    struct guard {
+      bool &active;
+      ~guard() { active = false; }
+    } scope{feeding_};
+    feeding_ = true;
+    if (!feed_chunk(data, size)) return false;
+    while (!deferred_.empty()) {
+      std::string next;
+      next.swap(deferred_);
+      if (!feed_chunk(next.data(), next.size())) return false;
     }
     return true;
   }
 
   void reset() {
     buffer_.clear();
-    buffer_.shrink_to_fit();
+    deferred_.clear();
+    discard_chunk_ = feeding_;
     header_len_now_ = 0;
     body_size_ = 0;
+    failed_ = false;
   }
 
  private:
-  void feed_body(const void *data, size_t size) {  // NOLINT(misc-no-recursion)
-    if (buffer_.size() + size < body_size_) {
-      buffer_.insert(buffer_.size(), (char *)data, size);
-    } else {
-      size_t body_need = body_size_ - buffer_.size();
-      size_t body_left = size - body_need;
-      buffer_.insert(buffer_.size(), (char *)data, body_need);
-      if (on_data) on_data(std::move(buffer_));
-
-      reset();
-
-      if (body_left != 0) {
-        feed((char *)data + body_need, body_left);
+  bool feed_chunk(const void *data, size_t size) {
+    discard_chunk_ = false;
+    auto bytes = static_cast<const char *>(data);
+    while (size != 0) {
+      if (header_len_now_ < sizeof(body_size_)) {
+        const auto count = std::min(size, sizeof(body_size_) - header_len_now_);
+        buffer_.append(bytes, count);
+        header_len_now_ += static_cast<uint32_t>(count);
+        bytes += count;
+        size -= count;
+        if (header_len_now_ != sizeof(body_size_)) return true;
+        std::memcpy(&body_size_, buffer_.data(), sizeof(body_size_));
+        buffer_.clear();
+        if (body_size_ > max_body_size_) {
+          RPC_CORE_LOGW("body_size > max_body_size: %u > %u", body_size_, max_body_size_);
+          failed_ = true;
+          return false;
+        }
       }
+
+      const auto count = std::min(size, body_size_ - buffer_.size());
+      buffer_.append(bytes, count);
+      bytes += count;
+      size -= count;
+      if (buffer_.size() != body_size_) return true;
+
+      // Finish this frame before user code runs; reentrant feeds follow this chunk.
+      auto payload = std::move(buffer_);
+      buffer_.clear();
+      header_len_now_ = 0;
+      body_size_ = 0;
+      if (on_data) on_data(std::move(payload));
+      if (failed_) return false;
+      if (discard_chunk_) return true;
     }
+    return true;
   }
 
  public:
@@ -111,9 +121,13 @@ class data_packer : detail::noncopyable {
  private:
   uint32_t max_body_size_;
   std::string buffer_;
+  std::string deferred_;
+  bool feeding_ = false;
+  bool discard_chunk_ = false;
 
   uint32_t header_len_now_ = 0;
   uint32_t body_size_ = 0;
+  bool failed_ = false;
 };
 
 }  // namespace detail
