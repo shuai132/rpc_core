@@ -12,8 +12,8 @@ namespace rpc_core {
 namespace detail {
 
 struct async_helper : noncopyable {
-  std::function<bool()> is_ready;
-  std::function<std::string()> get_data;
+  bool ready = false;
+  std::string data;
   std::function<void(std::string)> send_async_response;
 };
 using async_helper_s = std::shared_ptr<async_helper>;

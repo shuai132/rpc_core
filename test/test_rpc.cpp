@@ -571,6 +571,49 @@ void test_rpc() {
     }, scheduler_asio_coroutine);
   }
 #endif
+
+  RPC_CORE_LOG("14. deferred response lifetime");
+  {
+    using response = request_response<std::string, std::string>;
+    response pending;
+    std::weak_ptr<response::element_type> observer;
+    rpc_s->subscribe("deferred", [&](response rr) {
+      observer = rr;
+      pending = std::move(rr);
+    });
+    int received = 0;
+    auto request = rpc_c->cmd("deferred")->rsp([&](std::string data) {
+      ASSERT(data == "ok");
+      ++received;
+    });
+    request->call();
+    ASSERT(received == 0);
+    pending->rsp("ok");
+    pending->rsp("duplicate");
+    ASSERT(received == 1);
+    pending.reset();
+    ASSERT(observer.expired());
+
+    request->call();
+    auto reply = pending->rsp;
+    pending.reset();
+    ASSERT(observer.expired());
+    rpc_s->set_ready(false);
+    rpc_s->set_ready(true);
+    reply("ok");
+    reply("duplicate");
+    ASSERT(received == 2);
+
+    // Abandoning a reply must also release the request state.
+    request->call();
+    pending.reset();
+    ASSERT(observer.expired());
+    request->cancel();
+    rpc_c->cmd("deferred")->call();  // No reply requested.
+    pending.reset();
+    ASSERT(observer.expired());
+    rpc_s->unsubscribe("deferred");
+  }
 }
 
 }  // namespace rpc_core_test

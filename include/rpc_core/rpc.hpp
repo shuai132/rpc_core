@@ -85,27 +85,19 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
       using Rsp = typename request_response_impl::RspType;
       request_response rr = request_response_impl::create();
       auto r = msg.unpack_as<Req>();
-      // notice lifecycle: request_response hold async_helper
-      // but async_helper->is_ready will hold rr lifetime for check if it is ready and get data
-      // it will be release in msg_dispatcher after check
       auto async_helper = std::make_shared<detail::async_helper>();
-      async_helper->is_ready = [rr] {
-        return rr->rsp_ready;
-      };
-      async_helper->get_data = [rr = rr.get()] {
-        return std::move(rr->rsp_data);
-      };
       if (r.first) {
         rr->req = std::move(r.second);
-        rr->rsp = [rr = rr.get(), hp = async_helper](Rsp rsp) mutable {
-          if (rr->rsp_ready) {
-            RPC_CORE_LOGD("rsp should only call once");
-            return;
-          }
-          rr->rsp_ready = true;
-          rr->rsp_data = serialize(std::move(rsp));
-          if (hp->send_async_response) {  // means after handle()
-            hp->send_async_response(std::move(rr->rsp_data));
+        rr->rsp = [weak = rr->weak_ptr(), hp = async_helper](Rsp rsp) mutable {
+          if (hp->ready) return;
+          // A copied reply can outlive rr; keep its data in the helper.
+          hp->data = serialize(std::move(rsp));
+          hp->ready = true;
+          auto rr = weak.lock();
+          if (rr) rr->rsp_ready = true;
+          auto send = std::move(hp->send_async_response);
+          if (send) {
+            send(std::move(hp->data));
           }
         };
         if (scheduler) {

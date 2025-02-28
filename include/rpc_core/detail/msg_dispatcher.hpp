@@ -86,19 +86,19 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
             } break;
             case msg_wrapper::response_state::response_async: {
               RPC_CORE_LOGD("=> seq:%u type:rsp_async", resp.second.seq);
-              if (resp.second.async_helper->is_ready()) {
-                resp.second.data = resp.second.async_helper->get_data();
-                resp.second.async_helper->is_ready = nullptr;
-                resp.second.async_helper->get_data = nullptr;
+              auto helper = std::move(resp.second.async_helper);
+              if (helper->ready) {
+                resp.second.data = std::move(helper->data);
                 conn_->send_package_impl(coder::serialize(resp.second));
               } else {
-                auto helper = resp.second.async_helper.get();
-                helper->send_async_response = [c = std::weak_ptr<connection>(conn_), mw = std::move(resp.second)](std::string data) mutable {
-                  mw.data = std::move(data);
-                  auto conn = c.lock();
-                  if (conn) {
-                    conn->send_package_impl(coder::serialize(mw));
-                  }
+                helper->send_async_response = [weak = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq = resp.second.seq](std::string data) {
+                  const auto self = weak.lock();
+                  if (!self) return;
+                  msg_wrapper response;
+                  response.seq = seq;
+                  response.type = msg_wrapper::response;
+                  response.data = std::move(data);
+                  self->conn_->send_package_impl(coder::serialize(response));
                 };
               }
             } break;
