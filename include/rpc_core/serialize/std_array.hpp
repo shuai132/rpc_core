@@ -36,8 +36,13 @@ template <typename T, typename std::enable_if<detail::is_std_array<T>::value, in
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   detail::auto_size size;
   size << ia;
+  if (ia.error) return ia;
+  if (size.value != t.size()) {
+    ia.error = true;
+    return ia;
+  }
   for (size_t i = 0; i < size.value; ++i) {
-    typename T::value_type item;
+    typename T::value_type item{};
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
       item << ia;
     } else {
@@ -49,6 +54,7 @@ serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
         break;
       }
     }
+    if (ia.error) break;
     t[i] = std::move(item);
   }
   return ia;

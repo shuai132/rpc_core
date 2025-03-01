@@ -26,6 +26,10 @@ template <typename T, typename std::enable_if<detail::is_std_bitset<T>::value, i
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   std::string tmp;
   tmp << ia;
+  if (ia.error || tmp.size() != t.size() || tmp.find_first_not_of("01") != std::string::npos) {
+    ia.error = true;
+    return ia;
+  }
   t = T(std::move(tmp));
   return ia;
 }

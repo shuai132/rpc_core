@@ -71,10 +71,8 @@ struct tuple_serialize_helper {
 };
 
 template <typename Tuple>
-struct tuple_serialize_helper<Tuple, 1> {
-  static void serialize(const Tuple& t, serialize_oarchive& oa) {
-    tuple_serialize_helper_impl<Tuple, 0, tuple_serialize_type_check<tuple_element_t<0, Tuple>>::value>::serialize(t, oa);
-  }
+struct tuple_serialize_helper<Tuple, 0> {
+  static void serialize(const Tuple&, serialize_oarchive&) {}
 };
 
 template <typename... Args>
@@ -90,7 +88,9 @@ struct tuple_de_serialize_helper_impl<Tuple, I, tuple_serialize_type::Normal> {
   static void de_serialize(Tuple& t, serialize_iarchive& ia) {
     serialize_iarchive tmp;
     tmp << ia;
+    if (ia.error) return;
     std::get<I>(t) << tmp;
+    ia.error = tmp.error;
   }
 };
 
@@ -119,10 +119,8 @@ struct tuple_de_serialize_helper {
 };
 
 template <typename Tuple>
-struct tuple_de_serialize_helper<Tuple, 1> {
-  static void de_serialize(Tuple& t, serialize_iarchive& ia) {
-    tuple_de_serialize_helper_impl<Tuple, 0, tuple_serialize_type_check<tuple_element_t<0, Tuple>>::value>::de_serialize(t, ia);
-  }
+struct tuple_de_serialize_helper<Tuple, 0> {
+  static void de_serialize(Tuple&, serialize_iarchive&) {}
 };
 
 template <typename... Args>

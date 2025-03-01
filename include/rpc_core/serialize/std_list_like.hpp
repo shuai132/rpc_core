@@ -26,8 +26,8 @@ template <typename T, typename std::enable_if<detail::is_std_list_like<T>::value
 serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
   detail::auto_size size(t.size());
   size >> oa;
-  for (auto& item : t) {
-    if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
+  for (const auto& item : t) {
+    if (std::is_fundamental<typename T::value_type>::value) {
       item >> oa;
     } else {
       serialize_oarchive tmp;
@@ -42,8 +42,10 @@ template <typename T, typename std::enable_if<detail::is_std_list_like<T>::value
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   detail::auto_size size;
   size << ia;
+  if (ia.error) return ia;
+  t.clear();
   for (size_t i = 0; i < size.value; ++i) {
-    typename T::value_type item;
+    typename T::value_type item{};
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
       item << ia;
     } else {
@@ -55,6 +57,7 @@ serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
         break;
       }
     }
+    if (ia.error) break;
     t.emplace_back(std::move(item));
   }
   return ia;

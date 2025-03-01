@@ -44,8 +44,10 @@ template <typename T, typename std::enable_if<detail::is_std_set_like<T>::value,
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   detail::auto_size size;
   size << ia;
+  if (ia.error) return ia;
+  t.clear();
   for (size_t i = 0; i < size.value; ++i) {
-    typename T::value_type item;
+    typename T::value_type item{};
     if (std::is_fundamental<detail::remove_cvref_t<decltype(item)>>::value) {
       item << ia;
     } else {
@@ -57,6 +59,7 @@ serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
         break;
       }
     }
+    if (ia.error) break;
     t.emplace(std::move(item));
   }
   return ia;

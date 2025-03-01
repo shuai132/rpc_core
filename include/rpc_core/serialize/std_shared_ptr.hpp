@@ -29,10 +29,13 @@ template <typename T, typename std::enable_if<detail::is_std_shared_ptr<T>::valu
 inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   bool notnull;
   notnull << ia;
+  if (ia.error) return ia;
   if (notnull) {
     using Type = typename T::element_type;
     t = std::make_shared<Type>();
     *t << ia;
+  } else {
+    t.reset();
   }
   return ia;
 }

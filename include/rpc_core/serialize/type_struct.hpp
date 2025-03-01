@@ -167,16 +167,11 @@ inline serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
 template <typename T, typename std::enable_if<!std::is_fundamental<T>::value, int>::type = 0>
 serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   if (ia.error) return ia;
-  detail::auto_size auto_size;
-  int cost = auto_size.deserialize(ia.data);
-  auto size = auto_size.value;
-  ia.data += cost;
-
-  serialize_iarchive tmp(detail::string_view(ia.data, size));
+  serialize_iarchive tmp;
+  tmp << ia;
+  if (ia.error) return ia;
   t << tmp;
   ia.error = tmp.error;
-
-  ia.data += size;
   return ia;
 }
 

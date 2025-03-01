@@ -128,6 +128,34 @@ High-performance and memory-saving binary serialization.
 * std::string is used as inner data container, it's serialize/deserialize is zero-overhead. so, it is recommended to use
   std::string whenever possible, using it to store binary data is also a good choice.
 
+The binary format assumes little-endian hosts and fixes the floating-point formats:
+
+| C++ type | Wire format | Size |
+| --- | --- | --- |
+| `float` | IEEE 754 binary32 | 4 bytes |
+| `double` | IEEE 754 binary64 | 8 bytes |
+| `long double` | IEEE 754 binary64 | 8 bytes |
+
+The native type must match the specified format exactly. Serialization and
+deserialization check the object size, IEEE 754 conformance, radix, precision
+and exponent range at compile time. Unsupported types produce a static assertion
+when used; merely including the library does not reject other supported types.
+For example, an x87 extended80 or binary128 `long double` is unsupported. There
+are no representation tags, padding or implicit conversions. Users must explicitly
+convert unsupported types or provide custom serialization. An explicit narrowing
+conversion can lose precision or exceed the destination range; the serializer
+itself copies supported floating-point values without reducing their precision.
+
+The `long double` format replaces the legacy 16-byte encoding. Both peers must
+be upgraded together, and stored data using that format must be migrated; legacy
+data is not auto-detected. The `float` and `double` wire formats are unchanged.
+
+Integer `std::chrono::duration` counts are range-checked on decode. Unsigned
+counts use unsigned encoding, so values above `INTMAX_MAX` no longer pass through
+a signed intermediate. Older versions encoded those values as negative counts;
+applications using that range must upgrade both peers and migrate stored values.
+The encoding of counts from zero through `INTMAX_MAX` is unchanged.
+
 ### Why design a new serialization
 
 Fist of all, I want to keep `rpc_core` library standalone, without any dependencies, except for STL.

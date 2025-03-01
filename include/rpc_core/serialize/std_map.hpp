@@ -40,8 +40,11 @@ template <typename T, typename std::enable_if<detail::is_std_map_like<T>::value,
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   detail::auto_size size;
   size << ia;
+  if (ia.error) return ia;
+  t.clear();
+  using Item = std::pair<typename T::key_type, typename T::mapped_type>;
   for (size_t i = 0; i < size.value; ++i) {
-    typename T::value_type item;
+    Item item{};
     serialize_iarchive tmp;
     tmp << ia;
     item << tmp;

@@ -51,7 +51,7 @@ struct msg_wrapper : copyable {  // NOLINT
 
   template <typename T>
   std::pair<bool, T> unpack_as() const {
-    T message;
+    T message{};
     bool ok = deserialize(data, message);
     if (!ok) {
       RPC_CORE_LOGE("deserialize error, msg info:%s", dump().c_str());

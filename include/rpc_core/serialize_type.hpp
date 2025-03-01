@@ -38,11 +38,23 @@ struct serialize_iarchive : detail::noncopyable {
   const char* data = nullptr;
   size_t size = 0;
   bool error = false;
+
+  bool require(size_t count) {
+    if (error || count > size || (count != 0 && data == nullptr)) {
+      error = true;
+      return false;
+    }
+    return true;
+  }
 };
 
 inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive& ia) {
   detail::auto_size size;
-  int cost = size.deserialize(ia.data);
+  int cost = ia.error ? 0 : size.deserialize(ia.data, ia.size);
+  if (cost == 0 || size.value > ia.size - cost) {
+    ia.error = t.error = true;
+    return ia;
+  }
   ia.data += cost;
   t.data = ia.data;
   t.size = size.value;
@@ -59,7 +71,12 @@ inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<detail::is_auto_size_type<T>::value, int>::type = 0>
 inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
-  int cost = t.deserialize((uint8_t*)ia.data);
+  if (ia.error) return ia;
+  int cost = t.deserialize(ia.data, ia.size);
+  if (cost == 0) {
+    ia.error = true;
+    return ia;
+  }
   ia.data += cost;
   ia.size -= cost;
   return ia;

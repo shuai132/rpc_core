@@ -1,4 +1,6 @@
 #include <cinttypes>
+#include <cmath>
+#include <limits>
 
 #include "assert_def.h"
 #include "rpc_core.hpp"
@@ -22,8 +24,39 @@ void raw_type_test() {
   T a = 123;
   T b;
   serialize_test(a, b);
-  auto ok = (0 == memcmp(&a, &b, sizeof(T)));  // NOLINT
-  ASSERT(ok);
+  ASSERT(a == b);
+}
+
+// Only instantiate serialization tests for supported native floating formats.
+template <typename T>
+void test_floating_type(std::false_type) {}
+
+template <typename T>
+void test_floating_type(std::true_type) {
+  using limits = std::numeric_limits<T>;
+  const size_t wire_size = std::is_same<T, float>::value ? 4 : 8;
+  const std::string one = wire_size == 4 ? std::string("\x00\x00\x80\x3f", 4)
+      : std::string("\x00\x00\x00\x00\x00\x00\xf0\x3f", 8);
+  ASSERT(rpc_core::serialize(T(1)) == one);
+  for (auto original : {T(0), -T(0), T(1) + limits::epsilon(), limits::min(),
+                        limits::max(), limits::denorm_min(), limits::infinity(), -limits::infinity()}) {
+    auto data = rpc_core::serialize(original);
+    ASSERT(data.size() == wire_size);
+    T decoded = 123;
+    ASSERT(rpc_core::deserialize(data, decoded));
+    ASSERT(decoded == original && std::signbit(decoded) == std::signbit(original));
+  }
+  T decoded = 123;
+  ASSERT(rpc_core::deserialize(rpc_core::serialize(limits::quiet_NaN()), decoded));
+  ASSERT(std::isnan(decoded));
+  for (size_t size = 0; size < wire_size; ++size) {
+    ASSERT(!rpc_core::deserialize(one.substr(0, size), decoded));
+    ASSERT(decoded == 0);
+  }
+  auto nested = std::make_tuple(T(1.25), 42, T(-2.5));
+  decltype(nested) restored;
+  ASSERT(rpc_core::deserialize(rpc_core::serialize(nested), restored));
+  ASSERT(nested == restored);
 }
 
 #define RAW_TYPE_TEST(t)       \
@@ -45,8 +78,8 @@ static void test_auto_size() {
     std::string payload = a.serialize();
     ASSERT(payload.size() == (size_t)except_size);
     auto_size b;
-    int cost = b.deserialize(payload.data());
-    ASSERT(cost = except_size);
+    int cost = b.deserialize(payload.data(), payload.size());
+    ASSERT(cost == except_size);
     ASSERT(value == b.value);
   };
   test_auto_size(0x00, 1);
@@ -65,8 +98,8 @@ static void test_auto_size() {
     std::string payload = a.serialize();
     ASSERT(payload.size() == (size_t)except_size);
     auto_intmax b;
-    int cost = b.deserialize(payload.data());
-    ASSERT(cost = except_size);
+    int cost = b.deserialize(payload.data(), payload.size());
+    ASSERT(cost == except_size);
     ASSERT(value == b.value);
   };
   test_auto_int(0x00, 1);
@@ -85,8 +118,8 @@ static void test_auto_size() {
     std::string payload = a.serialize();
     ASSERT(payload.size() == (size_t)except_size);
     auto_uintmax b;
-    int cost = b.deserialize(payload.data());
-    ASSERT(cost = except_size);
+    int cost = b.deserialize(payload.data(), payload.size());
+    ASSERT(cost == except_size);
     ASSERT(value == b.value);
   };
   test_auto_uint(0x00, 1);
@@ -97,6 +130,39 @@ static void test_auto_size() {
 }
 
 void test_serialize() {
+  {
+    std::tuple<> empty;
+    ASSERT(rpc_core::serialize(empty).empty());
+    ASSERT(rpc_core::deserialize(std::string{}, empty));
+    std::vector<bool> bits{true, false, true}, decoded;
+    ASSERT(rpc_core::deserialize(rpc_core::serialize(bits), decoded));
+    ASSERT(decoded == bits);
+    std::bitset<3> flags;
+    for (const auto& invalid : {"", "01", "012", "0101"}) {
+      ASSERT(!rpc_core::deserialize(std::string(invalid), flags));
+    }
+    ASSERT(rpc_core::deserialize(std::string("101"), flags));
+    ASSERT(flags.to_ulong() == 5);
+  }
+  {
+    int value = 0;
+    auto too_large = static_cast<intmax_t>((std::numeric_limits<int>::max)()) + 1;
+    auto too_small = static_cast<intmax_t>((std::numeric_limits<int>::min)()) - 1;
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(too_large), value));
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(too_small), value));
+    unsigned int unsigned_value = 0;
+    auto unsigned_large = static_cast<uintmax_t>((std::numeric_limits<unsigned int>::max)()) + 1;
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(unsigned_large), unsigned_value));
+  }
+  {
+    std::wstring wide;
+    ASSERT(rpc_core::deserialize(rpc_core::serialize(std::wstring(L"wide")), wide));
+    ASSERT(wide == L"wide");
+    std::u16string utf16;
+    ASSERT(rpc_core::deserialize(rpc_core::serialize(std::u16string(u"utf16")), utf16));
+    ASSERT(utf16 == u"utf16");
+    ASSERT(!rpc_core::deserialize(std::string(1, 'x'), utf16));
+  }
   /// only support little endian
   ASSERT(is_little_endian());
 
@@ -135,8 +201,10 @@ void test_serialize() {
     ASSERT_SERIALIZE_SIZE(4);
     RAW_TYPE_TEST(double);
     ASSERT_SERIALIZE_SIZE(8);
-    RAW_TYPE_TEST(long double);
-    ASSERT_SERIALIZE_SIZE(16);
+    test_floating_type<float>(std::true_type{});
+    test_floating_type<double>(std::true_type{});
+    test_floating_type<long double>(std::integral_constant<bool,
+        rpc_core::detail::binary_float_format<long double>::supported>{});
   }
 
   /// enum
@@ -578,6 +646,81 @@ void test_serialize() {
     serialize_test(a, b);
     ASSERT(a == b);
     ASSERT_SERIALIZE_SIZE(39);
+  }
+
+  // Duration counts must fit their representation, including unsigned bounds.
+  {
+    using Wide = std::chrono::duration<int64_t>;
+    using Narrow = std::chrono::duration<int32_t>;
+    Narrow narrow(42);
+    for (auto invalid : {int64_t(INT32_MAX) + 1, int64_t(INT32_MIN) - 1}) {
+      ASSERT(!rpc_core::deserialize(rpc_core::serialize(Wide(invalid)), narrow));
+      ASSERT(narrow.count() == 42);
+    }
+    for (auto valid : {INT32_MIN, 0, INT32_MAX}) {
+      ASSERT(rpc_core::deserialize(rpc_core::serialize(Wide(valid)), narrow));
+      ASSERT(narrow.count() == valid);
+    }
+    using Unsigned = std::chrono::duration<uint32_t>;
+    Unsigned unsigned_count(42);
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(Wide(-1)), unsigned_count));
+    ASSERT(unsigned_count.count() == 42);
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(Wide(int64_t(UINT32_MAX) + 1)), unsigned_count));
+    ASSERT(unsigned_count.count() == 42);
+    using UnsignedWide = std::chrono::duration<uint64_t>;
+    for (auto count : {uint64_t(0), uint64_t(INT64_MAX), uint64_t(INT64_MAX) + 1, uint64_t(UINT64_MAX)}) {
+      UnsignedWide restored;
+      auto data = rpc_core::serialize(UnsignedWide(count));
+      ASSERT(rpc_core::deserialize(data, restored));
+      ASSERT(restored.count() == count);
+      if (count > uint64_t(INT64_MAX)) {
+        Wide signed_count;
+        ASSERT(!rpc_core::deserialize(data, signed_count));
+      }
+    }
+    using Point = std::chrono::time_point<std::chrono::system_clock, Narrow>;
+    Point point(Narrow(42));
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(Wide(int64_t(INT32_MAX) + 1)), point));
+    ASSERT(point.time_since_epoch().count() == 42);
+    std::chrono::duration<double> floating;
+    ASSERT(rpc_core::deserialize(rpc_core::serialize(std::chrono::duration<double>(0.25)), floating));
+    ASSERT(floating.count() == 0.25);
+  }
+
+  // Integer limits must not access memory out of bounds.
+  {
+    for (auto value : {std::numeric_limits<intmax_t>::min(), std::numeric_limits<intmax_t>::max()}) {
+      intmax_t decoded = 0;
+      ASSERT(rpc_core::deserialize(rpc_core::serialize(value), decoded));
+      ASSERT(decoded == value);
+    }
+  }
+
+  // Reject truncated fields and lengths exceeding the destination capacity.
+  {
+    double number = 0;
+    ASSERT(!rpc_core::deserialize(std::string(7, '\0'), number));
+    intmax_t integer = 0;
+    ASSERT(!rpc_core::deserialize(std::string(), integer));
+    ASSERT(!rpc_core::deserialize(std::string(1, '\x08'), integer));
+    ASSERT(!rpc_core::deserialize(std::string(10, '\x09'), integer));
+    std::array<int, 1> array{};
+    ASSERT(!rpc_core::deserialize(rpc_core::serialize(std::array<int, 2>{{1, 2}}), array));
+    std::tuple<std::string> nested;
+    ASSERT(!rpc_core::deserialize(std::string("\x01\x05", 2), nested));
+    std::vector<int> list;
+    ASSERT(!rpc_core::deserialize(std::string("\x01\x01", 2), list));
+    rpc_core::binary_wrap binary;
+    ASSERT(!rpc_core::deserialize(std::string("\x01\x05", 2), binary));
+    bool flag = false;
+    ASSERT(rpc_core::serialize(true) == std::string(1, '\x01'));
+    ASSERT(rpc_core::serialize(false) == std::string(1, '\x00'));
+    ASSERT(rpc_core::deserialize(rpc_core::serialize(true), flag));
+    ASSERT(flag);
+    ASSERT(rpc_core::deserialize(rpc_core::serialize(false), flag));
+    ASSERT(!flag);
+    ASSERT(rpc_core::deserialize(std::string(1, '\x02'), flag));
+    ASSERT(flag);
   }
 }
 

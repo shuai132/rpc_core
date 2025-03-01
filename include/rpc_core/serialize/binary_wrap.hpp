@@ -25,11 +25,12 @@ inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 template <typename T, typename std::enable_if<std::is_same<T, binary_wrap>::value, int>::type = 0>
 inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   t.size << ia;
+  if (!ia.require(t.size)) return ia;
   t._data_ = std::shared_ptr<uint8_t>(new uint8_t[t.size], [](const uint8_t* p) {
     delete[] p;
   });
   t.data = t._data_.get();
-  memcpy(t.data, ia.data, t.size);
+  if (t.size != 0) memcpy(t.data, ia.data, t.size);
   ia.data += t.size;
   ia.size -= t.size;
   return ia;

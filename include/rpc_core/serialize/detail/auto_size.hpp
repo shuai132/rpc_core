@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string>
+#include <type_traits>
 
 namespace rpc_core {
 namespace detail {
@@ -18,9 +20,10 @@ struct auto_size_type {
     }
 
     uint8_t effective_bytes = sizeof(int_impl_t);
-    auto value_tmp = value;
-    if (value_tmp < 0) {
-      value_tmp = ~value_tmp + 1;
+    using unsigned_type = typename std::make_unsigned<int_impl_t>::type;
+    auto value_tmp = static_cast<unsigned_type>(value);
+    if (value < 0) {
+      value_tmp = unsigned_type(0) - value_tmp;
     }
     for (int i = sizeof(int_impl_t) - 1; i >= 0; --i) {
       if ((value_tmp >> (i * 8)) & 0xff) {
@@ -41,19 +44,28 @@ struct auto_size_type {
     return ret;
   }
 
-  int deserialize(const void* data) {
-    auto p = (uint8_t*)data;
-    uint8_t size_bytes = p[0];
-    bool negative = false;
-    if (size_bytes & 0x80) {
-      negative = true;
-      size_bytes &= 0x7f;
-    }
-    memcpy(&value, p + 1, size_bytes);
+  // Returns zero for truncated or unrepresentable input.
+  int deserialize(const void* data, size_t size) {
+    value = 0;
+    if (!data || size == 0) return 0;
+    auto p = static_cast<const uint8_t*>(data);
+    const bool negative = (p[0] & 0x80) != 0;
+    const size_t size_bytes = p[0] & 0x7f;
+    if (size_bytes > sizeof(value) || size_bytes > size - 1) return 0;
+
+    using unsigned_type = typename std::make_unsigned<int_impl_t>::type;
+    unsigned_type magnitude = 0;
+    memcpy(&magnitude, p + 1, size_bytes);
+    const auto max = static_cast<unsigned_type>(std::numeric_limits<int_impl_t>::max());
     if (negative) {
-      value = ~value + 1;
+      if (!std::is_signed<int_impl_t>::value || magnitude > max + unsigned_type(1)) return 0;
+      // Avoid negating the minimum signed integer.
+      if (magnitude != 0) value = -static_cast<int_impl_t>(magnitude - 1) - 1;
+    } else {
+      if (magnitude > max) return 0;
+      value = static_cast<int_impl_t>(magnitude);
     }
-    return size_bytes + 1;
+    return static_cast<int>(size_bytes + 1);
   }
 
   int_impl_t value;
