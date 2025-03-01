@@ -15,8 +15,9 @@ enum class finally_t : int {
   canceled = 3,
   rpc_expired = 4,
   rpc_not_ready = 5,
-  rsp_serialize_error = 6,
-  no_such_cmd = 7,
+  no_such_cmd = 6,
+  req_serialize_error = 7,
+  rsp_serialize_error = 8,
 };
 
 inline const char* finally_t_str(finally_t t) {
@@ -33,10 +34,12 @@ inline const char* finally_t_str(finally_t t) {
       return "rpc_expired";
     case finally_t::rpc_not_ready:
       return "rpc_not_ready";
-    case finally_t::rsp_serialize_error:
-      return "rsp_serialize_error";
     case finally_t::no_such_cmd:
       return "no_such_cmd";
+    case finally_t::req_serialize_error:
+      return "req_serialize_error";
+    case finally_t::rsp_serialize_error:
+      return "rsp_serialize_error";
     default:
       return "unknown";
   }

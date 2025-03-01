@@ -27,7 +27,11 @@ void request::call(const rpc_s& rpc) {
     return;
   }
   seq_ = r->make_seq();
-  r->send_request(this);
+  auto sent = r->send_request(this);
+  if (!sent) {
+    on_finish(sent.type);
+    return;
+  }
   if (!need_rsp_) {
     on_finish(finally_t::no_need_rsp);
   }

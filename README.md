@@ -25,6 +25,7 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 * Header-Only
 * No-Schema
+* No exceptions in the core RPC protocol; errors are returned as `result` values
 * Support performance-limited platforms including microchips
 * Support any connection type (`tcp socket`, `serial port`, etc.)
 * High Performance Serialization, support most STL containers and user type

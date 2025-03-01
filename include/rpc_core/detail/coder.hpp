@@ -3,6 +3,10 @@
 #ifdef RPC_CORE_FEATURE_CODER_VARINT
 #include "coder_varint.hpp"
 #else
+#include <cstring>
+#include <limits>
+#include <utility>
+
 #include "msg_wrapper.hpp"
 
 namespace rpc_core {
@@ -10,7 +14,10 @@ namespace detail {
 
 class coder {
  public:
-  static std::string serialize(const msg_wrapper& msg) {
+  static std::pair<bool, std::string> serialize(const msg_wrapper& msg) {
+    if (msg.cmd.size() > (std::numeric_limits<uint16_t>::max)()) {
+      return {false, {}};
+    }
     std::string payload;
     payload.reserve(PayloadMinLen + msg.cmd.size() + msg.data.size());
     payload.append((char*)&msg.seq, 4);
@@ -23,32 +30,30 @@ class coder {
     } else {
       payload.append(msg.data);
     }
-    return payload;
+    return {true, std::move(payload)};
   }
 
-  static msg_wrapper deserialize(const std::string& payload, bool& ok) {
+  static std::pair<bool, msg_wrapper> deserialize(const std::string& payload) {
     msg_wrapper msg;
     if (payload.size() < PayloadMinLen) {
-      ok = false;
-      return msg;
+      return {false, {}};
     }
-    char* p = (char*)payload.data();
+    const char* p = payload.data();
     const char* pend = payload.data() + payload.size();
-    msg.seq = *(seq_type*)p;
+    std::memcpy(&msg.seq, p, 4);
     p += 4;
-    uint16_t cmd_len = *(uint16_t*)p;
+    uint16_t cmd_len;
+    std::memcpy(&cmd_len, p, 2);
     p += 2;
-    if (p + cmd_len + 1 > pend) {
-      ok = false;
-      return msg;
+    if (static_cast<size_t>(pend - p) - 1 < cmd_len) {
+      return {false, {}};
     }
     msg.cmd.assign(p, cmd_len);
     p += cmd_len;
-    msg.type = *(msg_wrapper::msg_type*)(p);
+    msg.type = static_cast<msg_wrapper::msg_type>(static_cast<uint8_t>(*p));
     p += 1;
     msg.data.assign(p, pend - p);
-    ok = true;
-    return msg;
+    return {true, std::move(msg)};
   }
 
  private:

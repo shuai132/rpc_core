@@ -1,19 +1,18 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <string>
 
 namespace rpc_core {
 namespace detail {
 
 static const uint8_t MSB = 0x80;
-static const uint8_t MSB_ALL = ~0x7F;
 
-inline uint8_t* varint_encode(unsigned long long n, uint8_t* buf, uint8_t* bytes) {
+inline uint8_t* varint_encode(uint32_t n, uint8_t* buf, uint8_t* bytes) {
   uint8_t* ptr = buf;
-  while (n & MSB_ALL) {
-    *(ptr++) = (n & 0xFF) | MSB;
+  while (n >= MSB) {
+    *(ptr++) = static_cast<uint8_t>(n & 0x7f) | MSB;
     n = n >> 7;
   }
   *ptr = n;
@@ -21,34 +20,28 @@ inline uint8_t* varint_encode(unsigned long long n, uint8_t* buf, uint8_t* bytes
   return buf;
 }
 
-inline unsigned long long varint_decode(uint8_t* buf, uint8_t* bytes) {
-  unsigned long long result = 0;
-  int bits = 0;
-  uint8_t* ptr = buf;
-  unsigned long long ll;
-  while (*ptr & MSB) {
-    ll = *ptr;
-    result += ((ll & 0x7F) << bits);
-    ptr++;
-    bits += 7;
-  }
-  ll = *ptr;
-  result += ((ll & 0x7F) << bits);
-  *bytes = ptr - buf + 1;
-  return result;
-}
-
 inline std::string to_varint(uint32_t var) {
   uint8_t buf[sizeof(uint32_t) + 1];  // enough
-  std::string ret;
   uint8_t bytes;
   varint_encode(var, buf, &bytes);
   return {(char*)buf, bytes};
 }
 
-inline uint32_t from_varint(void* data, uint8_t* bytes) {
-  return varint_decode((uint8_t*)data, bytes);
-  ;
+// Decode a uint32_t without reading past the supplied buffer.
+inline bool from_varint(const char* data, size_t size, uint32_t& value, size_t& bytes) {
+  value = 0;
+  bytes = 0;
+  if (data == nullptr) return false;
+  for (size_t i = 0; i < 5 && i < size; ++i) {
+    const uint8_t byte = static_cast<uint8_t>(data[i]);
+    if (i == 4 && (byte & 0xf0) != 0) return false;
+    value |= static_cast<uint32_t>(byte & 0x7f) << (7 * i);
+    if ((byte & MSB) == 0) {
+      bytes = i + 1;
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace detail

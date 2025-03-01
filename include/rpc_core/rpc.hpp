@@ -148,7 +148,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
     return seq_++;
   }
 
-  inline void send_request(request const* request);
+  inline result<void> send_request(request const* request);
 
   inline bool is_ready() const {
     return is_ready_;

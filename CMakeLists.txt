@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 
 project(rpc_core CXX)
 
@@ -86,4 +86,16 @@ if (RPC_CORE_BUILD_TEST)
         target_include_directories(${TARGET_NAME} PRIVATE thirdparty/flatbuffers/include)
     endif ()
     target_sources(${TARGET_NAME} PRIVATE ${SRCS})
-endif ()
+
+    add_executable(rpc_core_test_coder test/test_coder.cpp)
+    target_include_directories(rpc_core_test_coder PRIVATE include)
+
+    add_executable(rpc_core_test_coder_varint test/test_coder_varint.cpp)
+    target_include_directories(rpc_core_test_coder_varint PRIVATE include)
+    target_compile_definitions(rpc_core_test_coder_varint PRIVATE RPC_CORE_FEATURE_CODER_VARINT)
+
+    enable_testing()
+    foreach(test_target rpc_core_test rpc_core_test_coder rpc_core_test_coder_varint)
+        add_test(NAME ${test_target} COMMAND ${test_target})
+    endforeach()
+endif()

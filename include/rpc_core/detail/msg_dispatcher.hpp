@@ -30,10 +30,9 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
         RPC_CORE_LOGD("msg_dispatcher expired");
         return;
       }
-      bool success;
-      auto msg = coder::deserialize(payload, success);
-      if (success) {
-        self_lock->dispatch(std::move(msg));
+      auto decoded = coder::deserialize(payload);
+      if (decoded.first) {
+        self_lock->dispatch(std::move(decoded.second));
       } else {
         RPC_CORE_LOGE("payload deserialize error");
       }
@@ -41,6 +40,15 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   }
 
  private:
+  void send_response(const msg_wrapper& msg) {
+    auto payload = coder::serialize(msg);
+    if (!payload.first) {
+      RPC_CORE_LOGE("response serialization failed");
+      return;
+    }
+    conn_->send_package_impl(std::move(payload.second));
+  }
+
   void dispatch(msg_wrapper msg) {
     switch (msg.type & (msg_wrapper::command | msg_wrapper::response)) {
       case msg_wrapper::command: {
@@ -50,7 +58,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           RPC_CORE_LOGD("<= seq:%u type:ping", msg.seq);
           msg.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::response | msg_wrapper::pong);
           RPC_CORE_LOGD("=> seq:%u type:pong", msg.seq);
-          conn_->send_package_impl(coder::serialize(msg));
+          send_response(msg);
           return;
         }
 
@@ -66,7 +74,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
             msg_wrapper rsp;
             rsp.seq = msg.seq;
             rsp.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::msg_type::response | msg_wrapper::msg_type::no_such_cmd);
-            conn_->send_package_impl(coder::serialize(rsp));
+            send_response(rsp);
           }
           return;
         }
@@ -82,14 +90,14 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
             } break;
             case msg_wrapper::response_state::response_sync: {
               RPC_CORE_LOGD("=> seq:%u type:rsp", resp.second.seq);
-              conn_->send_package_impl(coder::serialize(resp.second));
+              send_response(resp.second);
             } break;
             case msg_wrapper::response_state::response_async: {
               RPC_CORE_LOGD("=> seq:%u type:rsp_async", resp.second.seq);
               auto helper = std::move(resp.second.async_helper);
               if (helper->ready) {
                 resp.second.data = std::move(helper->data);
-                conn_->send_package_impl(coder::serialize(resp.second));
+                send_response(resp.second);
               } else {
                 helper->send_async_response = [weak = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq = resp.second.seq](std::string data) {
                   const auto self = weak.lock();
@@ -98,7 +106,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
                   response.seq = seq;
                   response.type = msg_wrapper::response;
                   response.data = std::move(data);
-                  self->conn_->send_package_impl(coder::serialize(response));
+                  self->send_response(response);
                 };
               }
             } break;

@@ -46,14 +46,11 @@ jobs:
           - toolchain: windows-msvc
             os: windows-latest
             compiler: msvc
-            env:
-              BIN_SUFFIX: ".exe"
 
           - toolchain: windows-mingw
             os: windows-latest
             compiler: mingw
             env:
-              BIN_SUFFIX: ".exe"
               CMAKE_OPTIONS: "-G \"MinGW Makefiles\""
 
     steps:
@@ -69,11 +66,6 @@ jobs:
       - name: Build with ${{ matrix.compiler }}
         run: cmake --build build --config ${{ matrix.configuration }} -j
 
-      - name: Windows-MSVC Compatible
-        if: matrix.os == 'windows-latest' && matrix.compiler == 'msvc'
-        working-directory: build
-        run: Move-Item -Path .\${{ matrix.configuration }}\* -Destination .\
-
       - name: Test
         working-directory: build
-        run: ./rpc_core_test${{ matrix.env.BIN_SUFFIX }}
+        run: ctest -C ${{ matrix.configuration }} --output-on-failure

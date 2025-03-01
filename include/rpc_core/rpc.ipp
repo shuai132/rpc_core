@@ -39,18 +39,24 @@ inline asio::awaitable<result<R>> rpc::co_call(cmd_type cmd, Msg&& message) {
 }
 #endif
 
-void rpc::send_request(request const* request) {
-  if (request->need_rsp_) {
-    dispatcher_->subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);
-  }
+result<void> rpc::send_request(request const* request) {
   detail::msg_wrapper msg;
   msg.type = static_cast<detail::msg_wrapper::msg_type>(detail::msg_wrapper::command | (request->is_ping_ ? detail::msg_wrapper::ping : 0) |
                                                         (request->need_rsp_ ? detail::msg_wrapper::need_rsp : 0));
   msg.cmd = request->cmd_;
   msg.seq = request->seq_;
   msg.request_payload = &request->payload_;
+  auto payload = detail::coder::serialize(msg);
+  if (!payload.first) {
+    RPC_CORE_LOGE("request serialization failed");
+    return {finally_t::req_serialize_error};
+  }
   RPC_CORE_LOGD("=> seq:%u type:%s %s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::ping) ? "ping" : "cmd", msg.cmd.c_str());
-  conn_->send_package_impl(detail::coder::serialize(msg));
+  if (request->need_rsp_) {
+    dispatcher_->subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);
+  }
+  conn_->send_package_impl(std::move(payload.second));
+  return {finally_t::normal};
 }
 
 }  // namespace rpc_core

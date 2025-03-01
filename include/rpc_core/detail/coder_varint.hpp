@@ -1,5 +1,8 @@
 #pragma once
 
+#include <limits>
+#include <utility>
+
 #include "msg_wrapper.hpp"
 #include "varint.hpp"
 
@@ -8,7 +11,10 @@ namespace detail {
 
 class coder {
  public:
-  static std::string serialize(const msg_wrapper& msg) {
+  static std::pair<bool, std::string> serialize(const msg_wrapper& msg) {
+    if (msg.cmd.size() > (std::numeric_limits<uint16_t>::max)()) {
+      return {false, {}};
+    }
     std::string payload;
     std::string v_seq = to_varint(msg.seq);
     std::string v_cmd_len = to_varint(msg.cmd.length());
@@ -22,29 +28,38 @@ class coder {
     } else {
       payload.append(msg.data);
     }
-    return payload;
+    return {true, std::move(payload)};
   }
 
-  static msg_wrapper deserialize(const std::string& payload, bool& ok) {
+  static std::pair<bool, msg_wrapper> deserialize(const std::string& payload) {
     msg_wrapper msg;
-    char* p = (char*)payload.data();
-    const char* pend = payload.data() + payload.size();
-    uint8_t bytes;
-    msg.seq = from_varint(p, &bytes);
+    const char* p = payload.data();
+    size_t remaining = payload.size();
+    size_t bytes = 0;
+    uint32_t seq = 0;
+    if (!from_varint(p, remaining, seq, bytes)) {
+      return {false, {}};
+    }
+    msg.seq = seq;
     p += bytes;
-    uint16_t cmd_len = from_varint(p, &bytes);
+    remaining -= bytes;
+    uint32_t cmd_len = 0;
+    if (!from_varint(p, remaining, cmd_len, bytes) || cmd_len > (std::numeric_limits<uint16_t>::max)()) {
+      return {false, {}};
+    }
     p += bytes;
-    if (p + cmd_len + sizeof(msg.type) > pend) {
-      ok = false;
-      return msg;
+    remaining -= bytes;
+    if (remaining < sizeof(msg.type) || cmd_len > remaining - sizeof(msg.type)) {
+      return {false, {}};
     }
     msg.cmd.assign(p, cmd_len);
     p += cmd_len;
-    msg.type = *(msg_wrapper::msg_type*)(p);
+    remaining -= cmd_len;
+    msg.type = static_cast<msg_wrapper::msg_type>(static_cast<uint8_t>(*p));
     p += sizeof(msg.type);
-    msg.data.assign(p, pend - p);
-    ok = true;
-    return msg;
+    remaining -= sizeof(msg.type);
+    msg.data.assign(p, remaining);
+    return {true, std::move(msg)};
   }
 };
 
