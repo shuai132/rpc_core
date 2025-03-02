@@ -358,6 +358,40 @@ void test_rpc() {
       auto result = rpc_c->ping()->future().get();
       ASSERT(result.type == finally_t::normal);
     }
+    {
+      auto not_ready = rpc::create();
+      auto result = not_ready->cmd("cmd")->future<std::string>().get();
+      ASSERT(result.type == finally_t::rpc_not_ready);
+    }
+    {
+      auto result = rpc_c->cmd("missing_cmd")->future<std::string>().get();
+      ASSERT(result.type == finally_t::no_such_cmd);
+    }
+    {
+      auto conn = std::make_shared<connection>();
+      conn->send_package_impl = [](std::string) {};
+      auto timed_rpc = rpc::create(conn);
+      timed_rpc->set_ready(true);
+      rpc::timeout_cb timer;
+      timed_rpc->set_timer([&](uint32_t, rpc::timeout_cb cb) {
+        timer = std::move(cb);
+      });
+      auto request = timed_rpc->cmd("cmd");
+      auto future = request->future<std::string>();
+      ASSERT(static_cast<bool>(timer));
+      timer();
+      ASSERT(future.get().type == finally_t::timeout);
+    }
+    {
+      auto conn = std::make_shared<connection>();
+      conn->send_package_impl = [](std::string) {};
+      auto cancel_rpc = rpc::create(conn);
+      cancel_rpc->set_ready(true);
+      auto request = cancel_rpc->cmd("cmd");
+      auto future = request->future<std::string>();
+      request->cancel();
+      ASSERT(future.get().type == finally_t::canceled);
+    }
   }
 #endif
 
@@ -525,6 +559,29 @@ void test_rpc() {
     ASSERT(!pass_timeout);
     ASSERT(!pass_rsp);
     ASSERT(finally_count == 1);
+  }
+
+  RPC_CORE_LOG("12.1 timeout callback can cancel its request");
+  {
+    auto conn = std::make_shared<connection>();
+    conn->send_package_impl = [](std::string) {};
+    auto rpc_timeout = rpc::create(conn);
+    rpc_timeout->set_ready(true);
+    rpc::timeout_cb timer;
+    rpc_timeout->set_timer([&](uint32_t, rpc::timeout_cb cb) {
+      timer = std::move(cb);
+    });
+    int finished = 0;
+    auto request = rpc_timeout->cmd("cmd")->rsp([](std::string) {});
+    request->timeout([&] { request->cancel(); });
+    request->finally([&](finally_t type) {
+      ASSERT(type == finally_t::canceled);
+      ++finished;
+    });
+    request->call();
+    ASSERT(static_cast<bool>(timer));
+    timer();
+    ASSERT(finished == 1);
   }
 
   RPC_CORE_LOG("13. subscribe async: use coroutine or custom scheduler");

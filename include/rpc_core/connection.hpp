@@ -50,10 +50,10 @@ struct loopback_connection : public connection {
     auto c2 = std::make_shared<connection>();
     auto c2_weak = std::weak_ptr<connection>(c2);
     c1->send_package_impl = [c2_weak](std::string package) {
-      c2_weak.lock()->on_recv_package(std::move(package));
+      if (auto peer = c2_weak.lock()) peer->on_recv_package(std::move(package));
     };
     c2->send_package_impl = [c1_weak](std::string package) {
-      c1_weak.lock()->on_recv_package(std::move(package));
+      if (auto peer = c1_weak.lock()) peer->on_recv_package(std::move(package));
     };
     return std::make_pair(c1, c2);
   }

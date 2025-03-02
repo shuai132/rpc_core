@@ -14,6 +14,7 @@
 #include "detail/callable/callable.hpp"
 #include "detail/msg_wrapper.hpp"
 #include "detail/noncopyable.hpp"
+#include "detail/shared_function.hpp"
 #include "result.hpp"
 #include "serialize.hpp"
 
@@ -77,12 +78,10 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
       auto rsp = msg.unpack_as<T>();
       if (rsp.first) {
-        cb(std::move(rsp.second), finally_t::normal);
-        self->on_finish(finally_t::normal);
+        self->finish_response(finally_t::normal, [&] { cb(std::move(rsp.second), finally_t::normal); });
         return true;
       } else {
-        cb({}, finally_t::rsp_serialize_error);
-        self->on_finish(finally_t::rsp_serialize_error);
+        self->finish_response(finally_t::rsp_serialize_error, [&] { cb({}, finally_t::rsp_serialize_error); });
         return false;
       }
     };
@@ -112,8 +111,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
       auto rsp = msg.unpack_as<T>();
       if (rsp.first) {
-        cb(std::move(rsp.second));
-        self->on_finish(finally_t::normal);
+        self->finish_response(finally_t::normal, [&] { cb(std::move(rsp.second)); });
         return true;
       } else {
         self->on_finish(finally_t::rsp_serialize_error);
@@ -143,32 +141,36 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         return true;
       }
 
-      cb();
-      self->on_finish(finally_t::normal);
+      self->finish_response(finally_t::normal, [&] { cb(); });
       return true;
     };
     return self;
   }
 
   /**
-   * one call, one finally
+   * One accepted call, one finally. A busy call does not invoke finally.
    * @param finally
    * @return
    */
   request_s finally(std::function<void(finally_t)> finally) {
-    finally_ = std::move(finally);
+    finally_ = std::make_shared<std::function<void(finally_t)>>(std::move(finally));
     return shared_from_this();
   }
 
   request_s finally(std::function<void()> finally) {
-    finally_ = [finally = std::move(finally)](finally_t t) mutable {
+    finally_ = std::make_shared<std::function<void(finally_t)>>([finally = std::move(finally)](finally_t t) mutable {
       RPC_CORE_UNUSED(t);
       finally();
-    };
+    });
     return shared_from_this();
   }
 
-  inline void call(const rpc_s& rpc = nullptr);
+  /**
+   * Reusable after completion or cancellation; only one call may be active.
+   * Returns busy without changing the active call. Other immediate failures
+   * also complete the accepted call through finally.
+   */
+  inline result<void> call(const rpc_s& rpc = nullptr);
 
   request_s ping() {
     is_ping_ = true;
@@ -184,25 +186,8 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    * timeout callback for wait `rsp`
    */
   request_s timeout(std::function<void()> timeout_cb) {
-    auto self = shared_from_this();
-    request_w weak = self;
-    timeout_cb_ = [weak, timeout_cb = std::move(timeout_cb)]() mutable {
-      auto self = weak.lock();
-      if (!self) return;
-
-      if (timeout_cb) {
-        timeout_cb();
-      }
-      if (self->retry_count_ == -1) {
-        self->call();
-      } else if (self->retry_count_ > 0) {
-        self->retry_count_--;
-        self->call();
-      } else {
-        self->on_finish(finally_t::timeout);
-      }
-    };
-    return self;
+    timeout_cb_ = std::move(timeout_cb);
+    return shared_from_this();
   }
 
   inline request_s add_to(dispose& dispose);
@@ -232,6 +217,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   request_s enable_rsp() {
+    if (!rsp_handle_) return mark_need_rsp();
     need_rsp_ = true;
     return shared_from_this();
   }
@@ -261,7 +247,8 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   request_s canceled(bool canceled) {
-    canceled_ = canceled;
+    if (canceled) return cancel();
+    canceled_ = false;
     return shared_from_this();
   }
 
@@ -294,6 +281,15 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 #endif
 
  private:
+#ifdef RPC_CORE_FEATURE_CO_ASIO
+  template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
+  static asio::awaitable<result<R>> co_call_impl(request_s owner);
+
+  template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
+  static asio::awaitable<result<R>> co_call_impl(request_s owner);
+#endif
+
+ private:
   explicit request(const rpc_s& rpc = nullptr) : rpc_(rpc) {
     RPC_CORE_LOGD("request: %p", this);
   }
@@ -302,32 +298,59 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
  private:
+  inline result<void> send_attempt();
+  inline void on_timeout();
+
+  bool matches_attempt(uint32_t call_id, seq_type seq) const {
+    return active_ && call_id_ == call_id && seq_ == seq;
+  }
+
   void on_finish(finally_t type) {
-    if (!waiting_rsp_) return;
-    waiting_rsp_ = false;
-    RPC_CORE_LOGD("on_finish: cmd:%s type:%s", cmd_.c_str(), finally_t_str(type));
-    finally_type_ = type;
-    if (finally_) {
-      finally_(finally_type_);
+    finish_response(type, [] {});
+  }
+
+  template <typename F>
+  void finish_response(finally_t type, F&& response) {
+    if (!active_) return;
+    auto completed = std::move(active_);
+    RPC_CORE_LOGD("on_finish: cmd:%s type:%s", completed->cmd.c_str(), finally_t_str(type));
+    auto keeper = std::move(self_keeper_);
+    auto callback = completed->finally;
+    // Detach this completion before user code can start another call.
+    std::forward<F>(response)();
+    if (callback && *callback) {
+      (*callback)(type);
     }
-    self_keeper_ = nullptr;
   }
 
  private:
+  // Builder changes configure the next call; active calls retain their options.
+  struct call_options {
+    rpc_w rpc;
+    cmd_type cmd;
+    std::string payload;
+    bool need_rsp;
+    detail::shared_function<bool(detail::msg_wrapper)> rsp_handle;
+    uint32_t timeout_ms;
+    detail::shared_function<void()> timeout_cb;
+    std::shared_ptr<std::function<void(finally_t)>> finally;
+    bool is_ping;
+  };
+  std::shared_ptr<call_options> active_;
+  int retries_remaining_ = 0;
   rpc_w rpc_;
   request_s self_keeper_;
   seq_type seq_{};
+  uint32_t call_id_ = 0;
   cmd_type cmd_;
   std::string payload_;
   bool need_rsp_ = false;
   bool canceled_ = false;
-  std::function<bool(detail::msg_wrapper)> rsp_handle_;
+  detail::shared_function<bool(detail::msg_wrapper)> rsp_handle_;
   uint32_t timeout_ms_ = 3000;
-  std::function<void()> timeout_cb_;
-  finally_t finally_type_ = finally_t::no_need_rsp;
-  std::function<void(finally_t)> finally_;
+  detail::shared_function<void()> timeout_cb_;
+  std::shared_ptr<std::function<void(finally_t)>> finally_;
   int retry_count_ = 0;
-  bool waiting_rsp_ = false;
   bool is_ping_ = false;
 };
 

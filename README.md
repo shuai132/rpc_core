@@ -118,6 +118,34 @@ and [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rp
 3. There is an example shows custom async
    impl: [rpc_c_coroutine.hpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.hpp)
 
+## Request reuse
+
+A `request` can be called again after completion or cancellation, including from
+its response or `finally` callback. Each request allows only one active call;
+use separate requests for concurrent calls. `call()` returns `result<void>`:
+`normal` means the request was sent, while `busy` rejects an overlapping call
+without sending or invoking `finally`. Other immediate failures also complete
+the accepted call through `finally`.
+
+`future()` and `co_call()` return a `busy` result for overlapping calls without
+replacing the active call's callbacks. Every accepted call snapshots its
+configuration. Builder changes configure the next call; retries retain the
+original payload, RPC and callbacks. Retries belong to the same logical call,
+consume a fresh retry budget for each new call, and invoke `finally` only once.
+Reused callbacks retain their mutable captures across calls. Replacing a callback
+configures a new instance for future calls; the active call keeps its old instance.
+After `cancel()`, use `reset_cancel()` before calling again. Asio `co_call()` also
+responds to terminal coroutine cancellation; cancellation affects only that call,
+including when a request is reused.
+
+```c++
+auto req = rpc->cmd("cmd")->msg(std::string("hello"))->rsp([](std::string) {});
+auto started = req->call();
+auto overlapping = req->call(); // busy if the first call is still active
+req->cancel()->reset_cancel();
+auto restarted = req->call();
+```
+
 ## Serialization
 
 High-performance and memory-saving binary serialization.

@@ -23,6 +23,12 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
  public:
   explicit msg_dispatcher(std::shared_ptr<connection> conn) : conn_(std::move(conn)) {}
 
+  ~msg_dispatcher() {
+    for (auto& pending : rsp_handle_map_) {
+      if (pending.second.expired) pending.second.expired();
+    }
+  }
+
   void init() {
     conn_->on_recv_package = ([self = std::weak_ptr<msg_dispatcher>(shared_from_this())](const std::string& payload) {
       auto self_lock = self.lock();
@@ -122,7 +128,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           RPC_CORE_LOGD("no rsp for seq:%u", msg.seq);
           break;
         }
-        auto cb = std::move(it->second);
+        auto cb = std::move(it->second.handle);
         rsp_handle_map_.erase(it);
         if (!cb) {
           RPC_CORE_LOGE("rsp can not be null");
@@ -156,11 +162,11 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
     }
   }
 
-  void subscribe_rsp(seq_type seq, rsp_handle handle, timeout_cb timeout_cb, uint32_t timeout_ms) {
+  void subscribe_rsp(seq_type seq, rsp_handle handle, timeout_cb timeout_cb, uint32_t timeout_ms, std::function<void()> expired = nullptr) {
     RPC_CORE_LOGD("subscribe_rsp seq:%u", seq);
     if (handle == nullptr) return;
 
-    rsp_handle_map_[seq] = std::move(handle);
+    rsp_handle_map_[seq] = {std::move(handle), std::move(expired)};
     if (timer_impl_ == nullptr) {
       RPC_CORE_LOGW("no timeout will cause memory leak!");
       return;
@@ -174,10 +180,10 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
       }
       auto it = self_lock->rsp_handle_map_.find(seq);
       if (it != self_lock->rsp_handle_map_.cend()) {
+        self_lock->rsp_handle_map_.erase(it);
         if (timeout_cb) {
           timeout_cb();
         }
-        self_lock->rsp_handle_map_.erase(seq);
         RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, self_lock->rsp_handle_map_.size());
       }
     });
@@ -198,7 +204,11 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
  private:
   std::shared_ptr<connection> conn_;
   std::map<cmd_type, std::shared_ptr<cmd_handle>> cmd_handle_map_;
-  std::map<seq_type, rsp_handle> rsp_handle_map_;
+  struct pending_response {
+    rsp_handle handle;
+    timeout_cb expired;
+  };
+  std::map<seq_type, pending_response> rsp_handle_map_;
   timer_impl timer_impl_;
 };
 

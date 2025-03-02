@@ -38,13 +38,15 @@ class dispose : detail::noncopyable {
   }
 
   void dismiss() {
-    for (const auto& item : requests_) {
+    // Cancel callbacks may remove requests, add new ones or dismiss again.
+    std::vector<request_w> pending;
+    pending.swap(requests_);
+    for (const auto& item : pending) {
       auto r = item.lock();
       if (r) {
         r->cancel();
       }
     }
-    requests_.clear();
   }
 
   ~dispose() {

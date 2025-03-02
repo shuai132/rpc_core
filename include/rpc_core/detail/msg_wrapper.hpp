@@ -34,6 +34,8 @@ struct msg_wrapper : copyable {  // NOLINT
     serialize_error = 1 << 2,
   };
 
+  msg_wrapper() : seq(0), type(command), response_state(response_state::response_sync) {}
+
   seq_type seq;
   cmd_type cmd;
   msg_type type;
