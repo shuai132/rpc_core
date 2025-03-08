@@ -54,14 +54,14 @@ impl MsgWrapper {
         r
     }
 
-    pub fn make_rsp<R>(seq: SeqType, rsp: R) -> MsgWrapper
+    pub fn make_rsp<R>(seq: SeqType, rsp: R) -> Result<MsgWrapper, Error>
     where
         R: serde::Serialize,
     {
         let mut msg = MsgWrapper::new();
         msg.type_ = MsgType::Response;
         msg.seq = seq;
-        msg.data = serde_json::to_string(&rsp).unwrap().into_bytes();
-        msg
+        msg.data = serde_json::to_vec(&rsp)?;
+        Ok(msg)
     }
 }

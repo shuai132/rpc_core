@@ -14,25 +14,41 @@ use crate::type_def::{CmdType, SeqType};
 
 pub struct RequestImpl {
     rpc: Option<Weak<Rpc>>,
-    self_weak: Weak<Request>,
+    pub(crate) self_weak: Weak<Request>,
     self_keeper: Option<Rc<Request>>,
     pub(crate) seq: SeqType,
+    pub(crate) call_id: u32,
+    pub(crate) active: Option<Rc<CallOptions>>,
+    retries_remaining: i32,
     pub(crate) cmd: CmdType,
     pub(crate) payload: Option<Vec<u8>>,
+    pub(crate) serialize_error: bool,
     pub(crate) need_rsp: bool,
     canceled: bool,
     pub(crate) rsp_handle: Option<Rc<RspHandle>>,
     pub(crate) timeout_ms: u32,
     pub(crate) timeout_cb: Option<Rc<TimeoutCb>>,
-    finally_type: FinallyType,
-    finally: Option<Box<dyn Fn(FinallyType)>>,
+    finally: Option<Rc<dyn Fn(FinallyType)>>,
     retry_count: i32,
-    waiting_rsp: bool,
     pub(crate) is_ping: bool,
 }
 
 pub struct Request {
     pub(crate) inner: RefCell<RequestImpl>,
+}
+
+// Builder changes configure the next call, including its retries.
+pub(crate) struct CallOptions {
+    pub(crate) rpc: Option<Weak<Rpc>>,
+    pub(crate) cmd: CmdType,
+    pub(crate) payload: Option<Vec<u8>>,
+    pub(crate) serialize_error: bool,
+    pub(crate) need_rsp: bool,
+    pub(crate) rsp_handle: Option<Rc<RspHandle>>,
+    pub(crate) timeout_ms: u32,
+    pub(crate) timeout_cb: Option<Rc<TimeoutCb>>,
+    finally: Option<Rc<dyn Fn(FinallyType)>>,
+    pub(crate) is_ping: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,8 +59,10 @@ pub enum FinallyType {
     Canceled = 3,
     RpcExpired = 4,
     RpcNotReady = 5,
-    RspSerializeError = 6,
-    NoSuchCmd = 7,
+    NoSuchCmd = 6,
+    ReqSerializeError = 7,
+    RspSerializeError = 8,
+    Busy = 9,
 }
 
 impl FinallyType {
@@ -56,8 +74,10 @@ impl FinallyType {
             FinallyType::Canceled => "canceled",
             FinallyType::RpcExpired => "rpc_expired",
             FinallyType::RpcNotReady => "rpc_not_ready",
-            FinallyType::RspSerializeError => "rsp_serialize_error",
             FinallyType::NoSuchCmd => "no_such_cmd",
+            FinallyType::ReqSerializeError => "req_serialize_error",
+            FinallyType::RspSerializeError => "rsp_serialize_error",
+            FinallyType::Busy => "busy",
         }
     }
 }
@@ -71,17 +91,19 @@ impl Request {
                 self_weak: Default::default(),
                 self_keeper: None,
                 seq: 0,
+                call_id: 0,
+                active: None,
+                retries_remaining: 0,
                 cmd: "".to_string(),
                 payload: None,
+                serialize_error: false,
                 need_rsp: false,
                 canceled: false,
                 rsp_handle: None,
                 timeout_ms: 3000,
                 timeout_cb: None,
-                finally_type: FinallyType::Normal,
                 finally: None,
                 retry_count: 0,
-                waiting_rsp: false,
                 is_ping: false,
             }),
         });
@@ -105,7 +127,10 @@ impl Request {
     where
         T: serde::Serialize,
     {
-        self.inner.borrow_mut().payload = serde_json::to_string(&msg).unwrap().into_bytes().into();
+        let payload = serde_json::to_vec(&msg);
+        let mut inner = self.inner.borrow_mut();
+        inner.serialize_error = payload.is_err();
+        inner.payload = payload.ok();
         self
     }
 
@@ -136,8 +161,7 @@ impl Request {
                 }
 
                 if let Ok(value) = msg.unpack_as::<P>() {
-                    cb(value);
-                    this.on_finish(FinallyType::Normal);
+                    this.finish_response(FinallyType::Normal, || cb(value));
                     true
                 } else {
                     this.on_finish(FinallyType::RspSerializeError);
@@ -152,44 +176,80 @@ impl Request {
     where
         F: Fn(FinallyType) + 'static,
     {
-        self.inner.borrow_mut().finally = Some(Box::new(finally));
+        self.inner.borrow_mut().finally = Some(Rc::new(finally));
         self
     }
 
-    pub fn call(self: &Rc<Self>) {
-        self.inner.borrow_mut().waiting_rsp = true;
+    /// Starts a reusable request. Busy leaves the active call untouched and
+    /// does not invoke finally. Other immediate failures complete that call.
+    pub fn call(self: &Rc<Self>) -> Result<(), FinallyType> {
+        {
+            let mut inner = self.inner.borrow_mut();
+            if inner.active.is_some() {
+                return Err(FinallyType::Busy);
+            }
+            inner.call_id = inner.call_id.wrapping_add(1);
+            inner.active = Some(Rc::new(CallOptions {
+                rpc: inner.rpc.clone(),
+                cmd: inner.cmd.clone(),
+                payload: inner.payload.clone(),
+                serialize_error: inner.serialize_error,
+                need_rsp: inner.need_rsp,
+                rsp_handle: inner.rsp_handle.clone(),
+                timeout_ms: inner.timeout_ms,
+                timeout_cb: inner.timeout_cb.clone(),
+                finally: inner.finally.clone(),
+                is_ping: inner.is_ping,
+            }));
+            inner.retries_remaining = inner.retry_count;
+            inner.self_keeper = Some(self.clone());
+        }
+        self.send_attempt()
+    }
+
+    fn send_attempt(self: &Rc<Self>) -> Result<(), FinallyType> {
+        let (options, call_id) = {
+            let inner = self.inner.borrow();
+            (inner.active.as_ref().unwrap().clone(), inner.call_id)
+        };
 
         if self.inner.borrow().canceled {
             self.on_finish(FinallyType::Canceled);
-            return;
+            return Err(FinallyType::Canceled);
         }
 
-        self.inner.borrow_mut().self_keeper = Some(self.clone());
-
-        if self.inner.borrow().rpc.is_none()
-            || self.inner.borrow().rpc.as_ref().unwrap().strong_count() == 0
-        {
+        let Some(r) = options.rpc.as_ref().and_then(Weak::upgrade) else {
             self.on_finish(FinallyType::RpcExpired);
-            return;
-        }
+            return Err(FinallyType::RpcExpired);
+        };
 
-        let r = self.inner.borrow().rpc.as_ref().unwrap().upgrade().unwrap();
         if !r.is_ready() {
             self.on_finish(FinallyType::RpcNotReady);
-            return;
+            return Err(FinallyType::RpcNotReady);
         }
 
         self.inner.borrow_mut().seq = r.make_seq();
-        r.send_request(self.as_ref());
+        let sent = r.send_request(self.as_ref());
+        if self.inner.borrow().call_id != call_id || self.inner.borrow().active.is_none() {
+            return sent;
+        }
+        if let Err(error) = sent {
+            self.on_finish(error.clone());
+            return Err(error);
+        }
 
-        if !self.inner.borrow().need_rsp {
+        if !options.need_rsp {
             self.on_finish(FinallyType::NoNeedRsp)
         }
+        Ok(())
     }
 
-    pub fn call_with_rpc(self: &Rc<Self>, rpc: Rc<Rpc>) {
+    pub fn call_with_rpc(self: &Rc<Self>, rpc: Rc<Rpc>) -> Result<(), FinallyType> {
+        if self.inner.borrow().active.is_some() {
+            return Err(FinallyType::Busy);
+        }
         self.inner.borrow_mut().rpc = Some(Rc::downgrade(&rpc));
-        self.call();
+        self.call()
     }
 
     pub fn ping(self: &Rc<Self>) -> &Rc<Self> {
@@ -206,23 +266,7 @@ impl Request {
     where
         F: Fn() + 'static,
     {
-        let weak = Rc::downgrade(self);
-        self.inner.borrow_mut().timeout_cb = Some(Rc::new(Box::new(move || {
-            let this = weak.upgrade();
-            if this.is_none() {
-                return;
-            }
-            let this = this.unwrap();
-            timeout_cb();
-            if this.inner.borrow().retry_count == -1 {
-                this.call();
-            } else if this.inner.borrow().retry_count > 0 {
-                this.inner.borrow_mut().retry_count -= 1;
-                this.call();
-            } else {
-                this.on_finish(FinallyType::Timeout);
-            }
-        })));
+        self.inner.borrow_mut().timeout_cb = Some(Rc::new(timeout_cb));
         self
     }
 
@@ -232,7 +276,19 @@ impl Request {
     }
 
     pub fn cancel(self: &Rc<Self>) -> &Rc<Self> {
-        self.canceled(true);
+        self.inner.borrow_mut().canceled = true;
+        let pending = {
+            let request = self.inner.borrow();
+            request
+                .active
+                .as_ref()
+                .map(|options| (options.rpc.clone(), request.seq, options.need_rsp))
+        };
+        if let Some((rpc, seq, true)) = pending {
+            if let Some(rpc) = rpc.and_then(|rpc| rpc.upgrade()) {
+                rpc.unsubscribe_rsp(seq);
+            }
+        }
         self.on_finish(FinallyType::Canceled);
         self
     }
@@ -266,7 +322,10 @@ impl Request {
     }
 
     pub fn canceled(self: &Rc<Self>, canceled: bool) -> &Rc<Self> {
-        self.inner.borrow_mut().canceled = canceled;
+        if canceled {
+            return self.cancel();
+        }
+        self.inner.borrow_mut().canceled = false;
         self
     }
 }
@@ -297,6 +356,12 @@ impl Request {
     where
         R: for<'de> serde::Deserialize<'de> + 'static,
     {
+        if self.inner.borrow().active.is_some() {
+            return FutureRet {
+                type_: FinallyType::Busy,
+                result: None,
+            };
+        }
         struct FutureResultInner<R> {
             result: Option<FutureRet<R>>,
             waker: Option<Waker>,
@@ -311,13 +376,36 @@ impl Request {
                 if let Some(result) = result.result.take() {
                     Poll::Ready(result)
                 } else {
-                    if result.waker.is_none() {
-                        result.waker = Some(cx.waker().clone());
-                    }
+                    result.waker = Some(cx.waker().clone());
                     Poll::Pending
                 }
             }
         }
+
+        struct CancelOnDrop {
+            request: Weak<Request>,
+            call_id: u32,
+        }
+        impl Drop for CancelOnDrop {
+            fn drop(&mut self) {
+                if let Some(request) = self.request.upgrade() {
+                    let still_active = {
+                        let inner = request.inner.borrow();
+                        inner.active.is_some() && inner.call_id == self.call_id
+                    };
+                    if still_active {
+                        request.cancel();
+                    }
+                }
+            }
+        }
+
+        // Capture the logical call before sending: synchronous completion can
+        // reuse the request before call() returns. Retries retain this ID.
+        let _cancel = CancelOnDrop {
+            request: Rc::downgrade(self),
+            call_id: self.inner.borrow().call_id.wrapping_add(1),
+        };
 
         let result = FutureResult {
             inner: Rc::new(RefCell::new(FutureResultInner {
@@ -344,11 +432,14 @@ impl Request {
                     result: None,
                 });
             }
-            if let Some(waker) = result.waker.take() {
+            let waker = result.waker.take();
+            drop(result);
+            if let Some(waker) = waker {
                 waker.wake();
             }
         })
-        .call();
+        .call()
+        .ok();
 
         result.await
     }
@@ -356,17 +447,58 @@ impl Request {
 
 // private
 impl Request {
-    fn on_finish(&self, type_: FinallyType) {
-        let mut request = self.inner.borrow_mut();
-        if !request.waiting_rsp {
+    pub(crate) fn matches_attempt(&self, call_id: u32, seq: SeqType) -> bool {
+        let inner = self.inner.borrow();
+        inner.active.is_some() && inner.call_id == call_id && inner.seq == seq
+    }
+
+    pub(crate) fn on_timeout(self: &Rc<Self>) {
+        let (options, call_id, seq) = {
+            let inner = self.inner.borrow();
+            (
+                inner.active.as_ref().unwrap().clone(),
+                inner.call_id,
+                inner.seq,
+            )
+        };
+        if let Some(callback) = &options.timeout_cb {
+            callback();
+        }
+        if !self.matches_attempt(call_id, seq) || self.is_canceled() {
             return;
         }
-        request.waiting_rsp = false;
-        debug!("on_finish: cmd:{} type:{:?}", request.cmd, type_);
-        request.finally_type = type_;
-        if let Some(finally) = request.finally.as_ref() {
-            finally(request.finally_type.clone());
+        let retry = {
+            let mut inner = self.inner.borrow_mut();
+            let retry = inner.retries_remaining == -1 || inner.retries_remaining > 0;
+            if inner.retries_remaining > 0 {
+                inner.retries_remaining -= 1;
+            }
+            retry
+        };
+        if retry {
+            let _ = self.send_attempt();
+        } else {
+            self.on_finish(FinallyType::Timeout);
         }
-        request.self_keeper = None;
+    }
+
+    pub(crate) fn on_finish(&self, type_: FinallyType) {
+        self.finish_response(type_, || {});
+    }
+
+    fn finish_response(&self, type_: FinallyType, response: impl FnOnce()) {
+        let mut request = self.inner.borrow_mut();
+        let Some(completed) = request.active.take() else {
+            return;
+        };
+        debug!("on_finish: cmd:{} type:{:?}", completed.cmd, type_);
+        let finally = completed.finally.clone();
+        let self_keeper = request.self_keeper.take();
+        drop(request);
+        response();
+        if let Some(finally) = finally {
+            finally(type_);
+        }
+        drop(self_keeper);
     }
 }

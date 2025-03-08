@@ -43,7 +43,7 @@ See [src/tests](src/tests) for details:
             .rsp(|msg: String| {
                 assert_eq!(msg, "world");
             })
-            .call();
+            .call().expect("request rejected");
     }
     ```
 
@@ -54,6 +54,25 @@ See [src/tests](src/tests) for details:
         assert_eq!(result.result.unwrap(), "world");
     }
     ```
+
+# Request reuse
+
+A request supports repeated calls after completion or cancellation, including
+from its response or `finally` callback. Only one call may be active per request;
+create separate requests for concurrent calls. `call()` and `call_with_rpc()`
+return `Result<(), FinallyType>`: `Err(FinallyType::Busy)` leaves the active call
+untouched, sends nothing and does not invoke `finally`.
+
+An overlapping `future()` returns `FinallyType::Busy` without replacing the
+original callbacks. Each accepted call snapshots its configuration. Builder
+changes configure the next call; retries retain the original payload, RPC and
+callbacks. A new call starts with the full configured retry budget, and retries
+invoke `finally` only once for the logical call. After `cancel()`, call
+`reset_cancel()` before reusing the request.
+
+Dropping a polled, pending `future()` cancels its logical call, including retries.
+Use `reset_cancel()` before reusing that request. Dropping an unpolled future or
+an old future after its call completed does not cancel a newer call.
 
 # Features
 

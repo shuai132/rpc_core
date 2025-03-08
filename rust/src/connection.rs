@@ -56,10 +56,14 @@ impl LoopbackConnection {
         let c2_weak = Rc::downgrade(&c2);
 
         c1.borrow_mut().send_package_impl = Some(Box::new(move |package: Vec<u8>| {
-            c2_weak.upgrade().unwrap().borrow().on_recv_package(package);
+            if let Some(peer) = c2_weak.upgrade() {
+                peer.borrow().on_recv_package(package);
+            }
         }));
         c2.borrow_mut().send_package_impl = Some(Box::new(move |package: Vec<u8>| {
-            c1_weak.upgrade().unwrap().borrow().on_recv_package(package);
+            if let Some(peer) = c1_weak.upgrade() {
+                peer.borrow().on_recv_package(package);
+            }
         }));
         (c1, c2)
     }

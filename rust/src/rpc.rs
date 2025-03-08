@@ -7,7 +7,7 @@ use crate::connection::{Connection, DefaultConnection};
 use crate::detail::coder;
 use crate::detail::msg_dispatcher::{MsgDispatcher, TimeoutCb};
 use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
-use crate::request::Request;
+use crate::request::{FinallyType, Request};
 use crate::type_def::SeqType;
 
 pub struct RpcImpl {
@@ -48,10 +48,16 @@ impl Rpc {
     {
         self.inner.borrow().dispatcher.borrow_mut().subscribe_cmd(
             cmd.to_string(),
-            Box::new(move |msg| -> Option<MsgWrapper> {
+            Rc::new(move |msg: MsgWrapper| -> Option<MsgWrapper> {
                 if let Ok(value) = msg.unpack_as::<P>() {
                     let rsp: R = handle(value);
-                    Some(MsgWrapper::make_rsp(msg.seq, rsp))
+                    match MsgWrapper::make_rsp(msg.seq, rsp) {
+                        Ok(rsp) => Some(rsp),
+                        Err(error) => {
+                            log::error!("response serialization failed: {error}");
+                            None
+                        }
+                    }
                 } else {
                     None
                 }
@@ -119,41 +125,74 @@ impl Rpc {
     pub fn make_seq(&self) -> SeqType {
         let mut inner = self.inner.borrow_mut();
         let seq = inner.seq;
-        inner.seq += 1;
+        inner.seq = inner.seq.wrapping_add(1);
         seq
     }
 
-    pub fn send_request(&self, request: &Request) {
+    pub fn send_request(&self, request: &Request) -> Result<(), FinallyType> {
         let msg;
         let payload;
         let connection;
         {
             let inner = self.inner.borrow();
             let request = request.inner.borrow();
-            if request.need_rsp {
-                inner.dispatcher.borrow_mut().subscribe_rsp(
-                    request.seq,
-                    request.rsp_handle.as_ref().unwrap().clone(),
-                    request.timeout_cb.clone(),
-                    request.timeout_ms,
-                );
+            let Some(options) = &request.active else {
+                return Err(FinallyType::Canceled);
+            };
+            if options.serialize_error {
+                return Err(FinallyType::ReqSerializeError);
             }
             let mut type_ = MsgType::Command;
-            if request.is_ping {
+            if options.is_ping {
                 type_ |= MsgType::Ping;
             }
-            if request.need_rsp {
+            if options.need_rsp {
                 type_ |= MsgType::NeedRsp;
             }
             msg = MsgWrapper {
                 seq: request.seq,
                 type_,
-                cmd: request.cmd.clone(),
-                data: request.payload.clone().unwrap_or_default(),
+                cmd: options.cmd.clone(),
+                data: options.payload.clone().unwrap_or_default(),
                 request_payload: None,
             };
 
-            payload = coder::serialize(&msg);
+            payload = coder::serialize(&msg).map_err(|_| FinallyType::ReqSerializeError)?;
+            if options.need_rsp {
+                let weak = request.self_weak.clone();
+                let call_id = request.call_id;
+                let seq = request.seq;
+                let handle = options.rsp_handle.as_ref().unwrap().clone();
+                let response_weak = weak.clone();
+                let timeout_weak = weak.clone();
+                inner.dispatcher.borrow_mut().subscribe_rsp(
+                    seq,
+                    Rc::new(move |msg| {
+                        let Some(request) = response_weak.upgrade() else {
+                            return true;
+                        };
+                        if !request.matches_attempt(call_id, seq) {
+                            return true;
+                        }
+                        handle(msg)
+                    }),
+                    Some(Rc::new(move || {
+                        if let Some(request) = timeout_weak.upgrade() {
+                            if request.matches_attempt(call_id, seq) {
+                                request.on_timeout();
+                            }
+                        }
+                    })),
+                    options.timeout_ms,
+                    Some(Rc::new(move || {
+                        if let Some(request) = weak.upgrade() {
+                            if request.matches_attempt(call_id, seq) {
+                                request.on_finish(FinallyType::RpcExpired);
+                            }
+                        }
+                    })),
+                );
+            }
             connection = inner.connection.clone();
         }
         debug!(
@@ -167,9 +206,30 @@ impl Rpc {
             msg.cmd
         );
         connection.borrow().send_package(payload);
+        Ok(())
+    }
+
+    pub(crate) fn unsubscribe_rsp(&self, seq: SeqType) {
+        self.inner
+            .borrow()
+            .dispatcher
+            .borrow_mut()
+            .unsubscribe_rsp(seq);
     }
 
     pub fn is_ready(&self) -> bool {
         self.inner.borrow().is_ready
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn sequence_wraps_without_panicking() {
+        let rpc = Rpc::new(None);
+        rpc.inner.borrow_mut().seq = u32::MAX;
+        assert_eq!(rpc.make_seq(), u32::MAX);
+        assert_eq!(rpc.make_seq(), 0);
     }
 }
