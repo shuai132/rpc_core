@@ -107,6 +107,28 @@ See `examples` for details: [src/examples](src/examples)
     }
     ```
 
+## Network lifetime and heartbeat
+
+Servers listen on IPv4 by default. Set `enable_ipv6(true)` in the configuration
+builder to bind the IPv6 wildcard address (`::`); IPv4-mapped connections then
+depend on the operating system's dual-stack policy. Clients can use an explicit
+IPv6 address such as `::1` as the host.
+
+TCP and RPC configurations default to a 16 MiB maximum frame body. Set
+`max_body_size` explicitly to change this limit; zero disables it. Oversized
+headers close the transport before reading the body. Receive buffers grow with
+the bytes actually received, including when the limit is disabled.
+
+Dropping a TCP or RPC client stops its connection/reconnect tasks and closes its
+transport. Dropping a server stops accepting new connections; established server
+sessions retain their own lifetime until their transport closes.
+
+Set both `ping_interval_ms` and `pong_timeout_ms` to enable heartbeat checks on a
+client or server. A zero ping interval disables checks. Pings are sent one at a
+time; the next interval starts after a successful pong. A missing or invalid
+pong closes the transport, allowing a configured client reconnect to run.
+Heartbeat requests are canceled when their transport closes or is replaced.
+
 # License
 
 This project is licensed under the [MIT license](LICENSE).
