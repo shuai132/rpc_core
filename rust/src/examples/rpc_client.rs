@@ -45,7 +45,8 @@ fn main() {
                         .rsp(|msg: String| {
                             info!("### rsp: {msg}");
                         })
-                        .call();
+                        .call()
+                        .unwrap_or_else(|error| info!("call rejected: {error:?}"));
 
                     info!("usage: future...");
                     let result = rpc.cmd("cmd").msg("hello").future::<String>().await;

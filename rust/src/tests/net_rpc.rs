@@ -88,7 +88,8 @@ fn net_rpc() {
                             info!("### rsp: {msg}");
                             assert_eq!(msg, "world");
                         })
-                        .call();
+                        .call()
+                        .unwrap();
 
                     info!("usage: future...");
                     let result = rpc.cmd("cmd").msg("hello").future::<String>().await;

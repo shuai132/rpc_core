@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::net::config::{RpcConfig, TcpConfig};
+use crate::net::config::{RpcConfig, TcpConfig, DEFAULT_MAX_BODY_SIZE};
 
 pub struct TcpConfigBuilder {
     auto_pack: bool,
@@ -16,7 +16,7 @@ impl TcpConfigBuilder {
         Self {
             auto_pack: false,
             enable_ipv6: false,
-            max_body_size: 0,
+            max_body_size: DEFAULT_MAX_BODY_SIZE,
             max_send_buffer_size: 0,
             socket_send_buffer_size: 0,
             socket_recv_buffer_size: 0,
@@ -83,7 +83,7 @@ impl RpcConfigBuilder {
             ping_interval_ms: 0,
             pong_timeout_ms: 0,
             enable_ipv6: false,
-            max_body_size: 0,
+            max_body_size: DEFAULT_MAX_BODY_SIZE,
             max_send_buffer_size: 0,
             socket_send_buffer_size: 0,
             socket_recv_buffer_size: 0,

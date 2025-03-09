@@ -4,6 +4,7 @@ use std::rc::{Rc, Weak};
 use log::{debug, trace};
 
 use crate::net::config::RpcConfig;
+use crate::net::detail::heartbeat::Heartbeat;
 use crate::net::detail::tcp_channel::TcpChannel;
 use crate::net::tcp_server::TcpServer;
 use crate::rpc::Rpc;
@@ -12,6 +13,7 @@ pub struct RpcSession {
     pub rpc: RefCell<Rc<Rpc>>,
     on_close: RefCell<Option<Box<dyn Fn()>>>,
     channel: Weak<TcpChannel>,
+    heartbeat: RefCell<Option<Heartbeat>>,
 }
 
 impl RpcSession {
@@ -20,7 +22,18 @@ impl RpcSession {
             rpc: rpc.into(),
             on_close: None.into(),
             channel,
+            heartbeat: RefCell::new(None),
         })
+    }
+
+    fn close(&self) {
+        let heartbeat = self.heartbeat.borrow_mut().take();
+        drop(heartbeat);
+        self.rpc.borrow().set_ready(false);
+        let callback = self.on_close.borrow_mut().take();
+        if let Some(callback) = callback {
+            callback();
+        }
     }
 
     pub fn on_close<F>(&self, callback: F)
@@ -40,7 +53,7 @@ impl Drop for RpcSession {
 pub struct RpcServer {
     config: Rc<RefCell<RpcConfig>>,
     server: Rc<TcpServer>,
-    on_session: RefCell<Option<Box<dyn Fn(Weak<RpcSession>)>>>,
+    on_session: RefCell<Option<Rc<dyn Fn(Weak<RpcSession>)>>>,
     this: RefCell<Weak<Self>>,
 }
 
@@ -59,8 +72,12 @@ impl RpcServer {
 
             let this_weak = this_weak.clone();
             r.server.on_session(move |session| {
-                let this = this_weak.upgrade().unwrap();
-                let tcp_channel = session.upgrade().unwrap();
+                let Some(this) = this_weak.upgrade() else {
+                    return;
+                };
+                let Some(tcp_channel) = session.upgrade() else {
+                    return;
+                };
                 let rpc = if let Some(rpc) = this.config.borrow().rpc.clone() {
                     if rpc.is_ready() {
                         debug!("rpc already connected");
@@ -109,17 +126,28 @@ impl RpcServer {
                     let rs = rpc_session.clone();
                     // let tc_weak = Rc::downgrade(&tcp_channel);
                     tcp_channel.on_close(move || {
-                        rs.rpc.borrow_mut().set_ready(false);
+                        rs.close();
                         // *tc_weak.upgrade().unwrap().on_close.borrow_mut() = None;
                     });
                 }
                 rpc_session.rpc.borrow_mut().set_ready(true);
+                let channel = Rc::downgrade(&tcp_channel);
+                let config = this.config.borrow();
+                *rpc_session.heartbeat.borrow_mut() = Heartbeat::start(
+                    &rpc,
+                    config.ping_interval_ms,
+                    config.pong_timeout_ms,
+                    move || {
+                        if let Some(channel) = channel.upgrade() {
+                            channel.close();
+                        }
+                    },
+                );
+                drop(config);
 
-                {
-                    let on_session = this.on_session.borrow();
-                    if let Some(on_session) = on_session.as_ref() {
-                        on_session(rs_weak);
-                    }
+                let callback = this.on_session.borrow().clone();
+                if let Some(on_session) = callback {
+                    on_session(rs_weak);
                 }
             });
             r
@@ -142,6 +170,24 @@ impl RpcServer {
     where
         F: Fn(Weak<RpcSession>) + 'static,
     {
-        *self.on_session.borrow_mut() = Some(Box::new(callback));
+        *self.on_session.borrow_mut() = Some(Rc::new(callback));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn session_close_notifies_user_once() {
+        let rpc = Rpc::new(None);
+        rpc.set_ready(true);
+        let session = RpcSession::new(rpc.clone(), Weak::new());
+        let count = Rc::new(RefCell::new(0));
+        let count_copy = count.clone();
+        session.on_close(move || *count_copy.borrow_mut() += 1);
+        session.close();
+        session.close();
+        assert!(!rpc.is_ready());
+        assert_eq!(*count.borrow(), 1);
     }
 }

@@ -29,18 +29,6 @@ jobs:
         working-directory: rust
         run: cargo build
 
-      - name: test build
+      - name: Test all features
         working-directory: rust
-        run: cargo test build
-
-      - name: rpc
-        working-directory: rust
-        run: cargo test --test rpc
-
-      - name: net_tcp
-        working-directory: rust
-        run: cargo test --test net_tcp --features="net"
-
-      - name: net_rpc
-        working-directory: rust
-        run: cargo test --test net_rpc --features="net"
+        run: cargo test --all-features
