@@ -11,6 +11,7 @@
 // include
 #include "detail/data_packer.hpp"
 #include "detail/noncopyable.hpp"
+#include "detail/shared_function.hpp"
 
 namespace rpc_core {
 
@@ -22,8 +23,13 @@ namespace rpc_core {
  * 3. Provide the implementation of sending data, send_package_impl.
  */
 struct connection : detail::noncopyable {
-  std::function<void(std::string)> send_package_impl;
-  std::function<void(std::string)> on_recv_package;
+  detail::shared_function<bool(std::string)> send_package_impl;
+  detail::shared_function<void(std::string)> on_recv_package;
+
+  // true means accepted by the transport, not acknowledged by the peer.
+  bool send_package(std::string package) {
+    return send_package_impl && send_package_impl(std::move(package));
+  }
 };
 
 /**
@@ -33,6 +39,7 @@ struct default_connection : connection {
   default_connection() {
     send_package_impl = [](const std::string &payload) {
       RPC_CORE_LOGE("need send_package_impl: %zu", payload.size());
+      return false;
     };
     on_recv_package = [](const std::string &payload) {
       RPC_CORE_LOGE("need on_recv_package: %zu", payload.size());
@@ -50,10 +57,18 @@ struct loopback_connection : public connection {
     auto c2 = std::make_shared<connection>();
     auto c2_weak = std::weak_ptr<connection>(c2);
     c1->send_package_impl = [c2_weak](std::string package) {
-      if (auto peer = c2_weak.lock()) peer->on_recv_package(std::move(package));
+      if (auto peer = c2_weak.lock()) {
+        peer->on_recv_package(std::move(package));
+        return true;
+      }
+      return false;
     };
     c2->send_package_impl = [c1_weak](std::string package) {
-      if (auto peer = c1_weak.lock()) peer->on_recv_package(std::move(package));
+      if (auto peer = c1_weak.lock()) {
+        peer->on_recv_package(std::move(package));
+        return true;
+      }
+      return false;
     };
     return std::make_pair(c1, c2);
   }
@@ -64,33 +79,49 @@ struct loopback_connection : public connection {
  * for bytes stream: tcp socket, serial port, etc.
  */
 struct stream_connection : public connection {
-  explicit stream_connection(uint32_t max_body_size = UINT32_MAX) : data_packer_(max_body_size) {
+ private:
+  struct stream_state {
+    explicit stream_state(uint32_t max_body_size) : packer(max_body_size) {}
+    detail::data_packer packer;
+    stream_connection* owner = nullptr;
+  };
+
+ public:
+  explicit stream_connection(uint32_t max_body_size = UINT32_MAX) : state_(std::make_shared<stream_state>(max_body_size)) {
+    state_->owner = this;
     send_package_impl = [this](const std::string &package) {
-      auto payload = data_packer_.pack(package);
-      send_bytes_impl(std::move(payload));
+      auto payload = state_->packer.pack(package);
+      return !payload.empty() && send_bytes_impl && send_bytes_impl(std::move(payload));
     };
-    data_packer_.on_data = [this](std::string payload) {
-      on_recv_package(std::move(payload));
+    state_->packer.on_data = [state = state_.get()](std::string payload) {
+      if (state->owner) state->owner->on_recv_package(std::move(payload));
     };
-    on_recv_bytes = [this](const void *data, size_t size) {
-      return data_packer_.feed(data, size);
+    on_recv_bytes = [state = state_](const void *data, size_t size) {
+      // User callbacks may destroy the connection and this callable while feeding.
+      auto keeper = state;
+      return keeper->owner && keeper->packer.feed(data, size);
     };
+  }
+
+  ~stream_connection() {
+    state_->owner = nullptr;
+    state_->packer.reset();
   }
 
   /**
    * should call on connected or disconnected
    */
   void reset() {
-    data_packer_.reset();
+    state_->packer.reset();
   }
 
  public:
-  std::function<void(std::string)> send_bytes_impl;
+  detail::shared_function<bool(std::string)> send_bytes_impl;
   // false means invalid framing; stop receiving until reset() for a new stream.
-  std::function<bool(const void *data, size_t size)> on_recv_bytes;
+  detail::shared_function<bool(const void *data, size_t size)> on_recv_bytes;
 
  private:
-  detail::data_packer data_packer_;
+  std::shared_ptr<stream_state> state_;
 };
 
 }  // namespace rpc_core

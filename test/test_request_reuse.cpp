@@ -13,7 +13,7 @@ struct fixture {
   std::vector<rpc::timeout_cb> timers;
 
   fixture() {
-    conn->send_package_impl = [&](std::string packet) { sent.push_back(std::move(packet)); };
+    conn->send_package_impl = [&](std::string packet) { sent.push_back(std::move(packet)); return true; };
     r->set_ready(true);
     r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timers.push_back(std::move(cb)); });
   }
@@ -22,7 +22,7 @@ struct fixture {
     auto command = detail::coder::deserialize(sent[index]);
     ASSERT(command.first);
     auto response = detail::msg_wrapper::make_rsp(command.second.seq, &data);
-    conn->on_recv_package(detail::coder::serialize(response.second).second);
+    conn->on_recv_package(detail::coder::serialize(response).second);
   }
 
   void expire(size_t index) {

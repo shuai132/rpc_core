@@ -184,6 +184,38 @@ static void test_invalid_stream_requires_reset() {
   ASSERT(received == 1);
 }
 
+static void test_stream_callback_can_destroy_connection(bool save_callback) {
+  for (bool through_rpc : {false, true}) {
+    auto conn = std::make_shared<rpc_core::stream_connection>();
+    std::weak_ptr<rpc_core::stream_connection> observer = conn;
+    rpc_core::rpc_s rpc;
+    int received = 0;
+    auto destroy = [&] {
+      ++received;
+      rpc.reset();
+      conn.reset();
+    };
+    std::string payload = "stop";
+    if (through_rpc) {
+      rpc = rpc_core::rpc::create(conn);
+      rpc->subscribe("stop", destroy);
+      rpc_core::detail::msg_wrapper msg;
+      msg.cmd = "stop";
+      payload = rpc_core::detail::coder::serialize(msg).second;
+    } else {
+      conn->on_recv_package = [&](std::string) { destroy(); };
+    }
+    auto frame = rpc_core::detail::data_packer().pack(payload);
+    auto buffered = frame + frame;
+    std::function<bool(const void*, size_t)> saved_receive;
+    if (save_callback) saved_receive = conn->on_recv_bytes;
+    ASSERT(conn->on_recv_bytes(buffered.data(), buffered.size()));
+    ASSERT(observer.expired() && received == 1);
+    if (saved_receive) ASSERT(!saved_receive(frame.data(), frame.size()));
+    ASSERT(received == 1);
+  }
+}
+
 namespace rpc_core_test {
 
 void test_data_packer() {
@@ -195,6 +227,8 @@ void test_data_packer() {
   test_reentrant_feed_follows_buffered_frames();
   test_reset_during_delivery_discards_old_stream();
   test_invalid_stream_requires_reset();
+  test_stream_callback_can_destroy_connection(false);
+  test_stream_callback_can_destroy_connection(true);
 }
 
 }  // namespace rpc_core_test

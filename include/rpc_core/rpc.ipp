@@ -42,6 +42,7 @@ inline asio::awaitable<result<R>> rpc::co_call(cmd_type cmd, Msg&& message) {
 result<void> rpc::send_request(request const* request) {
   auto options = request->active_;
   if (!options) return {finally_t::canceled};
+  const auto attempt_id = request->call_id_;
   detail::msg_wrapper msg;
   msg.type = static_cast<detail::msg_wrapper::msg_type>(detail::msg_wrapper::command | (options->is_ping ? detail::msg_wrapper::ping : 0) |
                                                         (options->need_rsp ? detail::msg_wrapper::need_rsp : 0));
@@ -73,10 +74,17 @@ result<void> rpc::send_request(request const* request) {
         [weak, call_id, seq] {
           auto pending = weak.lock();
           if (pending && pending->matches_attempt(call_id, seq)) pending->on_finish(finally_t::rpc_expired);
+        },
+        [weak, call_id, seq] {
+          auto pending = weak.lock();
+          if (pending && pending->matches_attempt(call_id, seq)) pending->on_finish(finally_t::session_reset);
         });
   }
-  conn_->send_package_impl(std::move(payload.second));
-  return {finally_t::normal};
+  // Timer registration may synchronously complete or replace this attempt.
+  if (!request->matches_attempt(attempt_id, msg.seq)) return {options->completion};
+  auto sent = conn_->send_package(std::move(payload.second));
+  if (!sent && request->matches_attempt(attempt_id, msg.seq)) dispatcher_->unsubscribe_rsp(msg.seq);
+  return {sent ? finally_t::normal : finally_t::rpc_not_ready};
 }
 
 }  // namespace rpc_core

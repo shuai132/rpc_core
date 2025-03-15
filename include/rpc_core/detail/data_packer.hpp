@@ -9,6 +9,7 @@
 // #define RPC_CORE_LOG_SHOW_VERBOSE
 #include "log.h"
 #include "noncopyable.hpp"
+#include "shared_function.hpp"
 
 namespace rpc_core {
 namespace detail {
@@ -116,7 +117,7 @@ class data_packer : detail::noncopyable {
   }
 
  public:
-  std::function<void(std::string)> on_data;
+  shared_function<void(std::string)> on_data;
 
  private:
   uint32_t max_body_size_;

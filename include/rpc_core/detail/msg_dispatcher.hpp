@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "../connection.hpp"
+#include "../result.hpp"
 #include "coder.hpp"
 #include "log.h"
 #include "noncopyable.hpp"
@@ -14,7 +15,8 @@ namespace detail {
 
 class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, noncopyable {
  public:
-  using cmd_handle = std::function<std::pair<bool, msg_wrapper>(msg_wrapper)>;
+  using reply_handle = std::function<result<void>(std::string)>;
+  using cmd_handle = std::function<void(const msg_wrapper&, reply_handle)>;
   using rsp_handle = std::function<bool(msg_wrapper)>;
 
   using timeout_cb = std::function<void()>;
@@ -46,16 +48,19 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   }
 
  private:
-  void send_response(const msg_wrapper& msg) {
+  result<void> send_response(const msg_wrapper& msg, uint32_t generation) {
+    if (generation != session_generation_) return {finally_t::session_reset};
+    if (responses_paused_) return {finally_t::rpc_not_ready};
     auto payload = coder::serialize(msg);
     if (!payload.first) {
       RPC_CORE_LOGE("response serialization failed");
-      return;
+      return {finally_t::rsp_serialize_error};
     }
-    conn_->send_package_impl(std::move(payload.second));
+    return {conn_->send_package(std::move(payload.second)) ? finally_t::normal : finally_t::rpc_not_ready};
   }
 
   void dispatch(msg_wrapper msg) {
+    const auto generation = session_generation_;
     switch (msg.type & (msg_wrapper::command | msg_wrapper::response)) {
       case msg_wrapper::command: {
         // ping
@@ -64,7 +69,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           RPC_CORE_LOGD("<= seq:%u type:ping", msg.seq);
           msg.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::response | msg_wrapper::pong);
           RPC_CORE_LOGD("=> seq:%u type:pong", msg.seq);
-          send_response(msg);
+          send_response(msg, generation);
           return;
         }
 
@@ -80,60 +85,36 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
             msg_wrapper rsp;
             rsp.seq = msg.seq;
             rsp.type = static_cast<msg_wrapper::msg_type>(msg_wrapper::msg_type::response | msg_wrapper::msg_type::no_such_cmd);
-            send_response(rsp);
+            send_response(rsp, generation);
           }
           return;
         }
         // Keep the same callable and its state alive even if it unsubscribes itself.
         auto fn = it->second;
         const bool need_rsp = msg.type & msg_wrapper::need_rsp;
-        auto resp = (*fn)(std::move(msg));
-        if (need_rsp) {
-          auto state = resp.second.response_state;
-          switch (state) {
-            case msg_wrapper::response_state::serialize_error: {
-              RPC_CORE_LOGW("=> seq:%u serialize_error", resp.second.seq);
-            } break;
-            case msg_wrapper::response_state::response_sync: {
-              RPC_CORE_LOGD("=> seq:%u type:rsp", resp.second.seq);
-              send_response(resp.second);
-            } break;
-            case msg_wrapper::response_state::response_async: {
-              RPC_CORE_LOGD("=> seq:%u type:rsp_async", resp.second.seq);
-              auto helper = std::move(resp.second.async_helper);
-              if (helper->ready) {
-                resp.second.data = std::move(helper->data);
-                send_response(resp.second);
-              } else {
-                helper->send_async_response = [weak = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq = resp.second.seq](std::string data) {
-                  const auto self = weak.lock();
-                  if (!self) return;
-                  msg_wrapper response;
-                  response.seq = seq;
-                  response.type = msg_wrapper::response;
-                  response.data = std::move(data);
-                  self->send_response(response);
-                };
-              }
-            } break;
-          }
-        }
+        auto reply = [weak = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq = msg.seq, generation, need_rsp](std::string data) -> result<void> {
+          if (!need_rsp) return {finally_t::no_need_rsp};
+          auto self = weak.lock();
+          if (!self) return {finally_t::rpc_expired};
+          msg_wrapper response;
+          response.seq = seq;
+          response.type = msg_wrapper::response;
+          response.data = std::move(data);
+          return self->send_response(response, generation);
+        };
+        (*fn)(msg, std::move(reply));
       } break;
 
       case msg_wrapper::response: {
         // pong or response
         RPC_CORE_LOGD("<= seq:%u type:%s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::pong) ? "pong" : "rsp");
         auto it = rsp_handle_map_.find(msg.seq);
-        if (it == rsp_handle_map_.cend()) {
+        if (it == rsp_handle_map_.cend() || !it->second.handle) {
           RPC_CORE_LOGD("no rsp for seq:%u", msg.seq);
           break;
         }
         auto cb = std::move(it->second.handle);
         rsp_handle_map_.erase(it);
-        if (!cb) {
-          RPC_CORE_LOGE("rsp can not be null");
-          return;
-        }
         if (cb(std::move(msg))) {
           RPC_CORE_LOGV("rsp_handle_map_.size=%zu", rsp_handle_map_.size());
         } else {
@@ -147,6 +128,26 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   }
 
  public:
+  seq_type make_seq(seq_type& next) const {
+    // A long-lived pending request may still own an ID after the counter wraps.
+    while (rsp_handle_map_.find(next) != rsp_handle_map_.end()) ++next;
+    return next++;
+  }
+
+  void set_ready(bool ready) {
+    responses_paused_ = !ready;
+  }
+
+  void reset_session() {
+    ++session_generation_;
+    // Detach all old registrations before callbacks can register new requests.
+    decltype(rsp_handle_map_) previous;
+    previous.swap(rsp_handle_map_);
+    for (auto& pending : previous) {
+      if (pending.second.reset) pending.second.reset();
+    }
+  }
+
   inline void subscribe_cmd(const cmd_type& cmd, cmd_handle handle) {
     RPC_CORE_LOGD("subscribe cmd:%s", cmd.c_str());
     cmd_handle_map_[cmd] = std::make_shared<cmd_handle>(std::move(handle));
@@ -162,27 +163,36 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
     }
   }
 
-  void subscribe_rsp(seq_type seq, rsp_handle handle, timeout_cb timeout_cb, uint32_t timeout_ms, std::function<void()> expired = nullptr) {
+  void subscribe_rsp(seq_type seq, rsp_handle handle, timeout_cb timeout_cb, uint32_t timeout_ms,
+                     std::function<void()> expired = nullptr, std::function<void()> reset = nullptr) {
     RPC_CORE_LOGD("subscribe_rsp seq:%u", seq);
     if (handle == nullptr) return;
 
-    rsp_handle_map_[seq] = {std::move(handle), std::move(expired)};
-    if (timer_impl_ == nullptr) {
+    const auto registration = ++registration_id_;
+    rsp_handle_map_[seq] = {std::move(handle), std::move(expired), std::move(reset), registration};
+    // Keep the callable itself alive across synchronous completion and reentry.
+    auto timer = timer_impl_;
+    if (!timer) {
       RPC_CORE_LOGW("no timeout will cause memory leak!");
       return;
     }
 
-    timer_impl_(timeout_ms, [self = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq, timeout_cb = std::move(timeout_cb)] {
+    (*timer)(timeout_ms, [self = std::weak_ptr<msg_dispatcher>(shared_from_this()), seq, registration, timeout_cb = std::move(timeout_cb)] {
       auto self_lock = self.lock();
       if (!self_lock) {
         RPC_CORE_LOGD("seq:%u timeout after destroy", seq);
         return;
       }
       auto it = self_lock->rsp_handle_map_.find(seq);
-      if (it != self_lock->rsp_handle_map_.cend()) {
-        self_lock->rsp_handle_map_.erase(it);
+      if (it != self_lock->rsp_handle_map_.cend() && it->second.registration == registration && it->second.handle) {
+        // Stop accepting this attempt's response, but keep it visible to reset_session().
+        it->second.handle = nullptr;
         if (timeout_cb) {
           timeout_cb();
+        }
+        it = self_lock->rsp_handle_map_.find(seq);
+        if (it != self_lock->rsp_handle_map_.cend() && it->second.registration == registration) {
+          self_lock->rsp_handle_map_.erase(it);
         }
         RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, self_lock->rsp_handle_map_.size());
       }
@@ -198,7 +208,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   }
 
   inline void set_timer_impl(timer_impl timer_impl) {
-    timer_impl_ = std::move(timer_impl);
+    timer_impl_ = timer_impl ? std::make_shared<msg_dispatcher::timer_impl>(std::move(timer_impl)) : nullptr;
   }
 
  private:
@@ -207,9 +217,15 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   struct pending_response {
     rsp_handle handle;
     timeout_cb expired;
+    timeout_cb reset;
+    uint64_t registration;
   };
   std::map<seq_type, pending_response> rsp_handle_map_;
-  timer_impl timer_impl_;
+  std::shared_ptr<timer_impl> timer_impl_;
+  uint32_t session_generation_ = 0;
+  uint64_t registration_id_ = 0;
+  // Incoming RPCs historically work before set_ready() is first called.
+  bool responses_paused_ = false;
 };
 
 }  // namespace detail
