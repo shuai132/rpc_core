@@ -8,7 +8,7 @@ using namespace rpc_core;
 static void test_response_reentry(int arity) {
   auto conn = std::make_shared<connection>();
   std::vector<std::string> sent;
-  conn->send_package_impl = [&](std::string data) { sent.push_back(std::move(data)); };
+  conn->send_package_impl = [&](std::string data) { sent.push_back(std::move(data)); return true; };
   auto r = rpc::create(conn);
   r->set_ready(true);
   int responses = 0, first_finished = 0, second_finished = 0;
@@ -40,8 +40,8 @@ static void test_response_reentry(int arity) {
     ASSERT(msg.first);
     std::string data = "ok";
     auto response = detail::msg_wrapper::make_rsp(msg.second.seq, &data);
-    if (arity == 3) response.second.data = index == 0 ? std::string{} : serialize(42);
-    conn->on_recv_package(detail::coder::serialize(response.second).second);
+    if (arity == 3) response.data = index == 0 ? std::string{} : serialize(42);
+    conn->on_recv_package(detail::coder::serialize(response).second);
   };
   reply(0);
   ASSERT(sent.size() == 2 && first_finished == 1 && second_finished == 0);
@@ -54,11 +54,11 @@ static void test_response_reentry(int arity) {
 
 static void test_old_rpc_destruction_does_not_finish_new_call() {
   auto old_conn = std::make_shared<connection>();
-  old_conn->send_package_impl = [](std::string) {};
+  old_conn->send_package_impl = [](std::string) { return true; };
   auto old_rpc = rpc::create(old_conn);
   auto new_conn = std::make_shared<connection>();
   std::string sent;
-  new_conn->send_package_impl = [&](std::string data) { sent = std::move(data); };
+  new_conn->send_package_impl = [&](std::string data) { sent = std::move(data); return true; };
   auto new_rpc = rpc::create(new_conn);
   old_rpc->set_ready(true);
   new_rpc->set_ready(true);
@@ -83,7 +83,7 @@ static void test_old_rpc_destruction_does_not_finish_new_call() {
   ASSERT(command.first);
   std::string data = "ok";
   auto response = detail::msg_wrapper::make_rsp(command.second.seq, &data);
-  new_conn->on_recv_package(detail::coder::serialize(response.second).second);
+  new_conn->on_recv_package(detail::coder::serialize(response).second);
   ASSERT(responses == 1 && finished == 1 && observer.expired());
 }
 
@@ -131,7 +131,80 @@ static void test_dispose_keeps_new_requests() {
   ASSERT(next->is_canceled());
 }
 
+static void test_synchronous_timer_cannot_send_completed_attempt() {
+  auto r = rpc::create();
+  int sends = 0, finished = 0;
+  r->get_connection()->send_package_impl = [&](std::string) { ++sends; return true; };
+  r->set_ready(true);
+  r->set_timer([](uint32_t, rpc::timeout_cb cb) { cb(); });
+  auto req = r->cmd("action")->mark_need_rsp()->timeout_ms(0)->finally([&](finally_t type) {
+    ASSERT(type == finally_t::timeout);
+    ++finished;
+  });
+  ASSERT(req->call().type == finally_t::timeout);
+  ASSERT(sends == 0 && finished == 1);
+  req->finally([&](finally_t type) {
+    ASSERT(type == finally_t::timeout);
+    r->set_timer([](uint32_t, rpc::timeout_cb) {});
+    req->finally(std::function<void(finally_t)>{});
+    ASSERT(req->call());
+  });
+  ASSERT(req->call().type == finally_t::timeout);
+  ASSERT(sends == 1);
+  req->cancel();
+}
+
+static void test_timer_replacement_keeps_running_callable_alive() {
+  for (bool clear : {false, true}) {
+    auto r = rpc::create();
+    r->set_ready(true);
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
+    auto token = std::make_shared<int>(42);
+    std::weak_ptr<int> lifetime = token;
+    int returned = 0, replacement_calls = 0;
+    r->set_timer([token, &returned](uint32_t, rpc::timeout_cb cb) {
+      cb();
+      ASSERT(*token == 42);
+      ++returned;
+    });
+    token.reset();
+    auto req = r->cmd("x")->mark_need_rsp()->finally([&](finally_t type) {
+      ASSERT(type == finally_t::timeout);
+      if (clear) r->set_timer(nullptr);
+      else r->set_timer([&](uint32_t, rpc::timeout_cb cb) { ++replacement_calls; cb(); });
+      ASSERT(!lifetime.expired());
+    });
+    ASSERT(req->call().type == finally_t::timeout);
+    ASSERT(returned == 1 && lifetime.expired());
+    req->finally(std::function<void(finally_t)>{});
+    if (clear) {
+      ASSERT(req->call());
+      req->cancel();
+    } else {
+      ASSERT(req->call().type == finally_t::timeout);
+      ASSERT(replacement_calls == 1);
+    }
+  }
+}
+
+static void test_timer_retains_mutable_state_between_calls() {
+  auto r = rpc::create();
+  r->set_ready(true);
+  std::vector<int> counts;
+  r->set_timer([count = 0, &counts](uint32_t, rpc::timeout_cb cb) mutable {
+    counts.push_back(++count);
+    cb();
+  });
+  auto req = r->cmd("x")->mark_need_rsp();
+  ASSERT(req->call().type == finally_t::timeout);
+  ASSERT(req->call().type == finally_t::timeout);
+  ASSERT((counts == std::vector<int>{1, 2}));
+}
+
 int main() {
+  test_timer_replacement_keeps_running_callable_alive();
+  test_timer_retains_mutable_state_between_calls();
+  test_synchronous_timer_cannot_send_completed_attempt();
   test_dispose_reentry(false);
   test_dispose_reentry(true);
   test_dispose_keeps_new_requests();
@@ -160,7 +233,7 @@ int main() {
   for (bool need_rsp : {false, true}) {
     auto conn = std::make_shared<connection>();
     int sent = 0, timers = 0, finished = 0;
-    conn->send_package_impl = [&](std::string) { ++sent; };
+    conn->send_package_impl = [&](std::string) { ++sent; return true; };
     auto r = rpc::create(conn);
     r->set_ready(true);
     r->set_timer([&](uint32_t, rpc::timeout_cb) { ++timers; });
@@ -181,6 +254,7 @@ int main() {
   // Destruction completes requests even when no timer is installed.
   for (bool with_timer : {false, true}) {
     auto r = rpc::create();
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
     r->set_ready(true);
     rpc::timeout_cb timer;
     if (with_timer) r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timer = std::move(cb); });
@@ -201,6 +275,7 @@ int main() {
 
   for (int retry : {0, 1, -1}) {
     auto r = rpc::create();
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
     r->set_ready(true);
     rpc::timeout_cb timer;
     r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timer = std::move(cb); });
@@ -221,6 +296,7 @@ int main() {
 
   {
     auto r = rpc::create();
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
     r->set_ready(true);
     rpc::timeout_cb timer;
     r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timer = std::move(cb); });
@@ -252,11 +328,12 @@ int main() {
   {
     auto pair = loopback_connection::create();
     pair.second.reset();
-    pair.first->send_package_impl("gone");
+    ASSERT(!pair.first->send_package("gone"));
   }
 
   {
     auto r = rpc::create();
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
     r->set_ready(true);
     auto req = r->cmd("x")->rsp([](std::string) {});
     std::weak_ptr<request> observer = req;

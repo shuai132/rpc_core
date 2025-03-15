@@ -313,6 +313,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   void finish_response(finally_t type, F&& response) {
     if (!active_) return;
     auto completed = std::move(active_);
+    completed->completion = type;
     RPC_CORE_LOGD("on_finish: cmd:%s type:%s", completed->cmd.c_str(), finally_t_str(type));
     auto keeper = std::move(self_keeper_);
     auto callback = completed->finally;
@@ -335,6 +336,7 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     detail::shared_function<void()> timeout_cb;
     std::shared_ptr<std::function<void(finally_t)>> finally;
     bool is_ping;
+    finally_t completion = finally_t::normal;
   };
   std::shared_ptr<call_options> active_;
   int retries_remaining_ = 0;

@@ -19,6 +19,7 @@ enum class finally_t : int {
   req_serialize_error = 7,
   rsp_serialize_error = 8,
   busy = 9,
+  session_reset = 10,
 };
 
 inline const char* finally_t_str(finally_t t) {
@@ -43,6 +44,8 @@ inline const char* finally_t_str(finally_t t) {
       return "rsp_serialize_error";
     case finally_t::busy:
       return "busy";
+    case finally_t::session_reset:
+      return "session_reset";
     default:
       return "unknown";
   }

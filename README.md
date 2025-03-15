@@ -87,6 +87,12 @@ rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) {
 }, scheduler);
 ```
 
+Scheduled calls share the subscription's handler instance, including mutable
+captures. Unsubscribing or replacing a subscription does not cancel already
+scheduled calls; their tasks retain the original handler. A coroutine scheduler
+must retain the task callable until the returned coroutine completes (see the
+scheduler example in [test/test_rpc.cpp](test/test_rpc.cpp)).
+
 * async call and response using c++20 coroutine:  
   here is an example using asio, custom async/coroutine implementation is supported
 
@@ -145,6 +151,59 @@ auto overlapping = req->call(); // busy if the first call is still active
 req->cancel()->reset_cancel();
 auto restarted = req->call();
 ```
+
+## Logical sessions and reconnects
+
+An RPC object represents a logical session. A transport disconnect only calls
+`set_ready(false)`; reconnecting the same peer calls `set_ready(true)` and keeps
+pending requests, deferred replies and the sequence counter. Existing deadlines
+continue running while disconnected. Keep both peers' RPC objects for a resumed
+session.
+
+When a peer restarts or is replaced, call `reset_session()` on the retained RPC
+object. It completes old pending calls with `finally_t::session_reset`, invalidates
+old deferred replies, and retains subscriptions, readiness and the sequence
+counter. Completion callbacks can immediately start new calls. Reset while
+disconnected if those callbacks must not send until the new transport is bound.
+
+The transport adapter determines whether a connection resumes the same logical
+session; the protocol does not perform a session handshake. Adapters must stop
+delivering bytes from the old transport before attaching a different peer.
+
+```c++
+rpc->set_ready(false);             // Transport disconnected.
+// Same peer reconnects: rebind the transport, then set_ready(true).
+// New logical peer: also call reset_session() before accepting its packets.
+rpc->reset_session();
+rpc->set_ready(true);              // New transport is bound and ready.
+```
+
+`request_response::rsp(value)` returns `result<void>`; existing calls may ignore
+the return value. `normal` means the transport accepted the reply, not that the
+peer acknowledged it. A reply made inside the subscription handler is sent
+immediately, so the sender's callback may run before that handler returns.
+`rpc_not_ready` indicates a disconnect or transport rejection, `session_reset`
+indicates an obsolete session, and `rpc_expired` indicates a destroyed RPC.
+Successful replies are sent once; subsequent attempts return `busy`. Failed
+attempts are not cached. A `rpc_not_ready` attempt can be retried by the caller
+with its own data after the same session reconnects. Notifications without a requested reply return
+`no_need_rsp`.
+
+Connections provide `send_package_impl`, returning `bool`: `true` means the
+transport accepted the packet, and `false` means it could not send it. The RPC
+layer maps rejection to `rpc_not_ready`. Stream connections use the same contract
+for `send_bytes_impl`. `on_recv_bytes()` returns `false` on invalid framing;
+stop reading that stream and call `reset()` before feeding a new stream. Frames
+received reentrantly are processed after the current input chunk. No automatic
+reply caching, replay, delivery acknowledgement or session negotiation is provided.
+
+A receive callback may destroy its stream connection. Any remaining frames in
+that input chunk are discarded, and saved `on_recv_bytes` callbacks return `false`
+after the connection is destroyed.
+
+Connection callbacks and `data_packer::on_data` retain the running callable when
+it is replaced, cleared, or its owner is destroyed. They remain assignable from
+lambdas and `std::function`; copied callbacks share the callable's mutable state.
 
 ## Serialization
 

@@ -1,4 +1,6 @@
 #include <asio.hpp>
+#include <algorithm>
+#include <vector>
 #include "rpc_core.hpp"
 #include "assert_def.h"
 
@@ -33,7 +35,49 @@ static void test_asio_cancellation() {
   req->cancel();
 }
 
+static void test_scheduled_coroutine_keeps_handler_and_borrowed_request() {
+  asio::io_context io;
+  asio::steady_timer gate(io, asio::steady_timer::time_point::max());
+  auto pair = loopback_connection::create();
+  auto server = rpc::create(pair.first);
+  auto client = rpc::create(pair.second);
+  client->set_ready(true);
+  client->set_timer([](uint32_t, rpc::timeout_cb) {});
+  auto token = std::make_shared<int>(42);
+  std::weak_ptr<int> observer = token;
+  int started = 0, completed = 0;
+  std::vector<int> replies;
+  server->subscribe("next", [&, token, count = 0](const request_response<int, int>& rr) mutable -> asio::awaitable<void> {
+    ++started;
+    asio::error_code error;
+    co_await gate.async_wait(asio::redirect_error(asio::use_awaitable, error));
+    ASSERT(error == asio::error::operation_aborted);
+    ASSERT(*token == rr->req);
+    ASSERT(rr->rsp(++count));
+  }, [&](std::function<asio::awaitable<void>()> task) {
+    // A coroutine scheduler owns the callable until its awaitable completes.
+    asio::co_spawn(io, [task = std::move(task)]() -> asio::awaitable<void> {
+      co_await task();
+    }, [&](std::exception_ptr error) { ASSERT(!error); ++completed; });
+  });
+  token.reset();
+  for (int i = 0; i < 3; ++i) {
+    ASSERT(client->cmd("next")->msg(42)->rsp([&](int value) { replies.push_back(value); })->call());
+  }
+  io.poll();
+  ASSERT(started == 3 && completed == 0 && replies.empty());
+  server->unsubscribe("next");
+  ASSERT(!observer.expired());
+  gate.cancel();
+  io.restart();
+  io.run();
+  ASSERT(completed == 3 && observer.expired());
+  std::sort(replies.begin(), replies.end());
+  ASSERT((replies == std::vector<int>{1, 2, 3}));
+}
+
 int main() {
+  test_scheduled_coroutine_keeps_handler_and_borrowed_request();
   test_asio_cancellation<void>();
   test_asio_cancellation<std::string>();
   asio::io_context io;
@@ -74,6 +118,7 @@ int main() {
     ASSERT(reusable->call());
     ASSERT((co_await reusable->co_call<>()).type == finally_t::normal);
     ASSERT(reusable->call());
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
     r->set_ready(true);
     r->set_timer([&](uint32_t, rpc::timeout_cb cb) { asio::post(io, std::move(cb)); });
     auto timed = co_await r->cmd("x")->co_call<std::string>();

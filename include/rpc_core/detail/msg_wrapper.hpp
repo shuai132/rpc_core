@@ -6,17 +6,9 @@
 #include "../type.hpp"
 #include "copyable.hpp"
 #include "log.h"
-#include "msg_wrapper.hpp"
 
 namespace rpc_core {
 namespace detail {
-
-struct async_helper : noncopyable {
-  bool ready = false;
-  std::string data;
-  std::function<void(std::string)> send_async_response;
-};
-using async_helper_s = std::shared_ptr<async_helper>;
 
 struct msg_wrapper : copyable {  // NOLINT
   enum msg_type : uint8_t {
@@ -28,22 +20,13 @@ struct msg_wrapper : copyable {  // NOLINT
     no_such_cmd = 1 << 5,
   };
 
-  enum class response_state : uint8_t {
-    response_sync = 1 << 0,
-    response_async = 1 << 1,
-    serialize_error = 1 << 2,
-  };
-
-  msg_wrapper() : seq(0), type(command), response_state(response_state::response_sync) {}
+  msg_wrapper() : seq(0), type(command) {}
 
   seq_type seq;
   cmd_type cmd;
   msg_type type;
   std::string data;
   std::string const* request_payload = nullptr;
-
-  response_state response_state;
-  async_helper_s async_helper;
 
   std::string dump() const {
     char tmp[100];
@@ -62,24 +45,14 @@ struct msg_wrapper : copyable {  // NOLINT
   }
 
   template <typename T>
-  static std::pair<bool, msg_wrapper> make_rsp(seq_type seq, T* t = nullptr, bool success = true) {
+  static msg_wrapper make_rsp(seq_type seq, T* t = nullptr) {
     msg_wrapper msg;
     msg.type = msg_wrapper::response;
     msg.seq = seq;
-    if (success && t != nullptr) {
+    if (t != nullptr) {
       msg.data = serialize(*t);
     }
-    msg.response_state = success ? response_state::response_sync : response_state::serialize_error;
-    return std::make_pair(success, std::move(msg));
-  }
-
-  static std::pair<bool, msg_wrapper> make_rsp_async(seq_type seq, detail::async_helper_s async_helper, bool success = true) {
-    msg_wrapper msg;
-    msg.type = msg_wrapper::response;
-    msg.seq = seq;
-    msg.async_helper = std::move(async_helper);
-    msg.response_state = success ? response_state::response_async : response_state::serialize_error;
-    return std::make_pair(success, std::move(msg));
+    return msg;
   }
 };
 

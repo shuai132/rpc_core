@@ -369,7 +369,7 @@ void test_rpc() {
     }
     {
       auto conn = std::make_shared<connection>();
-      conn->send_package_impl = [](std::string) {};
+      conn->send_package_impl = [](std::string) { return true; };
       auto timed_rpc = rpc::create(conn);
       timed_rpc->set_ready(true);
       rpc::timeout_cb timer;
@@ -384,7 +384,7 @@ void test_rpc() {
     }
     {
       auto conn = std::make_shared<connection>();
-      conn->send_package_impl = [](std::string) {};
+      conn->send_package_impl = [](std::string) { return true; };
       auto cancel_rpc = rpc::create(conn);
       cancel_rpc->set_ready(true);
       auto request = cancel_rpc->cmd("cmd");
@@ -498,9 +498,11 @@ void test_rpc() {
 
     conn_c->send_package_impl = [&](std::string package) {
       to_server.emplace_back(std::move(package));
+      return true;
     };
     conn_s->send_package_impl = [&](std::string package) {
       to_client.emplace_back(std::move(package));
+      return true;
     };
 
     auto rpc_cancel_s = rpc::create(conn_s);
@@ -564,7 +566,7 @@ void test_rpc() {
   RPC_CORE_LOG("12.1 timeout callback can cancel its request");
   {
     auto conn = std::make_shared<connection>();
-    conn->send_package_impl = [](std::string) {};
+    conn->send_package_impl = [](std::string) { return true; };
     auto rpc_timeout = rpc::create(conn);
     rpc_timeout->set_ready(true);
     rpc::timeout_cb timer;

@@ -9,6 +9,7 @@
 // include
 #include "detail/callable/callable.hpp"
 #include "detail/noncopyable.hpp"
+#include "result.hpp"
 
 namespace rpc_core {
 
@@ -37,7 +38,8 @@ struct request_response_impl : public std::enable_shared_from_this<request_respo
   std::string rsp_data;  // serialized data
 
   bool rsp_ready{false};
-  std::function<void(Rsp)> rsp;
+  // A failed attempt is not cached; the caller may retry with its own data.
+  std::function<result<void>(Rsp)> rsp;
 };
 
 template <typename Req, typename Rsp>
