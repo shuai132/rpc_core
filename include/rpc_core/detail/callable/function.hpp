@@ -8,8 +8,6 @@ namespace rpc_core {
 
 namespace detail {
 
-namespace {
-
 /** Define traits for a function type */
 template <typename Fun>
 struct function_traits;
@@ -26,8 +24,6 @@ struct function_traits<Ret(Args...)> {
 
 template <typename Ret, typename... Args>
 const std::size_t function_traits<Ret(Args...)>::argc;
-
-}  // namespace
 
 }  // namespace detail
 

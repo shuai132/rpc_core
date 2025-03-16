@@ -48,7 +48,7 @@ serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
     detail::auto_size_type<Integer> rep;
     rep << ia;
     if (ia.error) return ia;
-    if (rep.value < (std::numeric_limits<Rep>::min)() || rep.value > (std::numeric_limits<Rep>::max)()) {
+    if ((rep.value) < (std::numeric_limits<Rep>::min)() || (rep.value) > (std::numeric_limits<Rep>::max)()) {
       ia.error = true;
       return ia;
     }

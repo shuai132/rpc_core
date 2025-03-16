@@ -54,14 +54,14 @@ jobs:
               CMAKE_OPTIONS: "-G \"MinGW Makefiles\""
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Asio
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libasio-dev
 
       - name: Configure (${{ matrix.configuration }})
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ${{ matrix.env.CMAKE_OPTIONS }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DCMAKE_COMPILE_WARNING_AS_ERROR=ON ${{ matrix.env.CMAKE_OPTIONS }}
 
       - name: Init thirdparty
         if: matrix.os != 'windows-latest'

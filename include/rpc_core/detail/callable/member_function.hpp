@@ -13,8 +13,6 @@ struct lref_tag {};
 struct rref_tag {};
 struct noexcept_tag {};
 
-namespace {
-
 template <typename Class, typename Func, typename... Qual>
 struct member_function_traits_q : function_traits<Func> {
   typedef Class class_type;
@@ -41,8 +39,6 @@ const bool member_function_traits_q<Class, Func, Qual...>::is_rref;
 template <typename Class, typename Func, typename... Qual>
 const bool member_function_traits_q<Class, Func, Qual...>::is_noexcept;
 #endif
-
-}  // namespace
 
 template <typename MemFun>
 struct member_function_traits;

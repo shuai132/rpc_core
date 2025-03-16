@@ -77,9 +77,11 @@ if (RPC_CORE_BUILD_TEST)
                 COMMAND rm -rf ${CMAKE_CURRENT_LIST_DIR}/thirdparty
                 # json
                 COMMAND mkdir -p ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann
-                COMMAND curl -L -o ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
+                COMMAND curl -fL -o ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp
                 # flatbuffers
-                COMMAND git clone https://github.com/google/flatbuffers.git --depth=1 --branch=v23.1.21 ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers
+                COMMAND curl -fL -o ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers.tar.gz https://github.com/google/flatbuffers/archive/refs/tags/v23.1.21.tar.gz
+                COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_LIST_DIR}/thirdparty ${CMAKE_COMMAND} -E tar xzf flatbuffers.tar.gz
+                COMMAND ${CMAKE_COMMAND} -E rename ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers-23.1.21 ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers
                 WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         )
 
