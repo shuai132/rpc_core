@@ -253,7 +253,7 @@ fn server_heartbeat_and_client_drop_release_pending_ping() {
 }
 
 #[test]
-fn old_heartbeat_cannot_close_reconnected_session() {
+fn old_heartbeat_cannot_close_reconnected_or_reset_session() {
     run(async {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let rpc = rpc_core::rpc::Rpc::new(None);
@@ -274,6 +274,12 @@ fn old_heartbeat_cannot_close_reconnected_session() {
             let ping = read_ping(&mut peer).await;
             pong(&mut peer, ping).await;
         }
+        assert!(rpc.is_ready());
+        let obsolete_ping = read_ping(&mut peer).await;
+        rpc.reset_session();
+        pong(&mut peer, obsolete_ping).await;
+        let ping = read_ping(&mut peer).await;
+        pong(&mut peer, ping).await;
         assert!(rpc.is_ready());
         client.close();
     });

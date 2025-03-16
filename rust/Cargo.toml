@@ -37,6 +37,10 @@ name = "rpc"
 path = "src/tests/rpc.rs"
 
 [[test]]
+name = "session"
+path = "src/tests/session.rs"
+
+[[test]]
 name = "net_rpc"
 path = "src/tests/net_rpc.rs"
 required-features = ["net"]

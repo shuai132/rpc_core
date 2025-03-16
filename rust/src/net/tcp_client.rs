@@ -142,8 +142,8 @@ impl TcpClient {
         *self.on_close.borrow_mut() = Some(Rc::new(callback));
     }
 
-    pub fn send(&self, data: Vec<u8>) {
-        self.channel.send(data);
+    pub fn send(&self, data: Vec<u8>) -> bool {
+        self.channel.send(data)
     }
 
     pub fn send_str(&self, data: impl ToString) {

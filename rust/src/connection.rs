@@ -2,15 +2,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub trait Connection {
-    fn set_send_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>)>);
-    fn send_package(&self, package: Vec<u8>);
+    fn set_send_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>) -> bool>);
+    /// true means accepted by the transport, not acknowledged by the peer.
+    fn send_package(&self, package: Vec<u8>) -> bool;
     fn set_recv_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>)>);
     fn on_recv_package(&self, package: Vec<u8>);
 }
 
 #[derive(Default)]
 pub struct DefaultConnection {
-    send_package_impl: Option<Box<dyn Fn(Vec<u8>)>>,
+    send_package_impl: Option<Box<dyn Fn(Vec<u8>) -> bool>>,
     recv_package_impl: Option<Box<dyn Fn(Vec<u8>)>>,
 }
 
@@ -21,14 +22,14 @@ impl DefaultConnection {
 }
 
 impl Connection for DefaultConnection {
-    fn set_send_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>)>) {
+    fn set_send_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>) -> bool>) {
         self.send_package_impl = Some(handle);
     }
 
-    fn send_package(&self, package: Vec<u8>) {
-        if let Some(handle) = self.send_package_impl.as_ref() {
-            handle(package);
-        }
+    fn send_package(&self, package: Vec<u8>) -> bool {
+        self.send_package_impl
+            .as_ref()
+            .is_some_and(|handle| handle(package))
     }
 
     fn set_recv_package_impl(&mut self, handle: Box<dyn Fn(Vec<u8>)>) {
@@ -58,12 +59,16 @@ impl LoopbackConnection {
         c1.borrow_mut().send_package_impl = Some(Box::new(move |package: Vec<u8>| {
             if let Some(peer) = c2_weak.upgrade() {
                 peer.borrow().on_recv_package(package);
+                return true;
             }
+            false
         }));
         c2.borrow_mut().send_package_impl = Some(Box::new(move |package: Vec<u8>| {
             if let Some(peer) = c1_weak.upgrade() {
                 peer.borrow().on_recv_package(package);
+                return true;
             }
+            false
         }));
         (c1, c2)
     }

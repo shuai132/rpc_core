@@ -64,8 +64,9 @@ impl RpcClient {
                     .borrow_mut()
                     .set_send_package_impl(Box::new(move |package: Vec<u8>| {
                         if let Some(this) = this_weak.upgrade() {
-                            this.inner.borrow().tcp_client.send(package);
+                            return this.inner.borrow().tcp_client.send(package);
                         }
+                        false
                     }));
             }
             {

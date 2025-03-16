@@ -160,6 +160,7 @@ fn oversized_command_reports_error_without_sending() {
         .borrow_mut()
         .set_send_package_impl(Box::new(move |_| {
             *sent_copy.borrow_mut() = true;
+            true
         }));
     let rpc = Rpc::new(Some(connection));
     rpc.set_ready(true);
@@ -182,6 +183,9 @@ fn cancel_removes_pending_response_before_timeout() {
     let timer = Rc::new(RefCell::new(None::<Box<dyn Fn()>>));
     let timer_copy = timer.clone();
     let rpc = Rpc::new(Some(connection));
+    rpc.get_connection()
+        .borrow_mut()
+        .set_send_package_impl(Box::new(|_| true));
     rpc.set_ready(true);
     rpc.set_timer(move |_, cb| *timer_copy.borrow_mut() = Some(cb));
 
@@ -251,6 +255,9 @@ fn typed_future_completes_on_request_errors() {
 
     let connection = DefaultConnection::new();
     let rpc = Rpc::new(Some(connection));
+    rpc.get_connection()
+        .borrow_mut()
+        .set_send_package_impl(Box::new(|_| true));
     rpc.set_ready(true);
     let timer = Rc::new(RefCell::new(None::<Box<dyn Fn()>>));
     let timer_copy = timer.clone();
@@ -278,6 +285,9 @@ fn typed_future_completes_on_request_errors() {
 #[test]
 fn timeout_callback_can_cancel_request() {
     let rpc = Rpc::new(Some(DefaultConnection::new()));
+    rpc.get_connection()
+        .borrow_mut()
+        .set_send_package_impl(Box::new(|_| true));
     rpc.set_ready(true);
     let timer = Rc::new(RefCell::new(None::<Box<dyn Fn()>>));
     let timer_copy = timer.clone();
@@ -304,6 +314,9 @@ fn timeout_callback_can_cancel_request() {
 fn dropping_rpc_finishes_and_releases_pending_requests() {
     for with_timer in [false, true] {
         let rpc = Rpc::new(None);
+        rpc.get_connection()
+            .borrow_mut()
+            .set_send_package_impl(Box::new(|_| true));
         rpc.set_ready(true);
         let timer = Rc::new(RefCell::new(None::<Box<dyn Fn()>>));
         let timer_copy = timer.clone();
@@ -335,14 +348,17 @@ fn dropping_old_rpc_does_not_finish_new_call() {
     let old_conn = DefaultConnection::new();
     old_conn
         .borrow_mut()
-        .set_send_package_impl(Box::new(|_| {}));
+        .set_send_package_impl(Box::new(|_| true));
     let old_rpc = Rpc::new(Some(old_conn));
     let new_conn = DefaultConnection::new();
     let packets = Rc::new(RefCell::new(Vec::new()));
     let sent = packets.clone();
     new_conn
         .borrow_mut()
-        .set_send_package_impl(Box::new(move |packet| sent.borrow_mut().push(packet)));
+        .set_send_package_impl(Box::new(move |packet| {
+            sent.borrow_mut().push(packet);
+            true
+        }));
     let new_rpc = Rpc::new(Some(new_conn.clone()));
     old_rpc.set_ready(true);
     new_rpc.set_ready(true);
@@ -386,6 +402,9 @@ fn dropping_old_rpc_does_not_finish_new_call() {
 fn cancel_during_timeout_does_not_retry_or_finish_twice() {
     for retries in [0, 1, -1] {
         let rpc = Rpc::new(None);
+        rpc.get_connection()
+            .borrow_mut()
+            .set_send_package_impl(Box::new(|_| true));
         rpc.set_ready(true);
         let timer = Rc::new(RefCell::new(None::<Box<dyn Fn()>>));
         let timer_copy = timer.clone();
@@ -424,6 +443,9 @@ fn future_notifies_the_most_recent_waker() {
         }
     }
     let rpc = Rpc::new(None);
+    rpc.get_connection()
+        .borrow_mut()
+        .set_send_package_impl(Box::new(|_| true));
     rpc.set_ready(true);
     let request = rpc.cmd("pending");
     let mut future = Box::pin(request.future::<String>());
@@ -446,7 +468,7 @@ fn future_notifies_the_most_recent_waker() {
 fn loopback_send_after_peer_drop_is_safe() {
     let (first, second) = rpc_core::connection::LoopbackConnection::new();
     drop(second);
-    first.borrow().send_package(vec![1]);
+    assert!(!first.borrow().send_package(vec![1]));
 }
 
 #[test]
@@ -468,8 +490,10 @@ fn response_callback_can_start_another_call() {
     let conn = DefaultConnection::new();
     let packets = Rc::new(RefCell::new(Vec::new()));
     let sent = packets.clone();
-    conn.borrow_mut()
-        .set_send_package_impl(Box::new(move |p| sent.borrow_mut().push(p)));
+    conn.borrow_mut().set_send_package_impl(Box::new(move |p| {
+        sent.borrow_mut().push(p);
+        true
+    }));
     let rpc = Rpc::new(Some(conn.clone()));
     rpc.set_ready(true);
     let request = rpc.cmd("x");
@@ -526,8 +550,10 @@ impl PendingFixture {
         let conn = DefaultConnection::new();
         let sent = Rc::new(RefCell::new(Vec::new()));
         let packets = sent.clone();
-        conn.borrow_mut()
-            .set_send_package_impl(Box::new(move |p| packets.borrow_mut().push(p)));
+        conn.borrow_mut().set_send_package_impl(Box::new(move |p| {
+            packets.borrow_mut().push(p);
+            true
+        }));
         let rpc = Rpc::new(Some(conn.clone()));
         rpc.set_ready(true);
         let timers = Rc::new(RefCell::new(Vec::<Rc<dyn Fn()>>::new()));
@@ -742,6 +768,39 @@ fn overlapping_future_returns_busy_without_replacing_original() {
         panic!("reused future stayed pending");
     };
     assert_eq!(result.unwrap(), "second");
+}
+
+#[test]
+fn synchronous_timer_finishes_without_sending_and_can_reenter() {
+    let connection = DefaultConnection::new();
+    let sends = Rc::new(std::cell::Cell::new(0));
+    let copy = sends.clone();
+    connection
+        .borrow_mut()
+        .set_send_package_impl(Box::new(move |_| {
+            copy.set(copy.get() + 1);
+            true
+        }));
+    let rpc = Rpc::new(Some(connection));
+    rpc.set_ready(true);
+    rpc.set_timer(|_, cb| cb());
+    let request = rpc.cmd("action");
+    request.msg(1).rsp(|_: i32| {}).timeout_ms(0);
+    assert_eq!(request.call(), Err(FinallyType::Timeout));
+    assert_eq!(sends.get(), 0);
+    let weak_rpc = Rc::downgrade(&rpc);
+    let weak_request = Rc::downgrade(&request);
+    request.finally(move |status| {
+        assert_eq!(status, FinallyType::Timeout);
+        let rpc = weak_rpc.upgrade().unwrap();
+        let request = weak_request.upgrade().unwrap();
+        rpc.set_timer(|_, _| {});
+        request.finally(|_| {});
+        assert_eq!(request.call(), Ok(()));
+    });
+    assert_eq!(request.call(), Err(FinallyType::Timeout));
+    assert_eq!(sends.get(), 1);
+    request.cancel();
 }
 
 #[test]

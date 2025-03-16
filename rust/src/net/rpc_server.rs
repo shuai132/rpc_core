@@ -98,8 +98,11 @@ impl RpcServer {
                         .borrow_mut()
                         .set_send_package_impl(Box::new(move |package: Vec<u8>| {
                             if let Some(rs) = rs_weak.upgrade() {
-                                rs.channel.upgrade().unwrap().send(package);
+                                if let Some(channel) = rs.channel.upgrade() {
+                                    return channel.send(package);
+                                }
                             }
+                            false
                         }));
                 }
                 {

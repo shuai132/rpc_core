@@ -41,7 +41,7 @@ impl Heartbeat {
                 let result = request.future::<()>().await;
                 current.borrow_mut().take();
                 match result.type_ {
-                    FinallyType::Normal => {}
+                    FinallyType::Normal | FinallyType::SessionReset => {}
                     _ => {
                         close();
                         return;

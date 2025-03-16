@@ -74,6 +74,27 @@ Dropping a polled, pending `future()` cancels its logical call, including retrie
 Use `reset_cancel()` before reusing that request. Dropping an unpolled future or
 an old future after its call completed does not cancel a newer call.
 
+# Logical sessions
+
+An `Rpc` object represents a logical session. `set_ready(false)` marks a temporary
+transport disconnect; `set_ready(true)` resumes the same session. Pending calls
+and the sequence counter survive this transition, and existing deadlines continue
+running. Keep both peers' RPC objects when resuming a session.
+
+When a peer restarts or is replaced, call `reset_session()` before accepting its
+packets. Old pending calls complete with `FinallyType::SessionReset`; subscriptions,
+readiness and the sequence counter are retained. Completion callbacks may start
+new calls, and old timeout registrations cannot finish those new calls. Responses
+from a subscription handler that resets its own session are suppressed.
+
+The adapter decides whether a connection resumes the old session. There is no
+session handshake or automatic reply replay; the adapter must stop delivering
+bytes from the old transport before attaching a different peer.
+`Connection::send_package()` and its callback return `bool`: `true` means the
+transport accepted the packet, and `false` means it could not send it. The RPC
+layer maps rejection to `FinallyType::RpcNotReady`. Acceptance does not guarantee
+delivery to the peer.
+
 # Features
 
 ## net
