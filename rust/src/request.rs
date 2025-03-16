@@ -49,6 +49,7 @@ pub(crate) struct CallOptions {
     pub(crate) timeout_cb: Option<Rc<TimeoutCb>>,
     finally: Option<Rc<dyn Fn(FinallyType)>>,
     pub(crate) is_ping: bool,
+    pub(crate) completion: RefCell<Option<FinallyType>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,6 +64,7 @@ pub enum FinallyType {
     ReqSerializeError = 7,
     RspSerializeError = 8,
     Busy = 9,
+    SessionReset = 10,
 }
 
 impl FinallyType {
@@ -78,6 +80,7 @@ impl FinallyType {
             FinallyType::ReqSerializeError => "req_serialize_error",
             FinallyType::RspSerializeError => "rsp_serialize_error",
             FinallyType::Busy => "busy",
+            FinallyType::SessionReset => "session_reset",
         }
     }
 }
@@ -200,6 +203,7 @@ impl Request {
                 timeout_cb: inner.timeout_cb.clone(),
                 finally: inner.finally.clone(),
                 is_ping: inner.is_ping,
+                completion: RefCell::new(None),
             }));
             inner.retries_remaining = inner.retry_count;
             inner.self_keeper = Some(self.clone());
@@ -491,6 +495,7 @@ impl Request {
         let Some(completed) = request.active.take() else {
             return;
         };
+        *completed.completion.borrow_mut() = Some(type_.clone());
         debug!("on_finish: cmd:{} type:{:?}", completed.cmd, type_);
         let finally = completed.finally.clone();
         let self_keeper = request.self_keeper.take();

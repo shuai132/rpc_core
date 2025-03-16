@@ -113,7 +113,19 @@ impl Rpc {
     }
 
     pub fn set_ready(&self, ready: bool) {
-        self.inner.borrow_mut().is_ready = ready;
+        let dispatcher = {
+            let mut inner = self.inner.borrow_mut();
+            inner.is_ready = ready;
+            inner.dispatcher.clone()
+        };
+        dispatcher.borrow_mut().set_ready(ready);
+    }
+
+    /// Start a new logical session, retaining subscriptions, readiness and sequence.
+    /// Ordinary reconnects only change set_ready().
+    pub fn reset_session(&self) {
+        let dispatcher = self.inner.borrow().dispatcher.clone();
+        MsgDispatcher::reset_session(&dispatcher);
     }
 
     pub fn get_connection(&self) -> Rc<RefCell<dyn Connection>> {
@@ -124,8 +136,9 @@ impl Rpc {
 impl Rpc {
     pub fn make_seq(&self) -> SeqType {
         let mut inner = self.inner.borrow_mut();
-        let seq = inner.seq;
-        inner.seq = inner.seq.wrapping_add(1);
+        let mut next = inner.seq;
+        let seq = inner.dispatcher.borrow().make_seq(&mut next);
+        inner.seq = next;
         seq
     }
 
@@ -133,12 +146,20 @@ impl Rpc {
         let msg;
         let payload;
         let connection;
+        let attempt;
+        let dispatcher;
+        let options;
+        let weak;
         {
             let inner = self.inner.borrow();
             let request = request.inner.borrow();
-            let Some(options) = &request.active else {
+            let Some(active) = &request.active else {
                 return Err(FinallyType::Canceled);
             };
+            options = active.clone();
+            weak = request.self_weak.clone();
+            dispatcher = inner.dispatcher.clone();
+            attempt = (request.call_id, request.seq);
             if options.serialize_error {
                 return Err(FinallyType::ReqSerializeError);
             }
@@ -158,42 +179,57 @@ impl Rpc {
             };
 
             payload = coder::serialize(&msg).map_err(|_| FinallyType::ReqSerializeError)?;
-            if options.need_rsp {
-                let weak = request.self_weak.clone();
-                let call_id = request.call_id;
-                let seq = request.seq;
-                let handle = options.rsp_handle.as_ref().unwrap().clone();
-                let response_weak = weak.clone();
-                let timeout_weak = weak.clone();
-                inner.dispatcher.borrow_mut().subscribe_rsp(
-                    seq,
-                    Rc::new(move |msg| {
-                        let Some(request) = response_weak.upgrade() else {
-                            return true;
-                        };
-                        if !request.matches_attempt(call_id, seq) {
-                            return true;
-                        }
-                        handle(msg)
-                    }),
-                    Some(Rc::new(move || {
-                        if let Some(request) = timeout_weak.upgrade() {
-                            if request.matches_attempt(call_id, seq) {
-                                request.on_timeout();
-                            }
-                        }
-                    })),
-                    options.timeout_ms,
-                    Some(Rc::new(move || {
-                        if let Some(request) = weak.upgrade() {
-                            if request.matches_attempt(call_id, seq) {
-                                request.on_finish(FinallyType::RpcExpired);
-                            }
-                        }
-                    })),
-                );
-            }
             connection = inner.connection.clone();
+        }
+        if options.need_rsp {
+            let weak = weak.clone();
+            let call_id = attempt.0;
+            let seq = attempt.1;
+            let handle = options.rsp_handle.as_ref().unwrap().clone();
+            let response_weak = weak.clone();
+            let timeout_weak = weak.clone();
+            let reset_weak = weak.clone();
+            MsgDispatcher::subscribe_rsp(
+                &dispatcher,
+                seq,
+                Rc::new(move |msg| {
+                    let Some(request) = response_weak.upgrade() else {
+                        return true;
+                    };
+                    if !request.matches_attempt(call_id, seq) {
+                        return true;
+                    }
+                    handle(msg)
+                }),
+                Some(Rc::new(move || {
+                    if let Some(request) = timeout_weak.upgrade() {
+                        if request.matches_attempt(call_id, seq) {
+                            request.on_timeout();
+                        }
+                    }
+                })),
+                options.timeout_ms,
+                Some(Rc::new(move || {
+                    if let Some(request) = weak.upgrade() {
+                        if request.matches_attempt(call_id, seq) {
+                            request.on_finish(FinallyType::RpcExpired);
+                        }
+                    }
+                })),
+                Some(Rc::new(move || {
+                    if let Some(request) = reset_weak.upgrade() {
+                        if request.matches_attempt(call_id, seq) {
+                            request.on_finish(FinallyType::SessionReset);
+                        }
+                    }
+                })),
+            );
+        }
+        if !request.matches_attempt(attempt.0, attempt.1) {
+            return match options.completion.borrow().clone() {
+                None | Some(FinallyType::Normal) => Ok(()),
+                Some(error) => Err(error),
+            };
         }
         debug!(
             "=> seq:{} type:{} {}",
@@ -205,8 +241,15 @@ impl Rpc {
             },
             msg.cmd
         );
-        connection.borrow().send_package(payload);
-        Ok(())
+        let sent = connection.borrow().send_package(payload);
+        if !sent && request.matches_attempt(attempt.0, attempt.1) {
+            self.unsubscribe_rsp(attempt.1);
+        }
+        if sent {
+            Ok(())
+        } else {
+            Err(FinallyType::RpcNotReady)
+        }
     }
 
     pub(crate) fn unsubscribe_rsp(&self, seq: SeqType) {
@@ -225,6 +268,48 @@ impl Rpc {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
+
+    #[test]
+    fn sequence_wrap_keeps_pending_requests_and_timeouts() {
+        let rpc = Rpc::new(None);
+        rpc.set_ready(true);
+        let sent = Rc::new(RefCell::new(Vec::new()));
+        let output = sent.clone();
+        rpc.get_connection()
+            .borrow_mut()
+            .set_send_package_impl(Box::new(move |packet| {
+                output
+                    .borrow_mut()
+                    .push(coder::deserialize(&packet).unwrap().seq);
+                true
+            }));
+        let timers = Rc::new(RefCell::new(Vec::<Box<TimeoutCb>>::new()));
+        let pending_timers = timers.clone();
+        rpc.set_timer(move |_, cb| pending_timers.borrow_mut().push(cb));
+        let completions = Rc::new(Cell::new(0));
+        let mut requests = Vec::new();
+        for index in 0..3 {
+            if index == 1 {
+                rpc.inner.borrow_mut().seq = u32::MAX;
+            }
+            let request = rpc.cmd("pending");
+            let finished = completions.clone();
+            request.rsp(|_: ()| {}).finally(move |status| {
+                assert_eq!(status, FinallyType::Timeout);
+                finished.set(finished.get() + 1);
+            });
+            request.call().unwrap();
+            requests.push(Rc::downgrade(&request));
+        }
+        assert_eq!(*sent.borrow(), vec![0, u32::MAX, 1]);
+        for timer in timers.borrow().iter() {
+            timer();
+        }
+        assert_eq!(completions.get(), 3);
+        assert!(requests.iter().all(|request| request.upgrade().is_none()));
+    }
+
     #[test]
     fn sequence_wraps_without_panicking() {
         let rpc = Rpc::new(None);
