@@ -133,6 +133,14 @@ void test_rpc() {
         ->call(rpc_c);
     ASSERT(pass);
 
+    RPC_CORE_LOGI("call(cmd, msg, rsp)");
+    pass = false;
+    rpc_c->call("cmd1", std::string("test"), [&](const std::string& rsp) {
+      ASSERT(rsp == "ok");
+      pass = true;
+    });
+    ASSERT(pass);
+
     RPC_CORE_LOGI("no_such_cmd");
     pass = false;
     request::create()
