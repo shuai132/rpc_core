@@ -264,20 +264,20 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   std::future<result<void>> future(const rpc_s& rpc = nullptr);
 #endif
 
-#ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
+#ifdef RPC_CORE_FEATURE_CO_ASIO
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  asio::awaitable<result<R>> async_call();
+  asio::awaitable<result<R>> co_call();
 
   template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  asio::awaitable<result<R>> async_call();
+  asio::awaitable<result<R>> co_call();
 #endif
 
-#ifdef RPC_CORE_FEATURE_ASYNC_CUSTOM
+#ifdef RPC_CORE_FEATURE_CO_CUSTOM
   template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type = 0>
-  RPC_CORE_FEATURE_ASYNC_CUSTOM_R RPC_CORE_FEATURE_ASYNC_CUSTOM();
+  RPC_CORE_FEATURE_CO_CUSTOM_R RPC_CORE_FEATURE_CO_CUSTOM();
 
   template <typename R = void, typename std::enable_if<std::is_same<R, void>::value, int>::type = 0>
-  RPC_CORE_FEATURE_ASYNC_CUSTOM_R RPC_CORE_FEATURE_ASYNC_CUSTOM();
+  RPC_CORE_FEATURE_CO_CUSTOM_R RPC_CORE_FEATURE_CO_CUSTOM();
 #endif
 
  private:

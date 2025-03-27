@@ -62,9 +62,9 @@ std::future<result<void>> request::future(const rpc_s& rpc) {
 }
 #endif
 
-#ifdef RPC_CORE_FEATURE_ASIO_COROUTINE
+#ifdef RPC_CORE_FEATURE_CO_ASIO
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
-asio::awaitable<result<R>> request::async_call() {
+asio::awaitable<result<R>> request::co_call() {
   auto executor = co_await asio::this_coro::executor;
   co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
       [this, &executor](auto& self) mutable {
@@ -81,7 +81,7 @@ asio::awaitable<result<R>> request::async_call() {
 }
 
 template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>::type>
-asio::awaitable<result<R>> request::async_call() {
+asio::awaitable<result<R>> request::co_call() {
   auto executor = co_await asio::this_coro::executor;
   co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
       [this, &executor](auto& self) mutable {

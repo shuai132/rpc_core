@@ -17,6 +17,28 @@ request_s rpc::ping(std::string payload) {
   return create_request()->ping()->msg(std::move(payload));
 }
 
+template <typename Msg>
+inline void rpc::call(cmd_type cmd, Msg&& message) {
+  this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->call();
+}
+
+template <typename Msg, typename Rsp>
+inline void rpc::call(cmd_type cmd, Msg&& message, Rsp&& rsp) {
+  this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->rsp(std::forward<Rsp>(rsp))->call();
+}
+
+#ifdef RPC_CORE_FEATURE_CO_ASIO
+template <typename R>
+inline asio::awaitable<result<R>> rpc::co_call(cmd_type cmd) {
+  co_return co_await this->cmd(std::move(cmd))->co_call<R>();
+}
+
+template <typename R, typename Msg>
+inline asio::awaitable<result<R>> rpc::co_call(cmd_type cmd, Msg&& message) {
+  co_return co_await this->cmd(std::move(cmd))->msg(std::forward<Msg>(message))->template co_call<R>();
+}
+#endif
+
 void rpc::send_request(request const* request) {
   if (request->need_rsp_) {
     dispatcher_->subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);

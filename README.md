@@ -52,7 +52,7 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
   NOTICE: complete data packets are required for data transmission, such as `websocket`.  
   If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented.
   Or you can use [stream_connection](include/rpc_core/connection.hpp).
-* Optional: C++20 (for coroutine api, co_await async_call)
+* Optional: C++20 (for coroutine api, co_await co_call)
 
 ## Usage
 
@@ -100,7 +100,7 @@ rpc->subscribe("cmd", [&](request_response<std::string, std::string> rr) -> asio
 
 // sender
 // use C++20 co_await with asio, or you can use custom async implementation, and co_await it!
-auto rsp = co_await rpc->cmd("cmd")->msg(std::string("hello"))->async_call<std::string>();
+auto rsp = co_await rpc->cmd("cmd")->msg(std::string("hello"))->co_call<std::string>();
 assert(rsp.data == "world");
 ```
 
