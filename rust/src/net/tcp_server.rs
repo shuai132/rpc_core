@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::net::SocketAddr;
 use std::rc::{Rc, Weak};
 
 use log::{debug, trace};
@@ -42,9 +41,7 @@ impl TcpServer {
 
         tokio::task::spawn_local(async move {
             debug!("listen: {port}");
-            let listener = TcpListener::bind(SocketAddr::new("0.0.0.0".parse().unwrap(), port))
-                .await
-                .unwrap();
+            let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await.unwrap();
             loop {
                 let this = this_weak.upgrade().unwrap();
                 select! {

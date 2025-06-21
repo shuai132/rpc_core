@@ -1,10 +1,9 @@
 use std::cell::RefCell;
 use std::error::Error;
-use std::net::ToSocketAddrs;
 use std::rc::{Rc, Weak};
 
 use log::debug;
-use tokio::net::TcpStream;
+use tokio::net::{lookup_host, TcpStream};
 
 use crate::net::config::TcpConfig;
 use crate::net::detail::tcp_channel::TcpChannel;
@@ -163,7 +162,10 @@ impl TcpClient {
         if host == "localhost" {
             host = "127.0.0.1".parse().unwrap();
         }
-        let addr = (host, port).to_socket_addrs()?.next().unwrap();
+        let addr = lookup_host(format!("{}:{}", host, port))
+            .await?
+            .next()
+            .ok_or("Host not found")?;
         let stream = TcpStream::connect(addr).await?;
         Ok(stream)
     }
