@@ -169,6 +169,14 @@ impl Rpc {
         connection.borrow().send_package(payload);
     }
 
+    pub(crate) fn unsubscribe_rsp(&self, seq: SeqType) {
+        self.inner
+            .borrow()
+            .dispatcher
+            .borrow_mut()
+            .unsubscribe_rsp(seq);
+    }
+
     pub fn is_ready(&self) -> bool {
         self.inner.borrow().is_ready
     }

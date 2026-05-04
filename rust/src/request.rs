@@ -233,6 +233,19 @@ impl Request {
 
     pub fn cancel(self: &Rc<Self>) -> &Rc<Self> {
         self.canceled(true);
+        let (should_unsubscribe, seq, rpc) = {
+            let request = self.inner.borrow();
+            (
+                request.need_rsp && request.waiting_rsp,
+                request.seq,
+                request.rpc.clone(),
+            )
+        };
+        if should_unsubscribe {
+            if let Some(rpc) = rpc.and_then(|rpc| rpc.upgrade()) {
+                rpc.unsubscribe_rsp(seq);
+            }
+        }
         self.on_finish(FinallyType::Canceled);
         self
     }

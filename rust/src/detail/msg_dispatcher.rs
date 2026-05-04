@@ -100,6 +100,12 @@ impl MsgDispatcher {
         }
     }
 
+    pub fn unsubscribe_rsp(&mut self, seq: SeqType) {
+        if self.rsp_handle_map.remove(&seq).is_some() {
+            debug!("erase rsp seq:{}", seq);
+        }
+    }
+
     pub fn dispatch(&mut self, mut msg: MsgWrapper) {
         if msg.type_.contains(MsgType::Command) {
             // ping
