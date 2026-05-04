@@ -19,6 +19,8 @@ class request;
 using request_s = std::shared_ptr<request>;
 
 class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
+  friend class request;
+
  public:
   using timeout_cb = detail::msg_dispatcher::timeout_cb;
 
@@ -158,6 +160,11 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
 
   inline bool is_ready() const {
     return is_ready_;
+  }
+
+ private:
+  inline void unsubscribe_rsp(seq_type seq) {
+    dispatcher_->unsubscribe_rsp(seq);
   }
 
  private:

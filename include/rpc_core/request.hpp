@@ -60,25 +60,29 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, cb = std::move(cb)](detail::msg_wrapper msg) mutable {
-      if (canceled_) {
-        on_finish(finally_t::canceled);
+    request_w weak = self;
+    this->rsp_handle_ = [weak, cb = std::move(cb)](detail::msg_wrapper msg) mutable {
+      auto self = weak.lock();
+      if (!self) return true;
+
+      if (self->canceled_) {
+        self->on_finish(finally_t::canceled);
         return true;
       }
 
       if (msg.type & detail::msg_wrapper::msg_type::no_such_cmd) {
-        on_finish(finally_t::no_such_cmd);
+        self->on_finish(finally_t::no_such_cmd);
         return true;
       }
 
       auto rsp = msg.unpack_as<T>();
       if (rsp.first) {
         cb(std::move(rsp.second), finally_t::normal);
-        on_finish(finally_t::normal);
+        self->on_finish(finally_t::normal);
         return true;
       } else {
         cb({}, finally_t::rsp_serialize_error);
-        on_finish(finally_t::rsp_serialize_error);
+        self->on_finish(finally_t::rsp_serialize_error);
         return false;
       }
     };
@@ -91,24 +95,28 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, cb = std::move(cb)](detail::msg_wrapper msg) mutable {
-      if (canceled_) {
-        on_finish(finally_t::canceled);
+    request_w weak = self;
+    this->rsp_handle_ = [weak, cb = std::move(cb)](detail::msg_wrapper msg) mutable {
+      auto self = weak.lock();
+      if (!self) return true;
+
+      if (self->canceled_) {
+        self->on_finish(finally_t::canceled);
         return true;
       }
 
       if (msg.type & detail::msg_wrapper::msg_type::no_such_cmd) {
-        on_finish(finally_t::no_such_cmd);
+        self->on_finish(finally_t::no_such_cmd);
         return true;
       }
 
       auto rsp = msg.unpack_as<T>();
       if (rsp.first) {
         cb(std::move(rsp.second));
-        on_finish(finally_t::normal);
+        self->on_finish(finally_t::normal);
         return true;
       } else {
-        on_finish(finally_t::rsp_serialize_error);
+        self->on_finish(finally_t::rsp_serialize_error);
         return false;
       }
     };
@@ -119,20 +127,24 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   request_s rsp(F cb) {
     need_rsp_ = true;
     auto self = shared_from_this();
-    this->rsp_handle_ = [this, cb = std::move(cb)](const detail::msg_wrapper& msg) mutable {
+    request_w weak = self;
+    this->rsp_handle_ = [weak, cb = std::move(cb)](const detail::msg_wrapper& msg) mutable {
       RPC_CORE_UNUSED(msg);
-      if (canceled_) {
-        on_finish(finally_t::canceled);
+      auto self = weak.lock();
+      if (!self) return true;
+
+      if (self->canceled_) {
+        self->on_finish(finally_t::canceled);
         return true;
       }
 
       if (msg.type & detail::msg_wrapper::msg_type::no_such_cmd) {
-        on_finish(finally_t::no_such_cmd);
+        self->on_finish(finally_t::no_such_cmd);
         return true;
       }
 
       cb();
-      on_finish(finally_t::normal);
+      self->on_finish(finally_t::normal);
       return true;
     };
     return self;
@@ -172,29 +184,30 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    * timeout callback for wait `rsp`
    */
   request_s timeout(std::function<void()> timeout_cb) {
-    timeout_cb_ = [this, timeout_cb = std::move(timeout_cb)]() mutable {
+    auto self = shared_from_this();
+    request_w weak = self;
+    timeout_cb_ = [weak, timeout_cb = std::move(timeout_cb)]() mutable {
+      auto self = weak.lock();
+      if (!self) return;
+
       if (timeout_cb) {
         timeout_cb();
       }
-      if (retry_count_ == -1) {
-        call();
-      } else if (retry_count_ > 0) {
-        retry_count_--;
-        call();
+      if (self->retry_count_ == -1) {
+        self->call();
+      } else if (self->retry_count_ > 0) {
+        self->retry_count_--;
+        self->call();
       } else {
-        on_finish(finally_t::timeout);
+        self->on_finish(finally_t::timeout);
       }
     };
-    return shared_from_this();
+    return self;
   }
 
   inline request_s add_to(dispose& dispose);
 
-  request_s cancel() {
-    canceled(true);
-    on_finish(finally_t::canceled);
-    return shared_from_this();
-  }
+  inline request_s cancel();
 
   request_s reset_cancel() {
     canceled(false);

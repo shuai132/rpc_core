@@ -1,3 +1,5 @@
+#include <vector>
+
 #include "assert_def.h"
 #include "rpc_core.hpp"
 #include "serialize/CustomType.h"
@@ -53,6 +55,62 @@ void test_rpc() {
           ASSERT(rsp == "world");
         })
         ->call();
+  }
+
+  /**
+   * response handling must not depend on timeout support
+   */
+  {
+    RPC_CORE_LOG("0. response without timer");
+    auto conn_s = std::make_shared<connection>();
+    auto conn_c = std::make_shared<connection>();
+    std::vector<std::string> to_server;
+    std::vector<std::string> to_client;
+
+    conn_c->send_package_impl = [&](std::string package) {
+      to_server.emplace_back(std::move(package));
+    };
+    conn_s->send_package_impl = [&](std::string package) {
+      to_client.emplace_back(std::move(package));
+    };
+
+    auto rpc_no_timer_s = rpc::create(conn_s);
+    auto rpc_no_timer_c = rpc::create(conn_c);
+    rpc_no_timer_s->set_ready(true);
+    rpc_no_timer_c->set_ready(true);
+
+    rpc_no_timer_s->subscribe("cmd_no_timer", [](const std::string& msg) -> std::string {
+      ASSERT(msg == "hello");
+      return "world";
+    });
+
+    bool pass_rsp = false;
+    bool pass_finally = false;
+    rpc_no_timer_c->cmd("cmd_no_timer")
+        ->msg(std::string("hello"))
+        ->rsp([&](const std::string& rsp) {
+          ASSERT(rsp == "world");
+          pass_rsp = true;
+        })
+        ->finally([&](finally_t type) {
+          ASSERT(type == finally_t::normal);
+          pass_finally = true;
+        })
+        ->call();
+
+    ASSERT(!pass_rsp);
+    ASSERT(to_server.size() == 1);
+    auto payload = std::move(to_server.front());
+    to_server.erase(to_server.begin());
+    conn_s->on_recv_package(std::move(payload));
+
+    ASSERT(to_client.size() == 1);
+    payload = std::move(to_client.front());
+    to_client.erase(to_client.begin());
+    conn_c->on_recv_package(std::move(payload));
+
+    ASSERT(pass_rsp);
+    ASSERT(pass_finally);
   }
 
   /**
@@ -418,7 +476,80 @@ void test_rpc() {
     ASSERT(pass_rsp);
   }
 
-  RPC_CORE_LOG("12. subscribe async: use coroutine or custom scheduler");
+  RPC_CORE_LOG("12. cancel clears pending timeout and response callbacks");
+  {
+    auto conn_s = std::make_shared<connection>();
+    auto conn_c = std::make_shared<connection>();
+    std::vector<std::string> to_server;
+    std::vector<std::string> to_client;
+    std::vector<rpc::timeout_cb> client_timers;
+
+    conn_c->send_package_impl = [&](std::string package) {
+      to_server.emplace_back(std::move(package));
+    };
+    conn_s->send_package_impl = [&](std::string package) {
+      to_client.emplace_back(std::move(package));
+    };
+
+    auto rpc_cancel_s = rpc::create(conn_s);
+    auto rpc_cancel_c = rpc::create(conn_c);
+    rpc_cancel_c->set_timer([&](uint32_t ms, rpc::timeout_cb cb) {
+      RPC_CORE_UNUSED(ms);
+      client_timers.emplace_back(std::move(cb));
+    });
+    rpc_cancel_s->set_ready(true);
+    rpc_cancel_c->set_ready(true);
+
+    rpc_cancel_s->subscribe("cmd_cancel_late", [](const std::string& msg) -> std::string {
+      ASSERT(msg == "hello");
+      return "world";
+    });
+
+    bool pass_rsp = false;
+    bool pass_timeout = false;
+    int finally_count = 0;
+    auto request = rpc_cancel_c->cmd("cmd_cancel_late")
+                       ->msg(std::string("hello"))
+                       ->rsp([&](const std::string& rsp) {
+                         RPC_CORE_UNUSED(rsp);
+                         pass_rsp = true;
+                       })
+                       ->timeout([&] {
+                         pass_timeout = true;
+                       })
+                       ->finally([&](finally_t type) {
+                         ASSERT(type == finally_t::canceled);
+                         ++finally_count;
+                       });
+
+    request->call();
+    ASSERT(to_server.size() == 1);
+    ASSERT(client_timers.size() == 1);
+
+    request->cancel();
+    ASSERT(finally_count == 1);
+
+    client_timers.front()();
+    ASSERT(!pass_timeout);
+    ASSERT(!pass_rsp);
+    ASSERT(finally_count == 1);
+
+    request.reset();
+    auto payload = std::move(to_server.front());
+    to_server.erase(to_server.begin());
+    conn_s->on_recv_package(std::move(payload));
+
+    ASSERT(to_client.size() == 1);
+    payload = std::move(to_client.front());
+    to_client.erase(to_client.begin());
+    conn_c->on_recv_package(std::move(payload));
+
+    ASSERT(!pass_timeout);
+    ASSERT(!pass_rsp);
+    ASSERT(finally_count == 1);
+  }
+
+  RPC_CORE_LOG("13. subscribe async: use coroutine or custom scheduler");
 #if 0
   {
     /// scheduler for dispatch rsp to asio context
