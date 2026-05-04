@@ -25,7 +25,7 @@ Add C++ coverage in the nearest `test/test_*.cpp` file, or create a focused test
 
 ## Commit & Pull Request Guidelines
 
-Recent commits use Conventional Commit prefixes such as `feat:`, `fix:`, `refactor:`, `chore:`, and `doc:`; keep messages short and scoped when helpful, for example `fix: [rust] remove blocking api`. Pull requests should describe behavioral changes, list C++ and Rust commands run, link related issues, and call out feature flags or platform-specific impact.
+Recent commits use Conventional Commit prefixes such as `feat:`, `fix:`, `refactor:`, `chore:`, and `doc:`. Use `type: [scope] summary` when a change is scoped to one language or module. Rust crate changes must use the `[rust]` scope, for example `feat: [rust] add tcp transport` or `fix: [rust] remove blocking api`. Keep messages short and scoped when helpful. Pull requests should describe behavioral changes, list C++ and Rust commands run, link related issues, and call out feature flags or platform-specific impact.
 
 ## Security & Configuration Tips
 
