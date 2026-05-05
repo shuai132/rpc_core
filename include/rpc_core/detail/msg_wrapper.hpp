@@ -26,6 +26,7 @@ struct msg_wrapper : copyable {  // NOLINT
     ping = 1 << 3,
     pong = 1 << 4,
     no_such_cmd = 1 << 5,
+    payload_json = 1 << 6,
   };
 
   enum class response_state : uint8_t {
@@ -52,6 +53,11 @@ struct msg_wrapper : copyable {  // NOLINT
   template <typename T>
   std::pair<bool, T> unpack_as() const {
     T message;
+#ifndef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
+    if (type & payload_json) {
+      RPC_CORE_LOGE("payload codec mismatch, peer marked JSON payload but native serializer is configured, msg info:%s", dump().c_str());
+    }
+#endif
     bool ok = deserialize(data, message);
     if (!ok) {
       RPC_CORE_LOGE("deserialize error, msg info:%s", dump().c_str());
@@ -63,6 +69,9 @@ struct msg_wrapper : copyable {  // NOLINT
   static std::pair<bool, msg_wrapper> make_rsp(seq_type seq, T* t = nullptr, bool success = true) {
     msg_wrapper msg;
     msg.type = msg_wrapper::response;
+#ifdef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
+    msg.type = static_cast<msg_type>(msg.type | payload_json);
+#endif
     msg.seq = seq;
     if (success && t != nullptr) {
       msg.data = serialize(*t);
@@ -74,6 +83,9 @@ struct msg_wrapper : copyable {  // NOLINT
   static std::pair<bool, msg_wrapper> make_rsp_async(seq_type seq, detail::async_helper_s async_helper, bool success = true) {
     msg_wrapper msg;
     msg.type = msg_wrapper::response;
+#ifdef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
+    msg.type = static_cast<msg_type>(msg.type | payload_json);
+#endif
     msg.seq = seq;
     msg.async_helper = std::move(async_helper);
     msg.response_state = success ? response_state::response_async : response_state::serialize_error;

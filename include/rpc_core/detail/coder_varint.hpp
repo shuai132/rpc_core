@@ -10,8 +10,20 @@ class coder {
  public:
   static std::string serialize(const msg_wrapper& msg) {
     std::string payload;
+    if (!serialize(msg, payload)) {
+      return {};
+    }
+    return payload;
+  }
+
+  static bool serialize(const msg_wrapper& msg, std::string& payload) {
+    if (msg.cmd.size() > UINT16_MAX) {
+      RPC_CORE_LOGE("cmd length exceeds uint16: %zu", msg.cmd.size());
+      return false;
+    }
     std::string v_seq = to_varint(msg.seq);
     std::string v_cmd_len = to_varint(msg.cmd.length());
+    payload.clear();
     payload.reserve(v_seq.size() + v_cmd_len.size() + sizeof(msg.type) + msg.cmd.size() + msg.data.size());
     payload.append(v_seq);
     payload.append(v_cmd_len);
@@ -22,7 +34,7 @@ class coder {
     } else {
       payload.append(msg.data);
     }
-    return payload;
+    return true;
   }
 
   static msg_wrapper deserialize(const std::string& payload, bool& ok) {

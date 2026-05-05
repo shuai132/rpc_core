@@ -17,6 +17,10 @@ static void test_simple() {
     return true;
   });
   ASSERT(packedData.size() == testData.size() + 4);
+  ASSERT(static_cast<unsigned char>(packedData[0]) == testData.size());
+  ASSERT(static_cast<unsigned char>(packedData[1]) == 0);
+  ASSERT(static_cast<unsigned char>(packedData[2]) == 0);
+  ASSERT(static_cast<unsigned char>(packedData[3]) == 0);
 
   std::string feedRecData;
   packer.on_data = [&](std::string data) {
@@ -85,11 +89,42 @@ static void test_random() {
   ASSERT(pass);
 }
 
+static void test_rpc_message_header() {
+  RPC_CORE_LOGI();
+  RPC_CORE_LOGI("test_rpc_message_header...");
+  rpc_core::detail::msg_wrapper msg;
+  msg.seq = 0x01020304;
+  msg.cmd = "cmd";
+  msg.type = rpc_core::detail::msg_wrapper::command;
+  msg.data = "payload";
+
+  std::string payload;
+  ASSERT(rpc_core::detail::coder::serialize(msg, payload));
+  ASSERT(static_cast<unsigned char>(payload[0]) == 0x04);
+  ASSERT(static_cast<unsigned char>(payload[1]) == 0x03);
+  ASSERT(static_cast<unsigned char>(payload[2]) == 0x02);
+  ASSERT(static_cast<unsigned char>(payload[3]) == 0x01);
+  ASSERT(static_cast<unsigned char>(payload[4]) == 0x03);
+  ASSERT(static_cast<unsigned char>(payload[5]) == 0x00);
+
+  bool ok = false;
+  auto decoded = rpc_core::detail::coder::deserialize(payload, ok);
+  ASSERT(ok);
+  ASSERT(decoded.seq == msg.seq);
+  ASSERT(decoded.cmd == msg.cmd);
+  ASSERT(decoded.type == msg.type);
+  ASSERT(decoded.data == msg.data);
+
+  msg.cmd.assign(0x10000, 'x');
+  ASSERT(!rpc_core::detail::coder::serialize(msg, payload));
+}
+
 namespace rpc_core_test {
 
 void test_data_packer() {
   test_simple();
   test_random();
+  test_rpc_message_header();
 }
 
 }  // namespace rpc_core_test

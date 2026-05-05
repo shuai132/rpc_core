@@ -39,18 +39,26 @@ inline asio::awaitable<result<R>> rpc::co_call(cmd_type cmd, Msg&& message) {
 }
 #endif
 
-void rpc::send_request(request const* request) {
-  if (request->need_rsp_) {
-    dispatcher_->subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);
-  }
+void rpc::send_request(request* request) {
   detail::msg_wrapper msg;
   msg.type = static_cast<detail::msg_wrapper::msg_type>(detail::msg_wrapper::command | (request->is_ping_ ? detail::msg_wrapper::ping : 0) |
                                                         (request->need_rsp_ ? detail::msg_wrapper::need_rsp : 0));
+#ifdef RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
+  msg.type = static_cast<detail::msg_wrapper::msg_type>(msg.type | detail::msg_wrapper::payload_json);
+#endif
   msg.cmd = request->cmd_;
   msg.seq = request->seq_;
   msg.request_payload = &request->payload_;
   RPC_CORE_LOGD("=> seq:%u type:%s %s", msg.seq, (msg.type & detail::msg_wrapper::msg_type::ping) ? "ping" : "cmd", msg.cmd.c_str());
-  conn_->send_package_impl(detail::coder::serialize(msg));
+  std::string payload;
+  if (!detail::coder::serialize(msg, payload)) {
+    request->on_finish(finally_t::rsp_serialize_error);
+    return;
+  }
+  if (request->need_rsp_) {
+    dispatcher_->subscribe_rsp(request->seq_, request->rsp_handle_, request->timeout_cb_, request->timeout_ms_);
+  }
+  conn_->send_package_impl(std::move(payload));
 }
 
 }  // namespace rpc_core

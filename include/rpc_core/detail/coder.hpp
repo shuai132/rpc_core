@@ -4,6 +4,7 @@
 #include "coder_varint.hpp"
 #else
 #include "msg_wrapper.hpp"
+#include "byte_order.hpp"
 
 namespace rpc_core {
 namespace detail {
@@ -12,10 +13,22 @@ class coder {
  public:
   static std::string serialize(const msg_wrapper& msg) {
     std::string payload;
+    if (!serialize(msg, payload)) {
+      return {};
+    }
+    return payload;
+  }
+
+  static bool serialize(const msg_wrapper& msg, std::string& payload) {
+    if (msg.cmd.size() > UINT16_MAX) {
+      RPC_CORE_LOGE("cmd length exceeds uint16: %zu", msg.cmd.size());
+      return false;
+    }
+    payload.clear();
     payload.reserve(PayloadMinLen + msg.cmd.size() + msg.data.size());
-    payload.append((char*)&msg.seq, 4);
-    auto cmd_len = (uint16_t)msg.cmd.length();
-    payload.append((char*)&cmd_len, 2);
+    append_u32_le(payload, msg.seq);
+    auto cmd_len = static_cast<uint16_t>(msg.cmd.length());
+    append_u16_le(payload, cmd_len);
     payload.append((char*)msg.cmd.data(), cmd_len);
     payload.append((char*)&msg.type, 1);
     if (msg.request_payload) {
@@ -23,7 +36,7 @@ class coder {
     } else {
       payload.append(msg.data);
     }
-    return payload;
+    return true;
   }
 
   static msg_wrapper deserialize(const std::string& payload, bool& ok) {
@@ -34,9 +47,9 @@ class coder {
     }
     char* p = (char*)payload.data();
     const char* pend = payload.data() + payload.size();
-    msg.seq = *(seq_type*)p;
+    msg.seq = read_u32_le(p);
     p += 4;
-    uint16_t cmd_len = *(uint16_t*)p;
+    uint16_t cmd_len = read_u16_le(p);
     p += 2;
     if (p + cmd_len + 1 > pend) {
       ok = false;

@@ -5,6 +5,7 @@
 #include <string>
 
 // #define RPC_CORE_LOG_SHOW_VERBOSE
+#include "byte_order.hpp"
 #include "log.h"
 #include "noncopyable.hpp"
 
@@ -20,7 +21,9 @@ class data_packer : detail::noncopyable {
     if (size > max_body_size_) {
       return false;
     }
-    auto ret = cb(&size, 4);
+    uint8_t header[4];
+    write_u32_le(header, static_cast<uint32_t>(size));
+    auto ret = cb(header, sizeof(header));
     if (!ret) return false;
     ret = cb(data, size);
     if (!ret) return false;
@@ -34,7 +37,7 @@ class data_packer : detail::noncopyable {
       RPC_CORE_LOGW("size > max_body_size: %zu > %u", size, max_body_size_);
       return payload;
     }
-    payload.insert(0, (char *)&size, 4);
+    detail::append_u32_le(payload, static_cast<uint32_t>(size));
     payload.insert(payload.size(), (char *)data, size);
     return payload;
   }
@@ -64,7 +67,7 @@ class data_packer : detail::noncopyable {
     for (int i = 0; i < header_len; ++i) {
       buffer_.push_back(((char *)data)[i]);
     }
-    body_size_ = *(uint32_t *)(buffer_.data());
+    body_size_ = read_u32_le(buffer_.data());
     buffer_.clear();
     RPC_CORE_LOGV("feed: wait body_size: %u", body_size_);
     if (body_size_ > max_body_size_) {
