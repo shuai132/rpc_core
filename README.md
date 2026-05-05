@@ -12,8 +12,9 @@ Arduino, STM32, ESP32/ESP8266, etc.)
 
 **C++ TCP options:** this repository includes a small optional C++ TCP adapter,
 `rpc_core/net/asio_tcp.hpp`, which depends on standalone [Asio](https://think-async.com/Asio/#). It is intended to match the
-simple TCP helpers provided by the JavaScript, Python, and Rust SDKs. For a more complete C++ networking implementation,
-including reconnect, SSL, UDP, serial, DDS, and discovery support, use [asio_net](https://github.com/shuai132/asio_net).
+simple TCP helpers provided by the JavaScript, Python, and Rust SDKs, and enables the `nlohmann::json` payload serializer by
+default for cross-language compatibility. For a more complete C++ networking implementation, including reconnect, SSL, UDP,
+serial, DDS, and discovery support, use [asio_net](https://github.com/shuai132/asio_net).
 
 ## Introduction
 
@@ -44,7 +45,7 @@ adapter in `rpc_core/net/asio_tcp.hpp`; it is not included by `rpc_core.hpp`.
 
 * C++ built-in adapter
     - [./cpp](./cpp): notes for C++ users. `rpc_core/net/asio_tcp.hpp` provides the built-in lightweight TCP adapter and
-      requires standalone [Asio](https://think-async.com/Asio/#).
+      requires standalone [Asio](https://think-async.com/Asio/#) and `nlohmann/json.hpp`. It defaults to JSON payloads.
 
 * C++ full networking layer
     - [asio_net](https://github.com/shuai132/asio_net): complete C++ networking implementation for reconnect, SSL, UDP,
@@ -70,8 +71,9 @@ language to choose a flexible, widely supported data format for request and resp
 The protocol uses `type` bit 6 (`0x40`) to mark JSON payloads. Receivers still accept unmarked JSON packets for backward
 compatibility, while the marker helps diagnose native-vs-JSON payload mismatches.
 
-JavaScript, Python, and Rust SDKs use JSON payloads by default. For C++, define `RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON` and make
-`nlohmann/json.hpp` available in the include path:
+JavaScript, Python, and Rust SDKs use JSON payloads by default. The built-in C++ TCP adapter
+`rpc_core/net/asio_tcp.hpp` also enables `RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON` by default; make `nlohmann/json.hpp` available
+in the include path. For plain C++ core usage without this adapter, define `RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON` yourself:
 
 ```shell
 cmake -S . -B build -DRPC_CORE_SERIALIZE_USE_NLOHMANN_JSON=ON

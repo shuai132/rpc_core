@@ -68,6 +68,11 @@ jobs:
       - name: Init ASIO
         run: git clone https://github.com/chriskohlhoff/asio.git -b asio-1-32-0 --depth=1
 
+      - name: Init nlohmann/json
+        run: |
+          cmake -E make_directory thirdparty/nlohmann
+          python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp', 'thirdparty/nlohmann/json.hpp')"
+
       - name: Configure (${{ matrix.configuration }})
         env:
           ASIO_PATH: asio/asio/include
