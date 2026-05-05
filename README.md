@@ -67,7 +67,7 @@ adapter in `rpc_core/net/asio_tcp.hpp`; it is not included by `rpc_core.hpp`.
       Uses the same RPC wire header and JSON payloads, details: [README.md](./python/README.md)
 
 * C
-    - [./c](./c): dependency-free C SDK with raw/text/json payload helpers and a POSIX TCP adapter  
+    - [./c](./c): dependency-free C SDK with raw/text/json payload helpers and TCP adapters for POSIX and Windows.
       Uses the same RPC wire header and stream framing, details: [README.md](./c/README.md)
 
 ## Cross-language RPC

@@ -14,7 +14,7 @@
   } while (0)
 
 typedef struct tcp_send_user {
-  int fd;
+  rpc_core_socket_t fd;
 } tcp_send_user_t;
 
 static int tcp_send(const uint8_t* package, size_t package_len, void* user) {
@@ -39,7 +39,7 @@ int main(void) {
   const char* host = getenv("RPC_HOST");
   const char* port_text = getenv("RPC_PORT");
   uint16_t port = (uint16_t)(port_text != NULL ? (unsigned)atoi(port_text) : 6666u);
-  int fd;
+  rpc_core_socket_t fd;
   tcp_send_user_t send_user;
   rpc_core_t* rpc;
   int done = 0;

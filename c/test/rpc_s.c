@@ -14,7 +14,7 @@
   } while (0)
 
 typedef struct tcp_send_user {
-  int fd;
+  rpc_core_socket_t fd;
 } tcp_send_user_t;
 
 static int tcp_send(const uint8_t* package, size_t package_len, void* user) {
@@ -39,7 +39,7 @@ int main(void) {
   const char* port_text = getenv("RPC_PORT");
   int run_once = getenv("RPC_ONCE") != NULL && strcmp(getenv("RPC_ONCE"), "1") == 0;
   uint16_t port = (uint16_t)(port_text != NULL ? (unsigned)atoi(port_text) : 6666u);
-  int listen_fd;
+  rpc_core_socket_t listen_fd;
 
   if (host == NULL) {
     host = "127.0.0.1";
@@ -49,7 +49,7 @@ int main(void) {
   printf("rpc_s listening on %s:%u\n", host, (unsigned)port);
 
   for (;;) {
-    int fd = rpc_core_tcp_accept(listen_fd);
+    rpc_core_socket_t fd = rpc_core_tcp_accept(listen_fd);
     tcp_send_user_t send_user;
     rpc_core_t* rpc;
     CHECK(fd >= 0);

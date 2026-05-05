@@ -1,7 +1,15 @@
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
 
 #include "rpc_core_c/rpc_core.h"
 #include "rpc_core_c/tcp.h"
@@ -19,12 +27,35 @@ typedef struct loopback_endpoint {
 } loopback_endpoint_t;
 
 typedef struct tcp_send_user {
-  int fd;
+  rpc_core_socket_t fd;
 } tcp_send_user_t;
 
 typedef struct tcp_server_ctx {
-  int listen_fd;
+  rpc_core_socket_t listen_fd;
 } tcp_server_ctx_t;
+
+#ifdef _WIN32
+typedef HANDLE test_thread_t;
+#define TEST_THREAD_RETURN DWORD WINAPI
+static int test_thread_create(test_thread_t* thread, LPTHREAD_START_ROUTINE fn, void* arg) {
+  *thread = CreateThread(NULL, 0, fn, arg, 0, NULL);
+  return *thread != NULL ? 0 : -1;
+}
+static int test_thread_join(test_thread_t thread) {
+  DWORD result = WaitForSingleObject(thread, INFINITE);
+  CloseHandle(thread);
+  return result == WAIT_OBJECT_0 ? 0 : -1;
+}
+#else
+typedef pthread_t test_thread_t;
+#define TEST_THREAD_RETURN void*
+static int test_thread_create(test_thread_t* thread, void* (*fn)(void*), void* arg) {
+  return pthread_create(thread, NULL, fn, arg);
+}
+static int test_thread_join(test_thread_t thread) {
+  return pthread_join(thread, NULL);
+}
+#endif
 
 static int loopback_send(const uint8_t* package, size_t package_len, void* user) {
   loopback_endpoint_t* endpoint = (loopback_endpoint_t*)user;
@@ -114,9 +145,9 @@ static void run_loopback(void) {
   rpc_core_destroy(server);
 }
 
-static void* tcp_server_thread(void* arg) {
+static TEST_THREAD_RETURN tcp_server_thread(void* arg) {
   tcp_server_ctx_t* ctx = (tcp_server_ctx_t*)arg;
-  int fd = rpc_core_tcp_accept(ctx->listen_fd);
+  rpc_core_socket_t fd = rpc_core_tcp_accept(ctx->listen_fd);
   tcp_send_user_t send_user;
   rpc_core_t* server;
   CHECK(fd >= 0);
@@ -128,14 +159,14 @@ static void* tcp_server_thread(void* arg) {
   (void)rpc_core_tcp_recv_loop(fd, server, 0);
   rpc_core_destroy(server);
   rpc_core_tcp_close(fd);
-  return NULL;
+  return 0;
 }
 
 static void run_tcp(void) {
   tcp_server_ctx_t server_ctx;
-  pthread_t thread;
+  test_thread_t thread;
   uint16_t port = 0;
-  int fd;
+  rpc_core_socket_t fd;
   tcp_send_user_t send_user;
   rpc_core_t* client;
   int pass = 0;
@@ -144,7 +175,7 @@ static void run_tcp(void) {
   CHECK(server_ctx.listen_fd >= 0);
   CHECK(rpc_core_tcp_local_port(server_ctx.listen_fd, &port) == 0);
   CHECK(port != 0);
-  CHECK(pthread_create(&thread, NULL, tcp_server_thread, &server_ctx) == 0);
+  CHECK(test_thread_create(&thread, tcp_server_thread, &server_ctx) == 0);
 
   fd = rpc_core_tcp_connect("127.0.0.1", port);
   CHECK(fd >= 0);
@@ -160,7 +191,7 @@ static void run_tcp(void) {
 
   rpc_core_destroy(client);
   rpc_core_tcp_close(fd);
-  CHECK(pthread_join(thread, NULL) == 0);
+  CHECK(test_thread_join(thread) == 0);
   rpc_core_tcp_close(server_ctx.listen_fd);
 }
 

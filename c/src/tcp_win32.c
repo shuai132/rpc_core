@@ -1,16 +1,15 @@
 #include "rpc_core_c/tcp.h"
 
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stddef.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <limits.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include "rpc_core_c/stream.h"
 
@@ -18,6 +17,30 @@ typedef struct rpc_core_tcp_recv_ctx {
   rpc_core_t* rpc;
   int count;
 } rpc_core_tcp_recv_ctx_t;
+
+static int rpc_core_tcp_init_(void) {
+  static int initialized = 0;
+  WSADATA data;
+  if (initialized) {
+    return 0;
+  }
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) {
+    return -1;
+  }
+  initialized = 1;
+  return 0;
+}
+
+static SOCKET rpc_core_tcp_socket_(rpc_core_socket_t fd) {
+  return (SOCKET)(uintptr_t)fd;
+}
+
+static rpc_core_socket_t rpc_core_tcp_fd_(SOCKET socket_value) {
+  if (socket_value == INVALID_SOCKET) {
+    return (rpc_core_socket_t)-1;
+  }
+  return (rpc_core_socket_t)(uintptr_t)socket_value;
+}
 
 static void rpc_core_tcp_on_package_(const uint8_t* package, size_t package_len, void* user) {
   rpc_core_tcp_recv_ctx_t* ctx = (rpc_core_tcp_recv_ctx_t*)user;
@@ -29,20 +52,12 @@ static void rpc_core_tcp_on_package_(const uint8_t* package, size_t package_len,
 }
 
 static int rpc_core_tcp_send_all_(rpc_core_socket_t fd, const uint8_t* data, size_t len) {
+  SOCKET socket_value = rpc_core_tcp_socket_(fd);
   size_t sent = 0;
   while (sent < len) {
-#ifdef MSG_NOSIGNAL
-    ssize_t n = send((int)fd, data + sent, len - sent, MSG_NOSIGNAL);
-#else
-    ssize_t n = send((int)fd, data + sent, len - sent, 0);
-#endif
-    if (n < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
-      return -1;
-    }
-    if (n == 0) {
+    int chunk = (int)((len - sent) > INT_MAX ? INT_MAX : (len - sent));
+    int n = send(socket_value, (const char*)data + sent, chunk, 0);
+    if (n == SOCKET_ERROR || n == 0) {
       return -1;
     }
     sent += (size_t)n;
@@ -55,8 +70,11 @@ rpc_core_socket_t rpc_core_tcp_connect(const char* host, uint16_t port) {
   struct addrinfo hints;
   struct addrinfo* result = NULL;
   struct addrinfo* it;
-  int fd = -1;
+  SOCKET socket_value = INVALID_SOCKET;
 
+  if (rpc_core_tcp_init_() != 0) {
+    return (rpc_core_socket_t)-1;
+  }
   if (host == NULL) {
     host = "127.0.0.1";
   }
@@ -66,21 +84,21 @@ rpc_core_socket_t rpc_core_tcp_connect(const char* host, uint16_t port) {
   hints.ai_family = AF_UNSPEC;
 
   if (getaddrinfo(host, port_text, &hints, &result) != 0) {
-    return -1;
+    return (rpc_core_socket_t)-1;
   }
   for (it = result; it != NULL; it = it->ai_next) {
-    fd = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
-    if (fd < 0) {
+    socket_value = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
+    if (socket_value == INVALID_SOCKET) {
       continue;
     }
-    if (connect(fd, it->ai_addr, it->ai_addrlen) == 0) {
+    if (connect(socket_value, it->ai_addr, (int)it->ai_addrlen) == 0) {
       break;
     }
-    close(fd);
-    fd = -1;
+    closesocket(socket_value);
+    socket_value = INVALID_SOCKET;
   }
   freeaddrinfo(result);
-  return fd;
+  return rpc_core_tcp_fd_(socket_value);
 }
 
 rpc_core_socket_t rpc_core_tcp_listen(const char* host, uint16_t port) {
@@ -88,9 +106,12 @@ rpc_core_socket_t rpc_core_tcp_listen(const char* host, uint16_t port) {
   struct addrinfo hints;
   struct addrinfo* result = NULL;
   struct addrinfo* it;
-  int fd = -1;
-  int yes = 1;
+  SOCKET socket_value = INVALID_SOCKET;
+  BOOL yes = TRUE;
 
+  if (rpc_core_tcp_init_() != 0) {
+    return (rpc_core_socket_t)-1;
+  }
   if (host == NULL) {
     host = "127.0.0.1";
   }
@@ -101,40 +122,33 @@ rpc_core_socket_t rpc_core_tcp_listen(const char* host, uint16_t port) {
   hints.ai_flags = AI_PASSIVE;
 
   if (getaddrinfo(host, port_text, &hints, &result) != 0) {
-    return -1;
+    return (rpc_core_socket_t)-1;
   }
   for (it = result; it != NULL; it = it->ai_next) {
-    fd = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
-    if (fd < 0) {
+    socket_value = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
+    if (socket_value == INVALID_SOCKET) {
       continue;
     }
-    (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-    if (bind(fd, it->ai_addr, it->ai_addrlen) == 0 && listen(fd, 16) == 0) {
+    (void)setsockopt(socket_value, SOL_SOCKET, SO_REUSEADDR, (const char*)&yes, sizeof(yes));
+    if (bind(socket_value, it->ai_addr, (int)it->ai_addrlen) == 0 && listen(socket_value, 16) == 0) {
       break;
     }
-    close(fd);
-    fd = -1;
+    closesocket(socket_value);
+    socket_value = INVALID_SOCKET;
   }
   freeaddrinfo(result);
-  return fd;
+  return rpc_core_tcp_fd_(socket_value);
 }
 
 rpc_core_socket_t rpc_core_tcp_accept(rpc_core_socket_t listen_fd) {
-  for (;;) {
-    int fd = accept((int)listen_fd, NULL, NULL);
-    if (fd >= 0) {
-      return fd;
-    }
-    if (errno != EINTR) {
-      return -1;
-    }
-  }
+  SOCKET socket_value = accept(rpc_core_tcp_socket_(listen_fd), NULL, NULL);
+  return rpc_core_tcp_fd_(socket_value);
 }
 
 int rpc_core_tcp_local_port(rpc_core_socket_t fd, uint16_t* port) {
   struct sockaddr_storage addr;
-  socklen_t len = sizeof(addr);
-  if (port == NULL || getsockname((int)fd, (struct sockaddr*)&addr, &len) != 0) {
+  int len = sizeof(addr);
+  if (port == NULL || getsockname(rpc_core_tcp_socket_(fd), (struct sockaddr*)&addr, &len) != 0) {
     return -1;
   }
   if (addr.ss_family == AF_INET) {
@@ -154,7 +168,6 @@ int rpc_core_tcp_send_package(rpc_core_socket_t fd, const uint8_t* package, size
   uint8_t* frame = NULL;
   size_t frame_len = 0;
   int result;
-  (void)signal(SIGPIPE, SIG_IGN);
   if (rpc_core_stream_pack(package, package_len, &frame, &frame_len) != 0) {
     return -1;
   }
@@ -171,11 +184,8 @@ int rpc_core_tcp_recv_once(rpc_core_socket_t fd, rpc_core_t* rpc, uint32_t max_b
   ctx.count = 0;
   rpc_core_stream_parser_init(&parser, max_body_size, rpc_core_tcp_on_package_, &ctx);
   while (ctx.count == 0) {
-    ssize_t n = recv((int)fd, buffer, sizeof(buffer), 0);
-    if (n < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
+    int n = recv(rpc_core_tcp_socket_(fd), (char*)buffer, (int)sizeof(buffer), 0);
+    if (n == SOCKET_ERROR) {
       rpc_core_stream_parser_deinit(&parser);
       return -1;
     }
@@ -200,11 +210,8 @@ int rpc_core_tcp_recv_loop(rpc_core_socket_t fd, rpc_core_t* rpc, uint32_t max_b
   ctx.count = 0;
   rpc_core_stream_parser_init(&parser, max_body_size, rpc_core_tcp_on_package_, &ctx);
   for (;;) {
-    ssize_t n = recv((int)fd, buffer, sizeof(buffer), 0);
-    if (n < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
+    int n = recv(rpc_core_tcp_socket_(fd), (char*)buffer, (int)sizeof(buffer), 0);
+    if (n == SOCKET_ERROR) {
       rpc_core_stream_parser_deinit(&parser);
       return -1;
     }
@@ -220,7 +227,7 @@ int rpc_core_tcp_recv_loop(rpc_core_socket_t fd, rpc_core_t* rpc, uint32_t max_b
 }
 
 void rpc_core_tcp_close(rpc_core_socket_t fd) {
-  if (fd >= 0) {
-    close((int)fd);
+  if (fd != (rpc_core_socket_t)-1) {
+    closesocket(rpc_core_tcp_socket_(fd));
   }
 }

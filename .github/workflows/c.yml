@@ -12,38 +12,72 @@ on:
 
 jobs:
   build-and-test:
-    name: ${{ matrix.os }}-${{ matrix.configuration }}
+    name: ${{ matrix.toolchain }}-${{ matrix.configuration }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        toolchain:
+          - linux-gcc
+          - macos-clang
+          - windows-msvc
+          - windows-mingw
         configuration:
           - Debug
           - Release
+        include:
+          - toolchain: linux-gcc
+            os: ubuntu-latest
+            cmake_options: ""
+            bin_suffix: ""
+
+          - toolchain: macos-clang
+            os: macos-latest
+            cmake_options: ""
+            bin_suffix: ""
+
+          - toolchain: windows-msvc
+            os: windows-latest
+            cmake_options: ""
+            bin_suffix: ".exe"
+
+          - toolchain: windows-mingw
+            os: windows-latest
+            cmake_options: "-G \"MinGW Makefiles\""
+            bin_suffix: ".exe"
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S c -B build-c -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+        shell: bash
+        run: cmake -S c -B build-c -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ${{ matrix.cmake_options }}
 
       - name: Build
-        run: cmake --build build-c -j
+        shell: bash
+        run: cmake --build build-c --config ${{ matrix.configuration }} -j
 
       - name: rpc
-        run: ./build-c/rpc_core_c_rpc
+        shell: bash
+        run: |
+          bin_dir="build-c"
+          if [ "${{ matrix.toolchain }}" = "windows-msvc" ]; then
+            bin_dir="build-c/${{ matrix.configuration }}"
+          fi
+          "./${bin_dir}/rpc_core_c_rpc${{ matrix.bin_suffix }}"
 
       - name: rpc server/client scripts
         shell: bash
         run: |
           set -uo pipefail
+          bin_dir="build-c"
+          if [ "${{ matrix.toolchain }}" = "windows-msvc" ]; then
+            bin_dir="build-c/${{ matrix.configuration }}"
+          fi
           server_log="$(mktemp)"
           client_log="$(mktemp)"
-          RPC_PORT=45679 RPC_ONCE=1 ./build-c/rpc_core_c_rpc_s >"${server_log}" 2>&1 &
+          RPC_PORT=45679 RPC_ONCE=1 "./${bin_dir}/rpc_core_c_rpc_s${{ matrix.bin_suffix }}" >"${server_log}" 2>&1 &
           server_pid=$!
 
           cleanup() {
@@ -52,7 +86,7 @@ jobs:
           trap cleanup EXIT
 
           sleep 0.5
-          RPC_PORT=45679 ./build-c/rpc_core_c_rpc_c >"${client_log}" 2>&1
+          RPC_PORT=45679 "./${bin_dir}/rpc_core_c_rpc_c${{ matrix.bin_suffix }}" >"${client_log}" 2>&1
           client_rc=$?
           wait "${server_pid}"
           server_rc=$?
