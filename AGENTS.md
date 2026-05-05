@@ -23,6 +23,12 @@ C++ uses `.clang-format` with Google style, 150-column limit, and empty short fu
 
 Add C++ coverage in the nearest `test/test_*.cpp` file, or create a focused test file and include it from `CMakeLists.txt`. Use the existing assertion helpers in `test/assert_def.h`. Add Rust integration coverage in `rust/src/tests/`; tests requiring Tokio networking must declare or use the `net` feature path and be runnable with `--features net`.
 
+Every SDK that provides RPC networking must include three independently executable RPC checks: `rpc`, `rpc_s`, and `rpc_c`.
+`rpc` should be a self-contained end-to-end client/server test. `rpc_s` should start a standalone RPC server process, and
+`rpc_c` should start a standalone RPC client process that can talk to `rpc_s`. Keep the names or target/script names as close
+to `rpc`, `rpc_s`, and `rpc_c` as the language ecosystem allows, so cross-language and manual compatibility testing stays
+predictable.
+
 ## Commit & Pull Request Guidelines
 
 Recent commits use Conventional Commit prefixes such as `feat:`, `fix:`, `refactor:`, `chore:`, and `doc:`. Use `type: [scope] summary` when a change is scoped to one language or module. Rust crate changes must use the `[rust]` scope, for example `feat: [rust] add tcp transport` or `fix: [rust] remove blocking api`. Keep messages short and scoped when helpful. Pull requests should describe behavioral changes, list C++ and Rust commands run, link related issues, and call out feature flags or platform-specific impact.

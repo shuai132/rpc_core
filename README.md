@@ -10,7 +10,10 @@
 a tiny C++14 rpc library, supports all platforms (macOS, Linux, Windows, iOS, Android, etc.) and most microchips (
 Arduino, STM32, ESP32/ESP8266, etc.)
 
-**Recommend TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)**
+**C++ TCP options:** this repository includes a small optional C++ TCP adapter,
+`rpc_core/net/asio_tcp.hpp`, which depends on standalone [Asio](https://think-async.com/Asio/#). It is intended to match the
+simple TCP helpers provided by the JavaScript, Python, and Rust SDKs. For a more complete C++ networking implementation,
+including reconnect, SSL, UDP, serial, DDS, and discovery support, use [asio_net](https://github.com/shuai132/asio_net).
 
 ## Introduction
 
@@ -20,8 +23,8 @@ This project offers a lightweight and user-friend rpc library that is better sui
 It supports all platforms and a wide range of microchips, including Arduino, STM32, ESP32/ESP8266, and more.
 
 Note:
-This library only offers the protocol layer and API, it **does not** include the implementation of the transport layer.
-For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
+The default C++ include path only offers the protocol layer and API. TCP support is available as an optional standalone Asio
+adapter in `rpc_core/net/asio_tcp.hpp`; it is not included by `rpc_core.hpp`.
 
 ## Features
 
@@ -39,9 +42,13 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 ## TCP-based implementations
 
-* C++
-    - [./cpp](./cpp): notes for C++ users. The ready-to-use TCP implementation lives in
-      [asio_net](https://github.com/shuai132/asio_net), based on [asio](https://think-async.com/Asio/#).
+* C++ built-in adapter
+    - [./cpp](./cpp): notes for C++ users. `rpc_core/net/asio_tcp.hpp` provides the built-in lightweight TCP adapter and
+      requires standalone [Asio](https://think-async.com/Asio/#).
+
+* C++ full networking layer
+    - [asio_net](https://github.com/shuai132/asio_net): complete C++ networking implementation for reconnect, SSL, UDP,
+      serial, DDS, discovery, and related production features.
 
 * Rust
     - [./rust](./rust): based on [tokio](https://github.com/tokio-rs/tokio)  
@@ -79,7 +86,8 @@ JS, Python, and Rust SDKs as long as all sides use matching JSON object shapes a
 * Provide your connection implementation: [connection](include/rpc_core/connection.hpp)  
   NOTICE: complete data packets are required for data transmission, such as `websocket`.  
   If using `tcp socket`, `serial port`, etc., message pack and unpack need to be implemented.
-  Or you can use [stream_connection](include/rpc_core/connection.hpp).
+  Or you can use [stream_connection](include/rpc_core/connection.hpp), or the optional standalone Asio TCP adapter
+  [asio_tcp.hpp](include/rpc_core/net/asio_tcp.hpp).
 * Optional: C++20 (for coroutine api, co_await co_call)
 
 ## Usage

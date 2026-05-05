@@ -65,8 +65,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Init ASIO
+        run: git clone https://github.com/chriskohlhoff/asio.git -b asio-1-32-0 --depth=1
+
       - name: Configure (${{ matrix.configuration }})
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ${{ matrix.env.CMAKE_OPTIONS }}
+        env:
+          ASIO_PATH: asio/asio/include
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DRPC_CORE_TEST_ASIO=ON ${{ matrix.env.CMAKE_OPTIONS }}
 
       - name: Init thirdparty
         if: matrix.os != 'windows-latest'
@@ -83,3 +88,7 @@ jobs:
       - name: Test
         working-directory: build
         run: ./rpc_core_test${{ matrix.env.BIN_SUFFIX }}
+
+      - name: Test ASIO TCP RPC
+        working-directory: build
+        run: ./rpc_core_test_asio_tcp_rpc${{ matrix.env.BIN_SUFFIX }}

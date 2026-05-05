@@ -1,18 +1,11 @@
-build/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-python/*.egg-info/
+# ide
+/.idea/
+/.vscode/
 
-# clion
-.idea/
-cmake-build-*/
-
-# qt creator
-CMakeLists.txt.user
-
-# vscode
-.vscode/
+# build
+/build/
+/build-*/
+/cmake-build-*/
 
 # thirdparty
 /thirdparty/

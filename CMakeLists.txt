@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 
 project(rpc_core CXX)
 
@@ -12,6 +12,7 @@ option(RPC_CORE_FEATURE_CODER_VARINT "" OFF)
 # test
 option(RPC_CORE_BUILD_TEST "" OFF)
 option(RPC_CORE_TEST_PLUGIN "" OFF)
+option(RPC_CORE_TEST_ASIO "" OFF)
 option(RPC_CORE_TEST_LINK_PTHREAD "" OFF)
 
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -86,4 +87,32 @@ if (RPC_CORE_BUILD_TEST)
         target_include_directories(${TARGET_NAME} PRIVATE thirdparty/flatbuffers/include)
     endif ()
     target_sources(${TARGET_NAME} PRIVATE ${SRCS})
+
+    if (RPC_CORE_TEST_ASIO)
+        find_path(RPC_CORE_ASIO_INCLUDE_DIR asio.hpp
+                PATHS ENV ASIO_PATH
+                PATH_SUFFIXES include
+        )
+        if (NOT RPC_CORE_ASIO_INCLUDE_DIR)
+            message(FATAL_ERROR "RPC_CORE_TEST_ASIO requires standalone Asio. Set ASIO_PATH to the directory containing asio.hpp.")
+        endif ()
+
+        function(add_asio_tcp_test target_suffix source)
+            set(ASIO_TARGET_NAME ${PROJECT_NAME}_test_asio_tcp_${target_suffix})
+            add_executable(${ASIO_TARGET_NAME} ${source})
+            target_link_libraries(${ASIO_TARGET_NAME} ${PROJECT_NAME} ${LIBRARIES})
+            if (NOT MSVC)
+                target_link_libraries(${ASIO_TARGET_NAME} pthread)
+            endif ()
+            target_include_directories(${ASIO_TARGET_NAME} PRIVATE ${RPC_CORE_ASIO_INCLUDE_DIR})
+            target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE ${EXAMPLE_COMPILE_DEFINE} ASIO_NO_DEPRECATED)
+            if (WIN32)
+                target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE _WIN32_WINNT=0x0601 NOMINMAX)
+            endif ()
+        endfunction()
+
+        add_asio_tcp_test(rpc test/test_asio_tcp_rpc.cpp)
+        add_asio_tcp_test(rpc_s test/test_asio_tcp_rpc_s.cpp)
+        add_asio_tcp_test(rpc_c test/test_asio_tcp_rpc_c.cpp)
+    endif ()
 endif ()
