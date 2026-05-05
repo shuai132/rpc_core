@@ -21,7 +21,11 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/rpc.test.js",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "npm run build:test && node --test dist-test/test/rpc.test.js",
+    "test:rpc": "npm run build:test && node dist-test/test/rpc.js",
+    "test:rpc-s": "npm run build:test && node dist-test/test/rpc_s.js",
+    "test:rpc-c": "npm run build:test && node dist-test/test/rpc_c.js",
     "prepack": "npm run build"
   },
   "engines": {
