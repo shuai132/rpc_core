@@ -1,6 +1,7 @@
 # rpc_core
 
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/cpp/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=cpp)
+[![Build Status](https://github.com/shuai132/rpc_core/workflows/c/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=c)
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/rust/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=rust)
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/js/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=js)
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/python/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=python)
@@ -64,6 +65,10 @@ adapter in `rpc_core/net/asio_tcp.hpp`; it is not included by `rpc_core.hpp`.
 * Python
     - [./python](./python): asyncio-friendly SDK with loopback and TCP stream helpers  
       Uses the same RPC wire header and JSON payloads, details: [README.md](./python/README.md)
+
+* C
+    - [./c](./c): dependency-free C SDK with raw/text/json payload helpers and a POSIX TCP adapter  
+      Uses the same RPC wire header and stream framing, details: [README.md](./c/README.md)
 
 ## Cross-language RPC
 

@@ -1,0 +1,69 @@
+name: c
+
+on:
+  push:
+    paths:
+      - 'c/**'
+      - '.github/workflows/c.yml'
+  pull_request:
+    paths:
+      - 'c/**'
+      - '.github/workflows/c.yml'
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }}-${{ matrix.configuration }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        configuration:
+          - Debug
+          - Release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S c -B build-c -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+
+      - name: Build
+        run: cmake --build build-c -j
+
+      - name: rpc
+        run: ./build-c/rpc_core_c_rpc
+
+      - name: rpc server/client scripts
+        shell: bash
+        run: |
+          set -uo pipefail
+          server_log="$(mktemp)"
+          client_log="$(mktemp)"
+          RPC_PORT=45679 RPC_ONCE=1 ./build-c/rpc_core_c_rpc_s >"${server_log}" 2>&1 &
+          server_pid=$!
+
+          cleanup() {
+            kill "${server_pid}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          sleep 0.5
+          RPC_PORT=45679 ./build-c/rpc_core_c_rpc_c >"${client_log}" 2>&1
+          client_rc=$?
+          wait "${server_pid}"
+          server_rc=$?
+          trap - EXIT
+
+          echo "--- server ---"
+          cat "${server_log}"
+          echo "--- client ---"
+          cat "${client_log}"
+
+          if [ "${client_rc}" -ne 0 ]; then
+            exit "${client_rc}"
+          fi
+          exit "${server_rc}"
