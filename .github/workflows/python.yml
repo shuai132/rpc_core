@@ -1,0 +1,77 @@
+name: python
+
+on:
+  push:
+    paths:
+      - 'python/**'
+      - '.github/workflows/python.yml'
+  pull_request:
+    paths:
+      - 'python/**'
+      - '.github/workflows/python.yml'
+
+jobs:
+  Linux:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - '3.10'
+          - '3.13'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: install
+        working-directory: python
+        run: python -m pip install -e .
+
+      - name: compile
+        working-directory: python
+        run: python -m compileall -q rpc_core test
+
+      - name: unittest
+        working-directory: python
+        run: python -m unittest discover -s test
+
+      - name: rpc script
+        working-directory: python
+        run: python test/rpc.py
+
+      - name: rpc server/client scripts
+        working-directory: python
+        shell: bash
+        run: |
+          set -uo pipefail
+          server_log="$(mktemp)"
+          client_log="$(mktemp)"
+          RPC_PORT=45678 RPC_ONCE=1 PYTHONUNBUFFERED=1 python test/rpc_s.py >"${server_log}" 2>&1 &
+          server_pid=$!
+
+          cleanup() {
+            kill "${server_pid}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          sleep 0.5
+          RPC_PORT=45678 PYTHONUNBUFFERED=1 python test/rpc_c.py >"${client_log}" 2>&1
+          client_rc=$?
+          wait "${server_pid}"
+          server_rc=$?
+          trap - EXIT
+
+          echo "--- server ---"
+          cat "${server_log}"
+          echo "--- client ---"
+          cat "${client_log}"
+
+          if [ "${client_rc}" -ne 0 ]; then
+            exit "${client_rc}"
+          fi
+          exit "${server_rc}"

@@ -7,12 +7,16 @@ on:
       - 'include/**'
       - 'test/**'
       - 'js/**'
+      - 'python/**'
+      - '.github/workflows/python.yml'
   pull_request:
     paths-ignore:
       - '**.md'
       - 'include/**'
       - 'test/**'
       - 'js/**'
+      - 'python/**'
+      - '.github/workflows/python.yml'
 
 env:
   RUST_BACKTRACE: 1

@@ -3,6 +3,7 @@
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/cpp/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=cpp)
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/rust/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=rust)
 [![Build Status](https://github.com/shuai132/rpc_core/workflows/js/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=js)
+[![Build Status](https://github.com/shuai132/rpc_core/workflows/python/badge.svg)](https://github.com/shuai132/rpc_core/actions?workflow=python)
 [![Release](https://img.shields.io/github/release/shuai132/rpc_core.svg)](https://github.com/shuai132/rpc_core/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
