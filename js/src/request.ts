@@ -33,6 +33,7 @@ export class Request {
   private seqValue = 0;
   private cmdValue = "";
   private payloadValue: Uint8Array | undefined;
+  private payloadJsonValue = false;
   private needRspValue = false;
   private canceledValue = false;
   private rspHandleValue: ((msg: RpcMessage) => boolean) | undefined;
@@ -62,11 +63,13 @@ export class Request {
   msg<T>(message: T, codec?: Codec<T>): this {
     const selectedCodec = codec ?? (jsonCodec as Codec<T>);
     this.payloadValue = selectedCodec.encode(message);
+    this.payloadJsonValue = codec === undefined || codec === jsonCodec;
     return this;
   }
 
   raw(bytes: Bytes): this {
     this.payloadValue = copyBytes(bytes);
+    this.payloadJsonValue = false;
     return this;
   }
 
@@ -289,6 +292,10 @@ export class Request {
 
   _payload(): Uint8Array {
     return this.payloadValue ?? EMPTY_BYTES;
+  }
+
+  _payloadJson(): boolean {
+    return this.payloadJsonValue;
   }
 
   _needRsp(): boolean {

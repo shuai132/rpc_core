@@ -13,7 +13,12 @@ export interface SubscribeOptions<P, R> {
   responseCodec?: Codec<R>;
 }
 
-type CommandHandle = (msg: RpcMessage) => Promise<Uint8Array>;
+interface CommandResult {
+  data: Uint8Array;
+  payloadJson: boolean;
+}
+
+type CommandHandle = (msg: RpcMessage) => Promise<CommandResult>;
 type ResponseHandle = (msg: RpcMessage) => boolean;
 
 export class Rpc {
@@ -49,14 +54,14 @@ export class Rpc {
     this.cmdHandleMap.set(cmd, async (msg) => {
       const req = requestCodec.decode(msg.data);
       const rsp = await handle(req, msg);
-      return responseCodec.encode(rsp);
+      return { data: responseCodec.encode(rsp), payloadJson: responseCodec === jsonCodec };
     });
   }
 
   subscribeRaw(cmd: string, handle: (req: Uint8Array, msg: RpcMessage) => Bytes | void | Promise<Bytes | void>): void {
     this.cmdHandleMap.set(cmd, async (msg) => {
       const rsp = await handle(copyBytes(msg.data), msg);
-      return rsp === undefined ? EMPTY_BYTES : copyBytes(rsp);
+      return { data: rsp === undefined ? EMPTY_BYTES : copyBytes(rsp), payloadJson: false };
     });
   }
 
@@ -134,6 +139,9 @@ export class Rpc {
     if (request._needRsp()) {
       type |= MsgType.NeedRsp;
     }
+    if (request._payloadJson()) {
+      type |= MsgType.PayloadJson;
+    }
 
     this.sendMessage({
       seq: request._seq(),
@@ -174,7 +182,7 @@ export class Rpc {
       if (hasType(msg.type, MsgType.Ping)) {
         this.sendMessage({
           ...msg,
-          type: MsgType.Response | MsgType.Pong,
+          type: MsgType.Response | MsgType.Pong | (msg.type & MsgType.PayloadJson),
         });
         return;
       }
@@ -200,12 +208,16 @@ export class Rpc {
         return;
       }
 
-      const data = await handle(msg);
+      const result = await handle(msg);
+      let type = MsgType.Response;
+      if (result.payloadJson) {
+        type |= MsgType.PayloadJson;
+      }
       this.sendMessage({
         seq: msg.seq,
-        type: MsgType.Response,
+        type,
         cmd: "",
-        data,
+        data: result.data,
       });
       return;
     }

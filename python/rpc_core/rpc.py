@@ -11,7 +11,7 @@ from .request import Request
 
 TimerImpl = Callable[[int, Callable[[], None]], None]
 ErrorHandler = Callable[[BaseException, RpcMessage | None], None]
-CommandHandle = Callable[[RpcMessage], Awaitable[bytes]]
+CommandHandle = Callable[[RpcMessage], Awaitable[tuple[bytes, bool]]]
 ResponseHandle = Callable[[RpcMessage], bool]
 
 _MISSING = object()
@@ -65,7 +65,7 @@ class Rpc:
         selected_response_codec = response_codec or codec or json_codec
         positional_count = _callback_positional_count(handle)
 
-        async def command_handle(msg: RpcMessage) -> bytes:
+        async def command_handle(msg: RpcMessage) -> tuple[bytes, bool]:
             req = selected_request_codec.decode(msg.data)
             if positional_count == 0:
                 rsp = await _maybe_await(handle())
@@ -73,7 +73,7 @@ class Rpc:
                 rsp = await _maybe_await(handle(req))
             else:
                 rsp = await _maybe_await(handle(req, msg))
-            return selected_response_codec.encode(rsp)
+            return selected_response_codec.encode(rsp), selected_response_codec is json_codec
 
         self._cmd_handle_map[cmd] = command_handle
 
@@ -84,14 +84,14 @@ class Rpc:
     ) -> None:
         positional_count = _callback_positional_count(handle)
 
-        async def command_handle(msg: RpcMessage) -> bytes:
+        async def command_handle(msg: RpcMessage) -> tuple[bytes, bool]:
             if positional_count == 0:
                 rsp = await _maybe_await(handle())
             elif positional_count == 1:
                 rsp = await _maybe_await(handle(bytes(msg.data)))
             else:
                 rsp = await _maybe_await(handle(bytes(msg.data), msg))
-            return b"" if rsp is None else bytes(rsp)
+            return (b"" if rsp is None else bytes(rsp)), False
 
         self._cmd_handle_map[cmd] = command_handle
 
@@ -151,6 +151,8 @@ class Rpc:
             type_value |= int(MsgType.PING)
         if request._need_rsp:
             type_value |= int(MsgType.NEED_RSP)
+        if request._payload_json:
+            type_value |= int(MsgType.PAYLOAD_JSON)
 
         self._send_message(
             RpcMessage(
@@ -206,7 +208,11 @@ class Rpc:
                 self._send_message(
                     RpcMessage(
                         seq=msg.seq,
-                        type=int(MsgType.RESPONSE | MsgType.PONG),
+                        type=int(
+                            MsgType.RESPONSE
+                            | MsgType.PONG
+                            | (msg.type & int(MsgType.PAYLOAD_JSON))
+                        ),
                         cmd=msg.cmd,
                         data=msg.data,
                     )
@@ -232,8 +238,11 @@ class Rpc:
                 task.add_done_callback(lambda done: self._task_done(done, msg))
                 return
 
-            data = await handle(msg)
-            self._send_message(RpcMessage(seq=msg.seq, type=int(MsgType.RESPONSE), cmd="", data=data))
+            data, payload_json = await handle(msg)
+            type_value = int(MsgType.RESPONSE)
+            if payload_json:
+                type_value |= int(MsgType.PAYLOAD_JSON)
+            self._send_message(RpcMessage(seq=msg.seq, type=type_value, cmd="", data=data))
             return
 
         if has_type(msg.type, MsgType.RESPONSE):

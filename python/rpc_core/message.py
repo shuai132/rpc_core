@@ -11,6 +11,7 @@ class MsgType(IntFlag):
     PING = 1 << 3
     PONG = 1 << 4
     NO_SUCH_CMD = 1 << 5
+    PAYLOAD_JSON = 1 << 6
 
 
 @dataclass

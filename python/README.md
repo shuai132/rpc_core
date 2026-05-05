@@ -4,6 +4,7 @@ Python SDK for `rpc_core`.
 
 The default payload codec is JSON. The wire header matches `rpc_core` and the JavaScript SDK:
 `seq(u32 LE) + cmd_len(u16 LE) + cmd + type(u8) + payload`.
+The protocol marks JSON payloads with `type` bit 6 (`0x40`); unmarked JSON packets are still accepted.
 
 ## Usage
 

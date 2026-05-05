@@ -69,6 +69,7 @@ class Request:
         self._seq = 0
         self._cmd = ""
         self._payload: bytes | None = None
+        self._payload_json = False
         self._need_rsp = False
         self._canceled = False
         self._rsp_handle: Callable[[RpcMessage], bool] | None = None
@@ -93,10 +94,12 @@ class Request:
     def msg(self, message: Any, codec: Codec[Any] | None = None) -> "Request":
         selected_codec = codec or json_codec
         self._payload = selected_codec.encode(message)
+        self._payload_json = codec is None or codec is json_codec
         return self
 
     def raw(self, data: bytes | bytearray | memoryview) -> "Request":
         self._payload = bytes(data)
+        self._payload_json = False
         return self
 
     def rsp(self, cb: ResponseCallback, codec: Codec[Any] | None = None) -> "Request":

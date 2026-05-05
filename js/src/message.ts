@@ -7,6 +7,7 @@ export enum MsgType {
   Ping = 1 << 3,
   Pong = 1 << 4,
   NoSuchCmd = 1 << 5,
+  PayloadJson = 1 << 6,
 }
 
 export interface RpcMessage {

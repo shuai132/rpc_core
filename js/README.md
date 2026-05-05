@@ -2,7 +2,7 @@
 
 JavaScript and TypeScript SDK for `rpc_core`.
 
-The default payload codec is JSON, which is compatible with the Rust crate and with C++ builds that use the JSON serializer path. The wire header matches `rpc_core`: `seq(u32 LE) + cmd_len(u16 LE) + cmd + type(u8) + payload`.
+The default payload codec is JSON, which is compatible with the Rust crate and with C++ builds that use the JSON serializer path. The wire header matches `rpc_core`: `seq(u32 LE) + cmd_len(u16 LE) + cmd + type(u8) + payload`. The protocol marks JSON payloads with `type` bit 6 (`0x40`); unmarked JSON packets are still accepted.
 
 ## Install
 

@@ -60,6 +60,8 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 For cross-language RPC, use JSON as the shared payload serialization format. The RPC protocol itself is still binary:
 `seq(u32 LE) + cmd_len(u16 LE) + cmd + type(u8) + payload`. This keeps the framing compact and efficient while allowing each
 language to choose a flexible, widely supported data format for request and response bodies.
+The protocol uses `type` bit 6 (`0x40`) to mark JSON payloads. Receivers still accept unmarked JSON packets for backward
+compatibility, while the marker helps diagnose native-vs-JSON payload mismatches.
 
 JavaScript, Python, and Rust SDKs use JSON payloads by default. For C++, define `RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON` and make
 `nlohmann/json.hpp` available in the include path:
