@@ -60,7 +60,7 @@ if (RPC_CORE_BUILD_TEST)
     )
 
     set(TARGET_NAME ${PROJECT_NAME}_test)
-    file(GLOB SRCS test/main.cpp test/test_rpc.cpp test/test_serialize.cpp test/test_data_packer.cpp)
+    file(GLOB SRCS cpp/test/main.cpp cpp/test/test_rpc.cpp cpp/test/test_serialize.cpp cpp/test/test_data_packer.cpp)
     add_executable(${TARGET_NAME})
     if (RPC_CORE_TEST_LINK_PTHREAD)
         # some linux platform need link -pthread for std::future api
@@ -70,21 +70,21 @@ if (RPC_CORE_BUILD_TEST)
     target_compile_definitions(${TARGET_NAME} PRIVATE ${EXAMPLE_COMPILE_DEFINE})
 
     if (RPC_CORE_TEST_PLUGIN)
-        list(APPEND SRCS test/test_plugin.cpp)
+        list(APPEND SRCS cpp/test/test_plugin.cpp)
         target_compile_definitions(${TARGET_NAME} PRIVATE "RPC_CORE_TEST_PLUGIN")
         add_custom_target(${TARGET_NAME}_init
                 # clear dir
-                COMMAND rm -rf ${CMAKE_CURRENT_LIST_DIR}/thirdparty
+                COMMAND rm -rf ${CMAKE_CURRENT_LIST_DIR}/cpp/thirdparty
                 # json
-                COMMAND mkdir -p ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann
-                COMMAND curl -L -o ${CMAKE_CURRENT_LIST_DIR}/thirdparty/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
+                COMMAND mkdir -p ${CMAKE_CURRENT_LIST_DIR}/cpp/thirdparty/nlohmann
+                COMMAND curl -L -o ${CMAKE_CURRENT_LIST_DIR}/cpp/thirdparty/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
                 # flatbuffers
-                COMMAND git clone https://github.com/google/flatbuffers.git --depth=1 --branch=v23.1.21 ${CMAKE_CURRENT_LIST_DIR}/thirdparty/flatbuffers
+                COMMAND git clone https://github.com/google/flatbuffers.git --depth=1 --branch=v23.1.21 ${CMAKE_CURRENT_LIST_DIR}/cpp/thirdparty/flatbuffers
                 WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         )
 
-        target_include_directories(${TARGET_NAME} PRIVATE thirdparty)
-        target_include_directories(${TARGET_NAME} PRIVATE thirdparty/flatbuffers/include)
+        target_include_directories(${TARGET_NAME} PRIVATE cpp/thirdparty)
+        target_include_directories(${TARGET_NAME} PRIVATE cpp/thirdparty/flatbuffers/include)
     endif ()
     target_sources(${TARGET_NAME} PRIVATE ${SRCS})
 
@@ -100,7 +100,7 @@ if (RPC_CORE_BUILD_TEST)
                 PATH_SUFFIXES include
         )
         if (NOT RPC_CORE_NLOHMANN_JSON_INCLUDE_DIR)
-            set(RPC_CORE_NLOHMANN_JSON_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/thirdparty)
+            set(RPC_CORE_NLOHMANN_JSON_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/cpp/thirdparty)
         endif ()
 
         function(add_asio_tcp_test target_suffix source)
@@ -110,10 +110,11 @@ if (RPC_CORE_BUILD_TEST)
             if (NOT MSVC)
                 target_link_libraries(${ASIO_TARGET_NAME} pthread)
             endif ()
-            target_include_directories(${ASIO_TARGET_NAME} PRIVATE ${RPC_CORE_ASIO_INCLUDE_DIR})
+            target_include_directories(${ASIO_TARGET_NAME} PRIVATE cpp/test ${RPC_CORE_ASIO_INCLUDE_DIR})
             target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE ${EXAMPLE_COMPILE_DEFINE} ASIO_NO_DEPRECATED)
             if (WIN32)
-                target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE _WIN32_WINNT=0x0601 NOMINMAX)
+                target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE _WIN32_WINNT=0x0601 NOMINMAX WIN32_LEAN_AND_MEAN)
+                target_link_libraries(${ASIO_TARGET_NAME} ws2_32 mswsock)
             endif ()
         endfunction()
 
@@ -124,18 +125,19 @@ if (RPC_CORE_BUILD_TEST)
             if (NOT MSVC)
                 target_link_libraries(${ASIO_TARGET_NAME} pthread)
             endif ()
-            target_include_directories(${ASIO_TARGET_NAME} PRIVATE ${RPC_CORE_ASIO_INCLUDE_DIR} ${RPC_CORE_NLOHMANN_JSON_INCLUDE_DIR})
+            target_include_directories(${ASIO_TARGET_NAME} PRIVATE cpp/test ${RPC_CORE_ASIO_INCLUDE_DIR} ${RPC_CORE_NLOHMANN_JSON_INCLUDE_DIR})
             target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE ${EXAMPLE_COMPILE_DEFINE} ASIO_NO_DEPRECATED RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON)
             if (WIN32)
-                target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE _WIN32_WINNT=0x0601 NOMINMAX)
+                target_compile_definitions(${ASIO_TARGET_NAME} PRIVATE _WIN32_WINNT=0x0601 NOMINMAX WIN32_LEAN_AND_MEAN)
+                target_link_libraries(${ASIO_TARGET_NAME} ws2_32 mswsock)
             endif ()
         endfunction()
 
-        add_asio_tcp_test(rpc test/test_asio_tcp_rpc.cpp)
-        add_asio_tcp_test(rpc_s test/test_asio_tcp_rpc_s.cpp)
-        add_asio_tcp_test(rpc_c test/test_asio_tcp_rpc_c.cpp)
-        add_asio_tcp_json_test(rpc test/test_asio_tcp_rpc.cpp)
-        add_asio_tcp_json_test(rpc_s test/test_asio_tcp_rpc_s.cpp)
-        add_asio_tcp_json_test(rpc_c test/test_asio_tcp_rpc_c.cpp)
+        add_asio_tcp_test(rpc cpp/test/rpc.cpp)
+        add_asio_tcp_test(rpc_s cpp/test/rpc_s.cpp)
+        add_asio_tcp_test(rpc_c cpp/test/rpc_c.cpp)
+        add_asio_tcp_json_test(rpc cpp/test/rpc.cpp)
+        add_asio_tcp_json_test(rpc_s cpp/test/rpc_s.cpp)
+        add_asio_tcp_json_test(rpc_c cpp/test/rpc_c.cpp)
     endif ()
 endif ()

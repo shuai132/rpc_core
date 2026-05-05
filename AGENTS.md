@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 
-`include/rpc_core/` contains the C++14 header-only RPC library. Public entry points are in `include/rpc_core.hpp` and `include/rpc_core/*.hpp`; implementation details live under `include/rpc_core/detail/`, serializers under `include/rpc_core/serialize/`, and optional integrations under `include/rpc_core/plugin/`. C++ tests are in `test/`, with serializer fixtures in `test/serialize/` and plugin fixtures in `test/plugin/`. The Rust crate is isolated in `rust/`, with library code in `rust/src/`, network support in `rust/src/net/`, examples in `rust/src/examples/`, and integration tests in `rust/src/tests/`.
+`include/rpc_core/` contains the C++14 header-only RPC library. Public entry points are in `include/rpc_core.hpp` and `include/rpc_core/*.hpp`; implementation details live under `include/rpc_core/detail/`, serializers under `include/rpc_core/serialize/`, and optional integrations under `include/rpc_core/plugin/`. C++ tests live in `cpp/test/`, with serializer fixtures in `cpp/test/serialize/`, plugin fixtures in `cpp/test/plugin/`, and built-in C++ SDK TCP adapter checks in `cpp/test/rpc*.cpp`. The Rust crate is isolated in `rust/`, with library code in `rust/src/`, network support in `rust/src/net/`, examples in `rust/src/examples/`, and integration tests in `rust/src/tests/`.
 
 ## Build, Test, and Development Commands
 
 - `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug`: configure the C++ test build.
 - `cmake --build build -j`: build `rpc_core_test`.
 - `./build/rpc_core_test`: run the C++ test executable.
-- `cmake -S . -B build -DRPC_CORE_TEST_PLUGIN=ON && cmake --build build --target rpc_core_test_init`: enable plugin tests and fetch local third-party headers.
+- `cmake -S . -B build -DRPC_CORE_TEST_PLUGIN=ON && cmake --build build --target rpc_core_test_init`: enable plugin tests and fetch local third-party headers under `cpp/thirdparty/`.
 - `cd rust && cargo fmt -- --check`: verify Rust formatting.
 - `cd rust && cargo build`: build the Rust crate.
 - `cd rust && cargo test --test rpc`: run core Rust tests.
@@ -21,7 +21,7 @@ C++ uses `.clang-format` with Google style, 150-column limit, and empty short fu
 
 ## Testing Guidelines
 
-Add C++ coverage in the nearest `test/test_*.cpp` file, or create a focused test file and include it from `CMakeLists.txt`. Use the existing assertion helpers in `test/assert_def.h`. Add Rust integration coverage in `rust/src/tests/`; tests requiring Tokio networking must declare or use the `net` feature path and be runnable with `--features net`.
+Add C++ coverage in the nearest `cpp/test/test_*.cpp` file, or create a focused test file under `cpp/test/` and include it from `CMakeLists.txt`. Use the existing assertion helpers in `cpp/test/assert_def.h`. Add Rust integration coverage in `rust/src/tests/`; tests requiring Tokio networking must declare or use the `net` feature path and be runnable with `--features net`.
 
 Every SDK that provides RPC networking must include three independently executable RPC checks: `rpc`, `rpc_s`, and `rpc_c`.
 `rpc` should be a self-contained end-to-end client/server test. `rpc_s` should start a standalone RPC server process, and
@@ -35,4 +35,4 @@ Recent commits use Conventional Commit prefixes such as `feat:`, `fix:`, `refact
 
 ## Security & Configuration Tips
 
-Do not commit generated build folders, IDE settings, or fetched `/thirdparty/` dependencies. Keep external dependency downloads limited to the documented plugin test initialization path.
+Do not commit generated build folders, IDE settings, or fetched `cpp/thirdparty/` dependencies. Keep external dependency downloads limited to the documented plugin test initialization path.

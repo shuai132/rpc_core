@@ -42,6 +42,8 @@ kill $server_pid
 cmake --build build-asio --target rpc_core_test_asio_tcp_rpc_s_json rpc_core_test_asio_tcp_rpc_c_json
 ```
 
+All C++ test sources live in `cpp/test/`, including transport-independent core tests and the built-in TCP adapter executables.
+
 `rpc_s` and `rpc_s_json` keep listening until interrupted, matching the other SDK server examples.
 
 ## Cross-language payloads

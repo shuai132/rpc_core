@@ -70,8 +70,8 @@ jobs:
 
       - name: Init nlohmann/json
         run: |
-          cmake -E make_directory thirdparty/nlohmann
-          python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp', 'thirdparty/nlohmann/json.hpp')"
+          cmake -E make_directory cpp/thirdparty/nlohmann
+          python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp', 'cpp/thirdparty/nlohmann/json.hpp')"
 
       - name: Configure (${{ matrix.configuration }})
         env:

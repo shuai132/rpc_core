@@ -153,7 +153,7 @@ and [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rp
 * Addition:
 
 1. `msg` and `rsp` support any serializable type, refer to [Serialization](#Serialization).
-2. Detailed usages and unittests can be found here: [rpc_test.cpp](test/test_rpc.cpp)
+2. Detailed usages and unittests can be found here: [rpc_test.cpp](cpp/test/test_rpc.cpp)
 3. There is an example shows custom async
    impl: [rpc_c_coroutine.hpp](https://github.com/shuai132/asio_net/blob/main/test/rpc_c_coroutine.hpp)
 
@@ -162,7 +162,7 @@ and [rpc_c_coroutine.cpp](https://github.com/shuai132/asio_net/blob/main/test/rp
 High-performance and memory-saving binary serialization.
 
 * api is very simple to use: [include/rpc_core/serialize_api.hpp](include/rpc_core/serialize_api.hpp)
-* usage and comprehensive unittest: [test/test_serialize.cpp](test/test_serialize.cpp)
+* usage and comprehensive unittest: [cpp/test/test_serialize.cpp](cpp/test/test_serialize.cpp)
 * the design balance cpu and memory usage, and zero-copy if possible.
 * std::string is used as inner data container, it's serialize/deserialize is zero-overhead. so, it is recommended to use
   std::string whenever possible, using it to store binary data is also a good choice.
@@ -231,7 +231,7 @@ json: `{"id":1,"age":18,"name":"test"}`
 - [x] [std::unique_ptr](https://en.cppreference.com/w/cpp/memory/unique_ptr)
 - [x] [std::shared_ptr](https://en.cppreference.com/w/cpp/memory/shared_ptr)
 - [x] [rpc_core::binary_wrap](include/rpc_core/serialize/binary_wrap.hpp)
-- [x] [custom struct/class](test/serialize/CustomType.h)
+- [x] [custom struct/class](cpp/test/serialize/CustomType.h)
   ```c++
   #include "rpc_core/serialize.hpp"
   struct TestStruct {
