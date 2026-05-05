@@ -17,6 +17,7 @@ pub struct TcpClient {
     on_close: RefCell<Option<Box<dyn Fn()>>>,
     reconnect_ms: RefCell<u32>,
     reconnect_timer_running: RefCell<bool>,
+    open_generation: RefCell<u64>,
     channel: Rc<TcpChannel>,
     this: RefCell<Weak<Self>>,
 }
@@ -35,6 +36,7 @@ impl TcpClient {
                 on_close: None.into(),
                 reconnect_ms: 0.into(),
                 reconnect_timer_running: false.into(),
+                open_generation: 0.into(),
                 channel: TcpChannel::new(config),
                 this: this_weak.clone().into(),
             };
@@ -60,13 +62,16 @@ impl TcpClient {
     }
 
     pub fn open(&self, host: impl ToString, port: u16) {
+        self.cancel_reconnect();
         *self.host.borrow_mut() = host.to_string();
         *self.port.borrow_mut() = port;
-        self.do_open();
+        let open_generation = self.next_open_generation();
+        self.do_open(open_generation);
     }
 
     pub fn close(&self) {
         self.cancel_reconnect();
+        self.next_open_generation();
         self.channel.close();
     }
 
@@ -121,21 +126,42 @@ impl TcpClient {
 
 // private
 impl TcpClient {
-    fn do_open(&self) {
+    fn next_open_generation(&self) -> u64 {
+        let mut open_generation = self.open_generation.borrow_mut();
+        *open_generation = open_generation.wrapping_add(1);
+        *open_generation
+    }
+
+    fn is_current_open_generation(&self, open_generation: u64) -> bool {
+        *self.open_generation.borrow() == open_generation
+    }
+
+    fn do_open(&self, open_generation: u64) {
         self.config.borrow_mut().init();
         let host = self.host.borrow().clone();
         let port = *self.port.borrow();
 
         let this_weak = self.this.borrow().clone();
         tokio::task::spawn_local(async move {
-            let this = this_weak.upgrade().unwrap();
+            let Some(this) = this_weak.upgrade() else {
+                return;
+            };
+            if !this.is_current_open_generation(open_generation) {
+                return;
+            }
             if this.channel.is_open() {
                 this.channel.close();
                 this.channel.wait_close_finish().await;
+                if !this.is_current_open_generation(open_generation) {
+                    return;
+                }
             }
             debug!("connect_tcp: {host} {port}");
             let result = TcpClient::connect_tcp(host, port).await;
             debug!("connect_tcp: {result:?}");
+            if !this.is_current_open_generation(open_generation) {
+                return;
+            }
 
             match result {
                 Ok(stream) => {
@@ -186,7 +212,8 @@ impl TcpClient {
                 return;
             }
             if !self.channel.is_open() {
-                self.do_open();
+                let open_generation = self.next_open_generation();
+                self.do_open(open_generation);
             }
         }
     }

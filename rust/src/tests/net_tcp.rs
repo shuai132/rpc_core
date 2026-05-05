@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::rc::Rc;
 
 use log::info;
@@ -85,4 +86,44 @@ fn net_tcp() {
 
     thread_client.join().expect("thread_client: panic");
     thread_server.join().expect("thread_server: panic");
+}
+
+#[test]
+fn tcp_client_open_then_close_does_not_fire_on_open() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    runtime.block_on(async {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async move {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let port = listener.local_addr().unwrap().port();
+                let accept_task = tokio::task::spawn_local(async move {
+                    let _ = listener.accept().await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                });
+
+                let client =
+                    tcp_client::TcpClient::new(TcpConfigBuilder::new().auto_pack(true).build());
+                let open_count = Rc::new(Cell::new(0));
+                {
+                    let open_count = open_count.clone();
+                    client.on_open(move || {
+                        open_count.set(open_count.get() + 1);
+                    });
+                }
+
+                client.open("127.0.0.1", port);
+                client.close();
+
+                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                assert_eq!(open_count.get(), 0);
+
+                accept_task.abort();
+            })
+            .await;
+    });
 }
