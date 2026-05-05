@@ -34,11 +34,15 @@ cmake --build build-asio --target rpc_core_test_asio_tcp_rpc_json
 
 cmake --build build-asio --target rpc_core_test_asio_tcp_rpc_s rpc_core_test_asio_tcp_rpc_c
 ./build-asio/rpc_core_test_asio_tcp_rpc_s 6666 &
+server_pid=$!
 sleep 0.1
 ./build-asio/rpc_core_test_asio_tcp_rpc_c 127.0.0.1 6666
+kill $server_pid
 
 cmake --build build-asio --target rpc_core_test_asio_tcp_rpc_s_json rpc_core_test_asio_tcp_rpc_c_json
 ```
+
+`rpc_s` and `rpc_s_json` keep listening until interrupted, matching the other SDK server examples.
 
 ## Cross-language payloads
 
