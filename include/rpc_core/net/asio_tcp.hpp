@@ -11,11 +11,6 @@
 #include <utility>
 
 #include "asio.hpp"
-
-#if !defined(RPC_CORE_SERIALIZE_USE_CUSTOM) && !defined(RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON)
-#define RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON
-#endif
-
 #include "rpc_core.hpp"
 #include "rpc_core/detail/data_packer.hpp"
 

@@ -97,3 +97,7 @@ jobs:
       - name: Test ASIO TCP RPC
         working-directory: build
         run: ./rpc_core_test_asio_tcp_rpc${{ matrix.env.BIN_SUFFIX }}
+
+      - name: Test ASIO TCP RPC JSON
+        working-directory: build
+        run: ./rpc_core_test_asio_tcp_rpc_json${{ matrix.env.BIN_SUFFIX }}
