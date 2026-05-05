@@ -45,6 +45,10 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
     - [./rust](./rust): based on [tokio](https://github.com/tokio-rs/tokio)  
       Support callback and async/await, details: [README.md](./rust/README.md)
 
+* JavaScript / TypeScript
+    - [./js](./js): browser-safe core SDK with WebSocket adapter and a separate Node TCP adapter  
+      Uses the same RPC wire header and JSON payloads, details: [README.md](./js/README.md)
+
 ## Requirements
 
 * C++14
