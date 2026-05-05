@@ -5,10 +5,12 @@ on:
     paths-ignore:
       - '**.md'
       - 'rust/**'
+      - 'js/**'
   pull_request:
     paths-ignore:
       - '**.md'
       - 'rust/**'
+      - 'js/**'
 
 jobs:
   build-and-test:

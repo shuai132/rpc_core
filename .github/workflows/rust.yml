@@ -6,11 +6,13 @@ on:
       - '**.md'
       - 'include/**'
       - 'test/**'
+      - 'js/**'
   pull_request:
     paths-ignore:
       - '**.md'
       - 'include/**'
       - 'test/**'
+      - 'js/**'
 
 env:
   RUST_BACKTRACE: 1

@@ -1,0 +1,33 @@
+name: js
+
+on:
+  push:
+    paths:
+      - 'js/**'
+      - '.github/workflows/js.yml'
+  pull_request:
+    paths:
+      - 'js/**'
+      - '.github/workflows/js.yml'
+
+jobs:
+  Linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: install
+        working-directory: js
+        run: npm install
+
+      - name: build
+        working-directory: js
+        run: npm run build
+
+      - name: test
+        working-directory: js
+        run: npm test
