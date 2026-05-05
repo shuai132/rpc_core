@@ -39,8 +39,8 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 ## TCP-based implementations
 
 * C++
-    - [asio_net](https://github.com/shuai132/asio_net): based on [asio](https://think-async.com/Asio/#)  
-      Support macOS, Linux, Windows, iOS, Android, etc. and can be used on MCUs that support asio, such as ESP32.
+    - [./cpp](./cpp): notes for C++ users. The ready-to-use TCP implementation lives in
+      [asio_net](https://github.com/shuai132/asio_net), based on [asio](https://think-async.com/Asio/#).
 
 * Rust
     - [./rust](./rust): based on [tokio](https://github.com/tokio-rs/tokio)  
@@ -53,6 +53,22 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 * Python
     - [./python](./python): asyncio-friendly SDK with loopback and TCP stream helpers  
       Uses the same RPC wire header and JSON payloads, details: [README.md](./python/README.md)
+
+## Cross-language RPC
+
+For cross-language RPC, use JSON as the shared payload serialization format. The RPC protocol itself is still binary:
+`seq(u32 LE) + cmd_len(u16 LE) + cmd + type(u8) + payload`. This keeps the framing compact and efficient while allowing each
+language to choose a flexible, widely supported data format for request and response bodies.
+
+JavaScript, Python, and Rust SDKs use JSON payloads by default. For C++, define `RPC_CORE_SERIALIZE_USE_NLOHMANN_JSON` and make
+`nlohmann/json.hpp` available in the include path:
+
+```shell
+cmake -S . -B build -DRPC_CORE_SERIALIZE_USE_NLOHMANN_JSON=ON
+```
+
+When this option is enabled, C++ `msg` and `rsp` payloads use the nlohmann/json serializer path, making them compatible with the
+JS, Python, and Rust SDKs as long as all sides use matching JSON object shapes and value types.
 
 ## Requirements
 
