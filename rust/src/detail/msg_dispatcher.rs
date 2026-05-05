@@ -112,10 +112,12 @@ impl MsgDispatcher {
             let is_ping = msg.type_.contains(MsgType::Ping);
             if is_ping {
                 debug!("<= seq:{} type:ping", &msg.seq);
-                msg.type_ = MsgType::Response | MsgType::Pong;
+                msg.type_ = MsgType::Response | MsgType::Pong | (msg.type_ & MsgType::PayloadJson);
                 debug!("=> seq:{} type:pong", &msg.seq);
                 if let Some(conn) = self.conn.upgrade() {
-                    conn.borrow().send_package(coder::serialize(&msg));
+                    if let Some(payload) = coder::serialize(&msg) {
+                        conn.borrow().send_package(payload);
+                    }
                 }
                 return;
             }
@@ -130,7 +132,9 @@ impl MsgDispatcher {
                     let rsp = resp.unwrap();
                     debug!("=> seq:{} type:rsp", &rsp.seq);
                     if let Some(conn) = self.conn.upgrade() {
-                        conn.borrow().send_package(coder::serialize(&rsp));
+                        if let Some(payload) = coder::serialize(&rsp) {
+                            conn.borrow().send_package(payload);
+                        }
                     }
                 }
             } else {
@@ -142,7 +146,9 @@ impl MsgDispatcher {
                     rsp.seq = msg.seq;
                     rsp.type_ = MsgType::Response | MsgType::NoSuchCmd;
                     if let Some(conn) = self.conn.upgrade() {
-                        conn.borrow().send_package(coder::serialize(&rsp));
+                        if let Some(payload) = coder::serialize(&rsp) {
+                            conn.borrow().send_package(payload);
+                        }
                     }
                 }
             }

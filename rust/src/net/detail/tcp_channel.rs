@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use log::{debug, trace};
+use log::{debug, error, trace};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf};
 use tokio::net::TcpStream;
 use tokio::select;
@@ -62,6 +62,19 @@ impl TcpChannel {
         }
         if data.is_empty() {
             debug!("send empty ignore");
+            return;
+        }
+        if data.len() > u32::MAX as usize {
+            error!("package length exceeds uint32: {}", data.len());
+            return;
+        }
+        let max_body_size = self.config.borrow().max_body_size;
+        if max_body_size != 0 && data.len() > max_body_size as usize {
+            error!(
+                "package length exceeds max_body_size: {} > {}",
+                data.len(),
+                max_body_size
+            );
             return;
         }
         {
@@ -207,6 +220,15 @@ impl TcpChannel {
 
         if read_result.is_some() {
             let body_size = u32::from_le_bytes(buffer);
+            let max_body_size = self.config.borrow().max_body_size;
+            if max_body_size != 0 && body_size > max_body_size {
+                error!(
+                    "body_size > max_body_size: {} > {}",
+                    body_size, max_body_size
+                );
+                self.do_close();
+                return false;
+            }
             self.do_read_body(read_half, body_size).await
         } else {
             self.do_close();

@@ -369,7 +369,7 @@ impl Request {
 
 // private
 impl Request {
-    fn on_finish(&self, type_: FinallyType) {
+    pub(crate) fn on_finish(&self, type_: FinallyType) {
         let mut request = self.inner.borrow_mut();
         if !request.waiting_rsp {
             return;

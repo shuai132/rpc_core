@@ -12,6 +12,7 @@ pub struct MsgType: u8 {
     const Ping = 1 << 3;
     const Pong = 1 << 4;
     const NoSuchCmd = 1 << 5;
+    const PayloadJson = 1 << 6;
 }
 }
 
@@ -49,6 +50,9 @@ impl MsgWrapper {
     {
         let r = serde_json::from_slice::<T>(self.data.as_slice());
         if r.is_err() {
+            if !self.type_.contains(MsgType::PayloadJson) {
+                error!("payload is not marked as JSON; attempting JSON decode for legacy compatibility");
+            }
             error!("deserialize error, msg info:{}", self.dump());
         }
         r
@@ -59,7 +63,7 @@ impl MsgWrapper {
         R: serde::Serialize,
     {
         let mut msg = MsgWrapper::new();
-        msg.type_ = MsgType::Response;
+        msg.type_ = MsgType::Response | MsgType::PayloadJson;
         msg.seq = seq;
         msg.data = serde_json::to_string(&rsp).unwrap().into_bytes();
         msg

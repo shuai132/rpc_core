@@ -7,6 +7,7 @@ use crate::connection::{Connection, DefaultConnection};
 use crate::detail::coder;
 use crate::detail::msg_dispatcher::{MsgDispatcher, TimeoutCb};
 use crate::detail::msg_wrapper::{MsgType, MsgWrapper};
+use crate::request::FinallyType;
 use crate::request::Request;
 use crate::type_def::SeqType;
 
@@ -129,31 +130,37 @@ impl Rpc {
         let connection;
         {
             let inner = self.inner.borrow();
-            let request = request.inner.borrow();
-            if request.need_rsp {
-                inner.dispatcher.borrow_mut().subscribe_rsp(
-                    request.seq,
-                    request.rsp_handle.as_ref().unwrap().clone(),
-                    request.timeout_cb.clone(),
-                    request.timeout_ms,
-                );
-            }
-            let mut type_ = MsgType::Command;
-            if request.is_ping {
+            let request_inner = request.inner.borrow();
+            let mut type_ = MsgType::Command | MsgType::PayloadJson;
+            if request_inner.is_ping {
                 type_ |= MsgType::Ping;
             }
-            if request.need_rsp {
+            if request_inner.need_rsp {
                 type_ |= MsgType::NeedRsp;
             }
             msg = MsgWrapper {
-                seq: request.seq,
+                seq: request_inner.seq,
                 type_,
-                cmd: request.cmd.clone(),
-                data: request.payload.clone().unwrap_or_default(),
+                cmd: request_inner.cmd.clone(),
+                data: request_inner.payload.clone().unwrap_or_default(),
                 request_payload: None,
             };
 
-            payload = coder::serialize(&msg);
+            let Some(serialized) = coder::serialize(&msg) else {
+                drop(request_inner);
+                drop(inner);
+                request.on_finish(FinallyType::RspSerializeError);
+                return;
+            };
+            payload = serialized;
+            if request_inner.need_rsp {
+                inner.dispatcher.borrow_mut().subscribe_rsp(
+                    request_inner.seq,
+                    request_inner.rsp_handle.as_ref().unwrap().clone(),
+                    request_inner.timeout_cb.clone(),
+                    request_inner.timeout_ms,
+                );
+            }
             connection = inner.connection.clone();
         }
         debug!(
