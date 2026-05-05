@@ -1,4 +1,8 @@
 build/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+python/*.egg-info/
 
 # clion
 .idea/

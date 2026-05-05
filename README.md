@@ -50,6 +50,10 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
     - [./js](./js): browser-safe core SDK with WebSocket adapter and a separate Node TCP adapter  
       Uses the same RPC wire header and JSON payloads, details: [README.md](./js/README.md)
 
+* Python
+    - [./python](./python): asyncio-friendly SDK with loopback and TCP stream helpers  
+      Uses the same RPC wire header and JSON payloads, details: [README.md](./python/README.md)
+
 ## Requirements
 
 * C++14
