@@ -59,6 +59,108 @@ fn unsubscribe_command_conversion_can_reenter_rpc() {
 }
 
 #[test]
+fn send_unwind_finishes_only_its_attempt() {
+    for need_rsp in [false, true] {
+        for timer_failure in [false, true] {
+            for reentry in 0..4 {
+                if !need_rsp && (timer_failure || reentry != 0) {
+                    continue;
+                }
+                if timer_failure && reentry == 3 {
+                    continue;
+                }
+                let f = PendingFixture::new();
+                let request = f.rpc.cmd("pending");
+                let finished = Rc::new(RefCell::new(Vec::new()));
+                let copy = finished.clone();
+                request.finally(move |status| copy.borrow_mut().push(status));
+                if need_rsp {
+                    request.rsp(|_: String| {});
+                }
+                if reentry == 2 {
+                    request.retry(1);
+                }
+                let weak = Rc::downgrade(&request);
+                let request_weak = weak.clone();
+                let timers = f.timers.clone();
+                let conn = Rc::downgrade(&f.conn);
+                let sent = f.sent.clone();
+                let fail = std::cell::Cell::new(true);
+                let callback = move || {
+                    if !fail.replace(false) {
+                        return;
+                    }
+                    let request = request_weak.upgrade().unwrap();
+                    if reentry == 1 {
+                        request.cancel().reset_cancel().call().unwrap();
+                    } else if reentry == 2 {
+                        let fire = timers.borrow()[0].clone();
+                        fire();
+                    } else if reentry == 3 {
+                        let mut response = sent.borrow().last().unwrap()[..4].to_vec();
+                        response.extend_from_slice(&[0, 0, 2]);
+                        response.extend_from_slice(b"\"completed\"");
+                        conn.upgrade().unwrap().borrow().on_recv_package(response);
+                    }
+                    panic!("send setup failed");
+                };
+                if timer_failure {
+                    let timers = f.timers.clone();
+                    f.rpc.set_timer(move |_, cb| {
+                        timers.borrow_mut().push(Rc::from(cb));
+                        callback();
+                    });
+                } else {
+                    let sent = f.sent.clone();
+                    f.conn
+                        .borrow_mut()
+                        .set_send_package_impl(Box::new(move |packet| {
+                            sent.borrow_mut().push(packet);
+                            callback();
+                            true
+                        }));
+                }
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| request.call()));
+                assert_eq!(
+                    result.unwrap_err().downcast_ref::<&str>(),
+                    Some(&"send setup failed")
+                );
+                if reentry == 0 {
+                    assert_eq!(*finished.borrow(), vec![FinallyType::RpcNotReady]);
+                    request.call().unwrap();
+                } else if reentry == 3 {
+                    assert_eq!(*finished.borrow(), vec![FinallyType::Normal]);
+                    request.call().unwrap();
+                } else if reentry == 1 {
+                    assert_eq!(*finished.borrow(), vec![FinallyType::Canceled]);
+                } else {
+                    assert!(finished.borrow().is_empty());
+                }
+                if need_rsp {
+                    f.expire(0);
+                    assert_eq!(request.call(), Err(FinallyType::Busy));
+                    let last = f.sent.borrow().len() - 1;
+                    f.reply(last, "ok");
+                    assert_eq!(finished.borrow().last(), Some(&FinallyType::Normal));
+                } else {
+                    assert_eq!(finished.borrow().last(), Some(&FinallyType::NoNeedRsp));
+                }
+                let count = if reentry == 2 { 1 } else { 2 };
+                assert_eq!(finished.borrow().len(), count);
+                let timer_count = f.timers.borrow().len();
+                for i in 0..timer_count {
+                    f.expire(i);
+                }
+                assert_eq!(finished.borrow().len(), count);
+                drop(request);
+                assert!(weak.upgrade().is_none());
+            }
+        }
+    }
+}
+
+#[test]
 fn timeout_unwind_finishes_only_its_call() {
     for retries in [-1, 0, 2] {
         for status in [

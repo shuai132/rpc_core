@@ -271,7 +271,33 @@ impl Request {
 
         let seq = r.make_seq();
         self.inner.borrow_mut().seq = seq;
+        // Timer registration and transport callbacks may unwind before a send completes.
+        struct SendScope<'a> {
+            request: &'a Request,
+            rpc: &'a Rpc,
+            call_id: u32,
+            seq: SeqType,
+            completed: bool,
+        }
+        impl Drop for SendScope<'_> {
+            fn drop(&mut self) {
+                if !self.completed && self.request.matches_attempt(self.call_id, self.seq) {
+                    self.rpc.unsubscribe_rsp(self.seq);
+                    if self.request.matches_attempt(self.call_id, self.seq) {
+                        self.request.on_finish(FinallyType::RpcNotReady);
+                    }
+                }
+            }
+        }
+        let mut sending = SendScope {
+            request: self,
+            rpc: &r,
+            call_id,
+            seq,
+            completed: false,
+        };
         let sent = r.send_request(self.as_ref());
+        sending.completed = true;
         // Sending may reenter a timeout and start another attempt of this call.
         if !self.matches_attempt(call_id, seq) {
             return sent;

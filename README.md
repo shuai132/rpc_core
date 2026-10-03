@@ -142,6 +142,10 @@ use separate requests for concurrent calls. `call()` returns `result<void>`:
 `normal` means the request was sent, while `busy` rejects an overlapping call
 without sending or invoking `finally`. Other immediate failures also complete
 the accepted call through `finally`.
+If the transport sender or timer registration throws, the still-active attempt
+is unregistered and completed with `rpc_not_ready` before the exception propagates.
+A response already completed, a synchronous retry, or a new call started during
+that callback keeps its own outcome and registration.
 
 `future()` and `co_call()` return a `busy` result for overlapping calls without
 replacing the active call's callbacks. Every accepted call snapshots its

@@ -47,6 +47,80 @@ std::function<void()> reentrant_response::on_decode;
 bool reentrant_response::fail = false;
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_send_unwind_finishes_only_its_attempt() {
+  for (bool need_rsp : {false, true}) {
+    for (bool timer_failure : {false, true}) {
+      for (int reentry : {0, 1, 2, 3}) {
+        if (!need_rsp && (timer_failure || reentry)) continue;
+        if (timer_failure && reentry == 3) continue;
+        fixture f;
+        std::vector<finally_t> finished;
+        auto req = f.r->cmd("pending")->finally([&](finally_t status) { finished.push_back(status); });
+        if (need_rsp) req->mark_need_rsp();
+        if (reentry == 2) req->retry(1);
+        request_w weak = req;
+        bool fail = true;
+        auto callback = [&] {
+          if (!fail) return;
+          fail = false;
+          if (reentry == 1) {
+            req->cancel()->reset_cancel();
+            ASSERT(req->call());
+          } else if (reentry == 2) {
+            f.expire(0);
+          } else if (reentry == 3) {
+            f.reply(f.sent.size() - 1, "completed");
+          }
+          throw std::runtime_error("send setup failed");
+        };
+        if (timer_failure) {
+          f.r->set_timer([&](uint32_t, rpc::timeout_cb cb) {
+            f.timers.push_back(std::move(cb));
+            callback();
+          });
+        } else {
+          f.conn->send_package_impl = [&](std::string packet) {
+            f.sent.push_back(std::move(packet));
+            callback();
+            return true;
+          };
+        }
+        bool caught = false;
+        try {
+          req->call();
+        } catch (const std::runtime_error& error) {
+          caught = std::string(error.what()) == "send setup failed";
+        }
+        ASSERT(caught);
+        if (reentry == 0) {
+          ASSERT(finished == std::vector<finally_t>{finally_t::rpc_not_ready});
+          ASSERT(req->call());
+        } else if (reentry == 3) {
+          ASSERT(finished == std::vector<finally_t>{finally_t::normal});
+          ASSERT(req->call());
+        } else if (reentry == 1) {
+          ASSERT(finished == std::vector<finally_t>{finally_t::canceled});
+        } else {
+          ASSERT(finished.empty());
+        }
+        if (need_rsp) {
+          f.expire(0);
+          ASSERT(req->call().type == finally_t::busy);
+          f.reply(f.sent.size() - 1, "ok");
+          ASSERT(finished.back() == finally_t::normal);
+        } else {
+          ASSERT(finished.back() == finally_t::no_need_rsp);
+        }
+        ASSERT(finished.size() == (reentry == 2 ? 1 : 2));
+        for (size_t i = 0; i < f.timers.size(); ++i) f.expire(i);
+        ASSERT(finished.size() == (reentry == 2 ? 1 : 2));
+        req.reset();
+        ASSERT(weak.expired());
+      }
+    }
+  }
+}
+
 static void test_timeout_unwind_finishes_only_its_call() {
   for (int retries : {-1, 0, 2}) {
     for (auto status : {finally_t::timeout, finally_t::canceled, finally_t::session_reset}) {
@@ -503,6 +577,7 @@ static void test_clearing_finally_callback(bool no_arguments) {
 
 int main() {
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_send_unwind_finishes_only_its_attempt();
   test_timeout_unwind_finishes_only_its_call();
   test_response_decode_unwind_finishes_only_its_call();
   test_response_unwind_runs_finally();

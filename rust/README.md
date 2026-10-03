@@ -70,6 +70,10 @@ from its response or `finally` callback. Only one call may be active per request
 create separate requests for concurrent calls. `call()` and `call_with_rpc()`
 return `Result<(), FinallyType>`: `Err(FinallyType::Busy)` leaves the active call
 untouched, sends nothing and does not invoke `finally`.
+With panic unwinding enabled, a panic in the transport sender or timer registration
+unregisters the still-active attempt and completes it with `RpcNotReady` before
+propagating. A completed response, synchronous retry or new call started during
+that callback keeps its own outcome and registration.
 
 An overlapping `future()` returns `FinallyType::Busy` without replacing the
 original callbacks. Each accepted call snapshots its configuration. Builder

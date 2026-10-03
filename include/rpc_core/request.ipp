@@ -37,7 +37,22 @@ result<void> request::send_attempt() {
   }
   seq_ = r->make_seq();
   const auto seq = seq_;
+  // Timer registration and transport callbacks may unwind before a send completes.
+  struct send_scope {
+    request& owner;
+    rpc_core::rpc& peer;
+    uint32_t call_id;
+    seq_type seq;
+    bool completed = false;
+    ~send_scope() noexcept(false) {
+      if (!completed && owner.matches_attempt(call_id, seq)) {
+        peer.unsubscribe_rsp(seq);
+        if (owner.matches_attempt(call_id, seq)) owner.on_finish(finally_t::rpc_not_ready);
+      }
+    }
+  } sending{*self, *r, call_id, seq};
   auto sent = r->send_request(this);
+  sending.completed = true;
   // Sending may reenter a timeout and start another attempt of this same call.
   if (!matches_attempt(call_id, seq)) return sent;
   if (!sent) {
