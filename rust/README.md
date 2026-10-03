@@ -61,6 +61,10 @@ Incoming messages must identify exactly one direction: command or response.
 Messages with both or neither flag are ignored without invoking handlers,
 sending replies or completing pending requests, matching the C++ dispatcher.
 
+Omitting `.msg(...)` sends JSON `null`, equivalent to `.msg(())`. A command handler
+can accept `()` for a no-argument call, and `rpc.ping().future::<()>()` completes
+without requiring an explicit message. Explicit messages retain their own JSON encoding.
+
 A request supports repeated calls after completion or cancellation, including
 from its response or `finally` callback. Only one call may be active per request;
 create separate requests for concurrent calls. `call()` and `call_with_rpc()`

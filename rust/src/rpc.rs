@@ -179,7 +179,8 @@ impl Rpc {
                 seq: request.seq,
                 type_,
                 cmd: options.cmd.clone(),
-                data: options.payload.clone().unwrap_or_default(),
+                // Omitted messages use JSON's representation of serde unit.
+                data: options.payload.clone().unwrap_or_else(|| b"null".to_vec()),
                 request_payload: None,
             };
 

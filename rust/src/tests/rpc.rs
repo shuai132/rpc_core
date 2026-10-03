@@ -14,6 +14,40 @@ use rpc_core::rpc::Rpc;
 struct NoopWake;
 
 #[test]
+fn calls_without_a_message_use_json_unit() {
+    let (server_connection, client_connection) = rpc_core::connection::LoopbackConnection::new();
+    let server = Rpc::new(Some(server_connection));
+    let client = Rpc::new(Some(client_connection));
+    server.set_ready(true);
+    client.set_ready(true);
+    client.set_timer(|_, _| {});
+    server.subscribe("unit", |_: ()| "ready".to_owned());
+    let request = client.cmd("unit");
+    let mut future = Box::pin(request.future::<String>());
+    let Poll::Ready(result) = poll_once(future.as_mut()) else {
+        panic!("request without a message did not reach its unit handler");
+    };
+    assert_eq!(result.type_, FinallyType::Normal);
+    assert_eq!(result.result.as_deref(), Some("ready"));
+}
+
+#[test]
+fn ping_without_a_message_round_trips_unit() {
+    let (server_connection, client_connection) = rpc_core::connection::LoopbackConnection::new();
+    let _server = Rpc::new(Some(server_connection));
+    let client = Rpc::new(Some(client_connection));
+    client.set_ready(true);
+    client.set_timer(|_, _| {});
+    let request = client.ping();
+    let mut future = Box::pin(request.future::<()>());
+    let Poll::Ready(result) = poll_once(future.as_mut()) else {
+        panic!("ping did not complete synchronously over loopback");
+    };
+    assert_eq!(result.type_, FinallyType::Normal);
+    assert_eq!(result.result, Some(()));
+}
+
+#[test]
 fn duplicate_dispose_registration_does_not_cancel_a_restarted_call() {
     let f = PendingFixture::new();
     let request = f.rpc.cmd("pending");
