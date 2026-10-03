@@ -91,16 +91,19 @@ impl MsgDispatcher {
         }
     }
 
-    pub fn subscribe_cmd(&mut self, cmd: String, handle: CmdHandle) {
-        self.cmd_handle_map.insert(cmd, handle);
+    // Return removed callables so their captures can be dropped after releasing borrows.
+    pub fn subscribe_cmd(&mut self, cmd: String, handle: CmdHandle) -> Option<CmdHandle> {
+        self.cmd_handle_map.insert(cmd, handle)
     }
 
-    pub fn unsubscribe_cmd(&mut self, cmd: String) {
-        if self.cmd_handle_map.remove(&cmd).is_some() {
+    pub fn unsubscribe_cmd(&mut self, cmd: String) -> Option<CmdHandle> {
+        let previous = self.cmd_handle_map.remove(&cmd);
+        if previous.is_some() {
             debug!("erase cmd: {}", cmd);
         } else {
             debug!("not subscribe cmd for: {}", cmd);
         }
+        previous
     }
 
     pub fn subscribe_rsp(
@@ -274,11 +277,11 @@ impl MsgDispatcher {
         }
     }
 
-    pub fn set_timer_impl<F>(&mut self, timer_impl: F)
+    pub fn set_timer_impl<F>(&mut self, timer_impl: F) -> Option<Rc<TimerImpl>>
     where
         F: Fn(u32, Box<TimeoutCb>) + 'static,
     {
-        self.timer_impl = Some(Rc::new(timer_impl));
+        self.timer_impl.replace(Rc::new(timer_impl))
     }
 }
 

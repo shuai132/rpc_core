@@ -46,7 +46,7 @@ impl Rpc {
         R: serde::Serialize,
         F: Fn(P) -> R + 'static,
     {
-        self.inner.borrow().dispatcher.borrow_mut().subscribe_cmd(
+        let previous = self.inner.borrow().dispatcher.borrow_mut().subscribe_cmd(
             cmd.to_string(),
             Rc::new(move |msg: MsgWrapper| -> Option<MsgWrapper> {
                 if let Ok(value) = msg.unpack_as::<P>() {
@@ -63,17 +63,20 @@ impl Rpc {
                 }
             }),
         );
+        drop(previous);
     }
 
     pub fn unsubscribe<C>(&self, cmd: C)
     where
         C: ToString,
     {
-        self.inner
+        let previous = self
+            .inner
             .borrow()
             .dispatcher
             .borrow_mut()
             .unsubscribe_cmd(cmd.to_string());
+        drop(previous);
     }
 
     pub fn create_request(&self) -> Rc<Request> {
@@ -105,11 +108,13 @@ impl Rpc {
     where
         F: Fn(u32, Box<TimeoutCb>) + 'static,
     {
-        self.inner
+        let previous = self
+            .inner
             .borrow()
             .dispatcher
             .borrow_mut()
             .set_timer_impl(timer_impl);
+        drop(previous);
     }
 
     pub fn set_ready(&self, ready: bool) {

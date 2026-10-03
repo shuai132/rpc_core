@@ -78,6 +78,9 @@ Replacing a response, timeout or `finally` callback releases its old captures
 outside the request's internal borrow. Capture destructors may cancel or
 reconfigure the request; for example, dropping a captured `Dispose` group cancels
 its registered requests.
+The same rule applies when replacing or removing command subscriptions and when
+replacing the RPC timer implementation: released captures may cancel pending
+requests, whose completion callbacks can reconfigure the RPC.
 
 Dropping a polled, pending `future()` cancels its logical call, including retries.
 Use `reset_cancel()` before reusing that request. Dropping an unpolled future or

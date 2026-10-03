@@ -14,6 +14,48 @@ use rpc_core::rpc::Rpc;
 struct NoopWake;
 
 #[test]
+fn removing_dispatcher_callbacks_can_cancel_pending_requests() {
+    for operation in ["replace command", "unsubscribe", "replace timer"] {
+        let f = PendingFixture::new();
+        let request = f.rpc.cmd("pending");
+        let mut group = rpc_core::dispose::Dispose::new();
+        request.add_to(&mut group);
+        let finished = Rc::new(RefCell::new(Vec::new()));
+        let copy = finished.clone();
+        let weak_rpc = Rc::downgrade(&f.rpc);
+        request.rsp(|_: String| {}).finally(move |status| {
+            copy.borrow_mut().push(status);
+            if let Some(rpc) = weak_rpc.upgrade() {
+                rpc.set_ready(false);
+                rpc.subscribe("after cancel", |_: ()| {});
+            }
+        });
+        if operation == "replace timer" {
+            let timers = f.timers.clone();
+            f.rpc.set_timer(move |_, cb| {
+                let _keep_group = &group;
+                timers.borrow_mut().push(Rc::from(cb));
+            });
+        } else {
+            f.rpc.subscribe("owned", move |_: ()| {
+                let _keep_group = &group;
+            });
+        }
+        request.call().unwrap();
+        match operation {
+            "replace command" => f.rpc.subscribe("owned", |_: ()| {}),
+            "unsubscribe" => f.rpc.unsubscribe("owned"),
+            _ => f.rpc.set_timer(|_, _| {}),
+        }
+        assert_eq!(*finished.borrow(), vec![FinallyType::Canceled]);
+        assert!(!f.rpc.is_ready());
+        f.expire(0);
+        f.reply(0, "late response");
+        assert_eq!(*finished.borrow(), vec![FinallyType::Canceled]);
+    }
+}
+
+#[test]
 fn replacing_callbacks_can_drop_a_dispose_group_for_the_same_request() {
     for callback in ["response", "timeout", "finally"] {
         let request = rpc_core::request::Request::new();
