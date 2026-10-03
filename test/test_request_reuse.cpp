@@ -214,7 +214,29 @@ static void test_reentrant_retry_survives_old_send_failure() {
   ASSERT(finished.size() == 1);
 }
 
+static void test_timer_registration_can_disconnect_rpc() {
+  fixture f;
+  std::vector<finally_t> finished;
+  f.r->set_timer([&](uint32_t, rpc::timeout_cb cb) {
+    f.timers.push_back(std::move(cb));
+    if (f.timers.size() == 1) f.r->set_ready(false);
+  });
+  auto req = f.r->cmd("x")->rsp([](std::string value) { ASSERT(value == "ok"); })
+      ->finally([&](finally_t status) { finished.push_back(status); });
+  ASSERT(req->call().type == finally_t::rpc_not_ready);
+  ASSERT(f.sent.empty() && finished == std::vector<finally_t>{finally_t::rpc_not_ready});
+  f.expire(0);
+  ASSERT(finished.size() == 1);
+  f.r->set_ready(true);
+  ASSERT(req->call());
+  f.expire(0);
+  ASSERT(f.sent.size() == 1 && finished.size() == 1);
+  f.reply(0, "ok");
+  ASSERT(finished.size() == 2 && finished.back() == finally_t::normal);
+}
+
 int main() {
+  test_timer_registration_can_disconnect_rpc();
   test_reentrant_retry_survives_old_send_failure();
   test_reused_callbacks_keep_mutable_state();
   test_busy_keeps_original_call();

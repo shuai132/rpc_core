@@ -241,7 +241,8 @@ impl Rpc {
             },
             msg.cmd
         );
-        let sent = connection.borrow().send_package(payload);
+        // A reentrant timer implementation may also disconnect this RPC.
+        let sent = self.is_ready() && connection.borrow().send_package(payload);
         if !sent && request.matches_attempt(attempt.0, attempt.1) {
             self.unsubscribe_rsp(attempt.1);
         }

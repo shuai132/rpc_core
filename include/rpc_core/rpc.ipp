@@ -82,7 +82,8 @@ result<void> rpc::send_request(request const* request) {
   }
   // Timer registration may synchronously complete or replace this attempt.
   if (!request->matches_attempt(attempt_id, msg.seq)) return {options->completion};
-  auto sent = conn_->send_package(std::move(payload.second));
+  // A reentrant timer implementation may also disconnect this RPC.
+  auto sent = is_ready() && conn_->send_package(std::move(payload.second));
   if (!sent && request->matches_attempt(attempt_id, msg.seq)) dispatcher_->unsubscribe_rsp(msg.seq);
   return {sent ? finally_t::normal : finally_t::rpc_not_ready};
 }

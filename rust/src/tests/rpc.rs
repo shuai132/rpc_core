@@ -746,6 +746,40 @@ fn reentrant_retry_survives_old_send_failure() {
 }
 
 #[test]
+fn timer_registration_can_disconnect_rpc() {
+    let f = PendingFixture::new();
+    let timers = f.timers.clone();
+    let weak = Rc::downgrade(&f.rpc);
+    f.rpc.set_timer(move |_, callback| {
+        timers.borrow_mut().push(Rc::from(callback));
+        if timers.borrow().len() == 1 {
+            weak.upgrade().unwrap().set_ready(false);
+        }
+    });
+    let results = Rc::new(RefCell::new(Vec::new()));
+    let finished = results.clone();
+    let request = f.rpc.cmd("x");
+    request
+        .rsp(|value: String| assert_eq!(value, "ok"))
+        .finally(move |status| finished.borrow_mut().push(status));
+    assert_eq!(request.call(), Err(FinallyType::RpcNotReady));
+    assert!(f.sent.borrow().is_empty());
+    assert_eq!(*results.borrow(), vec![FinallyType::RpcNotReady]);
+    f.expire(0);
+    assert_eq!(results.borrow().len(), 1);
+    f.rpc.set_ready(true);
+    request.call().unwrap();
+    f.expire(0);
+    assert_eq!(f.sent.borrow().len(), 1);
+    assert_eq!(results.borrow().len(), 1);
+    f.reply(0, "ok");
+    assert_eq!(
+        *results.borrow(),
+        vec![FinallyType::RpcNotReady, FinallyType::Normal]
+    );
+}
+
+#[test]
 fn timeout_can_cancel_and_start_a_new_logical_call() {
     let f = PendingFixture::new();
     let request = f.rpc.cmd("x");
