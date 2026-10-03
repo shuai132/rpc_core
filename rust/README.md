@@ -191,6 +191,8 @@ sessions retain their own lifetime until their transport closes.
 `RpcClient::stop()` is equivalent to `close()` and can be called through the shared
 `Rc` returned by `new()`, including from callbacks. It cancels automatic reconnect;
 an explicit `open()` can start the client again.
+`open()` converts a custom host value before changing connection state. A host
+conversion panic does not invalidate an existing connect attempt or reconnect timer.
 If replacing the previous RPC instance during reconnect finishes pending requests,
 those completions run before `on_open`. If a completion closes or reopens the
 client, that connection does not emit `on_open`; a subsequent connection can emit

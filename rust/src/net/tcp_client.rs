@@ -80,11 +80,13 @@ impl TcpClient {
     }
 
     pub fn open(&self, host: impl ToString, port: u16) {
+        // Convert user input before changing the current connection lifecycle.
+        let host = host.to_string();
         self.stopped.set(false);
         self.connect_generation
             .set(self.connect_generation.get().wrapping_add(1));
         self.cancel_reconnect_timer();
-        *self.host.borrow_mut() = host.to_string();
+        *self.host.borrow_mut() = host;
         *self.port.borrow_mut() = port;
         self.do_open();
     }
@@ -289,6 +291,71 @@ mod tests {
         runtime.block_on(tokio::task::LocalSet::new().run_until(async {
             timeout(Duration::from_secs(3), future).await.unwrap();
         }));
+    }
+
+    struct FailingHost;
+
+    impl std::fmt::Display for FailingHost {
+        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            panic!("host conversion failed");
+        }
+    }
+
+    #[test]
+    fn host_conversion_panic_preserves_stopped_state() {
+        let client = TcpClient::new(TcpConfig::new());
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            client.open(FailingHost, 1);
+        }));
+        assert_eq!(
+            result.unwrap_err().downcast_ref::<&str>(),
+            Some(&"host conversion failed")
+        );
+        assert!(client.stopped.get());
+        assert!(!client.connecting.get());
+        assert!(client.connect_task.borrow().is_none());
+    }
+
+    #[test]
+    fn host_conversion_panic_preserves_pending_connection() {
+        for reconnect in [false, true] {
+            run(async {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let client = TcpClient::new(TcpConfig::new());
+                let (opened, mut opens) = tokio::sync::mpsc::unbounded_channel();
+                client.on_open(move || {
+                    let _ = opened.send(());
+                });
+                let (closed, mut closes) = tokio::sync::mpsc::unbounded_channel();
+                client.on_close(move || {
+                    let _ = closed.send(());
+                });
+                client.set_reconnect(25);
+                client.open("127.0.0.1", listener.local_addr().unwrap().port());
+                if reconnect {
+                    let (peer, _) = listener.accept().await.unwrap();
+                    opens.recv().await.unwrap();
+                    drop(peer);
+                    closes.recv().await.unwrap();
+                    assert!(client.reconnect_timer_running.get());
+                }
+                let generation = client.connect_generation.get();
+                let reconnect_generation = client.reconnect_generation.get();
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    client.open(FailingHost, 1);
+                }));
+                assert_eq!(
+                    result.unwrap_err().downcast_ref::<&str>(),
+                    Some(&"host conversion failed")
+                );
+                assert_eq!(client.connect_generation.get(), generation);
+                assert_eq!(client.reconnect_generation.get(), reconnect_generation);
+                let (_peer, _) = listener.accept().await.unwrap();
+                opens.recv().await.unwrap();
+                assert!(client.is_open());
+                client.close();
+            });
+        }
     }
 
     #[test]
