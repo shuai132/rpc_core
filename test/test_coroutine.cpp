@@ -6,6 +6,40 @@
 using namespace rpc_core;
 
 template <typename T>
+static void test_coroutine_starts_before_releasing_replaced_callbacks(bool synchronous_failure) {
+  for (bool response_callback : {false, true}) {
+    asio::io_context io;
+    auto r = rpc::create();
+    r->set_ready(!synchronous_failure);
+    int sent = 0;
+    r->get_connection()->send_package_impl = [&](std::string) { ++sent; return true; };
+    r->set_timer([](uint32_t, rpc::timeout_cb) {});
+    auto req = r->cmd("pending");
+    std::vector<finally_t> attempts;
+    auto capture = std::shared_ptr<int>(new int, [weak = request_w(req), &attempts, &r](int* value) {
+      delete value;
+      r->set_ready(true);
+      attempts.push_back(weak.lock()->call().type);
+    });
+    if (response_callback) req->rsp([capture] {});
+    else req->finally([capture] {});
+    capture.reset();
+    bool done = false;
+    asio::co_spawn(io, req->co_call<T>(), [&](std::exception_ptr error, result<T> response) {
+      ASSERT(!error && response.type == (synchronous_failure ? finally_t::rpc_not_ready : finally_t::canceled));
+      done = true;
+    });
+    io.poll();
+    ASSERT(attempts == std::vector<finally_t>{synchronous_failure ? finally_t::normal : finally_t::busy});
+    ASSERT(sent == 1 && done == synchronous_failure);
+    req->cancel();
+    io.restart();
+    io.poll();
+    ASSERT(done);
+  }
+}
+
+template <typename T>
 static void test_asio_cancellation() {
   asio::io_context io;
   auto r = rpc::create();
@@ -76,6 +110,10 @@ static void test_scheduled_coroutine_keeps_handler_and_borrowed_request() {
 }
 
 int main() {
+  for (bool synchronous_failure : {false, true}) {
+    test_coroutine_starts_before_releasing_replaced_callbacks<void>(synchronous_failure);
+    test_coroutine_starts_before_releasing_replaced_callbacks<std::string>(synchronous_failure);
+  }
   test_scheduled_coroutine_keeps_handler_and_borrowed_request();
   test_asio_cancellation<void>();
   test_asio_cancellation<std::string>();

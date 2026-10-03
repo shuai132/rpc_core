@@ -1617,6 +1617,67 @@ fn dropping_unpolled_or_busy_future_leaves_active_call_alone() {
 }
 
 #[test]
+fn future_starts_before_releasing_replaced_callbacks() {
+    struct ReenterOnDrop {
+        request: std::rc::Weak<rpc_core::request::Request>,
+        rpc: std::rc::Weak<Rpc>,
+        attempts: Rc<RefCell<Vec<Result<(), FinallyType>>>>,
+    }
+    impl Drop for ReenterOnDrop {
+        fn drop(&mut self) {
+            self.rpc.upgrade().unwrap().set_ready(true);
+            let result = self.request.upgrade().unwrap().call();
+            self.attempts.borrow_mut().push(result);
+        }
+    }
+    for synchronous_failure in [false, true] {
+        for response_callback in [false, true] {
+            let f = PendingFixture::new();
+            f.rpc.set_ready(!synchronous_failure);
+            let request = f.rpc.cmd("pending");
+            let attempts = Rc::new(RefCell::new(Vec::new()));
+            let capture = ReenterOnDrop {
+                request: Rc::downgrade(&request),
+                rpc: Rc::downgrade(&f.rpc),
+                attempts: attempts.clone(),
+            };
+            if response_callback {
+                request.rsp(move |_: String| {
+                    let _keep = &capture;
+                });
+            } else {
+                request.finally(move |_| {
+                    let _keep = &capture;
+                });
+            }
+            let mut future = Box::pin(request.future::<String>());
+            let first_poll = poll_once(future.as_mut());
+            if synchronous_failure {
+                assert!(
+                    matches!(first_poll, Poll::Ready(result) if result.type_ == FinallyType::RpcNotReady)
+                );
+                assert_eq!(*attempts.borrow(), vec![Ok(())]);
+                drop(future);
+                assert!(!request.is_canceled());
+                assert_eq!(request.call(), Err(FinallyType::Busy));
+                f.reply(0, "new call");
+                continue;
+            }
+            assert!(first_poll.is_pending());
+            assert_eq!(*attempts.borrow(), vec![Err(FinallyType::Busy)]);
+            assert_eq!(f.sent.borrow().len(), 1);
+            f.reply(0, "future response");
+            let Poll::Ready(result) = poll_once(future.as_mut()) else {
+                panic!("future did not own the started call");
+            };
+            assert_eq!(result.unwrap(), "future response");
+            drop(future);
+            assert!(!request.is_canceled());
+        }
+    }
+}
+
+#[test]
 fn completed_future_keeps_its_result_when_request_is_reused() {
     for first in [
         FinallyType::Normal,

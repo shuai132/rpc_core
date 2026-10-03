@@ -148,7 +148,9 @@ A response already completed, a synchronous retry, or a new call started during
 that callback keeps its own outcome and registration.
 
 `future()` and `co_call()` return a `busy` result for overlapping calls without
-replacing the active call's callbacks. Every accepted call snapshots its
+replacing the active call's callbacks. They retain replaced callback captures
+until their own call has started, so capture destructors cannot start a call
+with partially installed async callbacks. Every accepted call snapshots its
 configuration. Builder changes configure the next call; retries retain the
 original payload, RPC and callbacks. Retries belong to the same logical call,
 consume a fresh retry budget for each new call, and invoke `finally` only once.

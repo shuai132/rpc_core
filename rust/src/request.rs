@@ -482,6 +482,13 @@ impl Request {
             }
         }
 
+        // Releasing old captures can reenter call(). Keep both callbacks alive
+        // until the future's complete callback set has been installed and started.
+        let previous_callbacks = {
+            let inner = self.inner.borrow();
+            (inner.rsp_handle.clone(), inner.finally.clone())
+        };
+
         // Capture the logical call before sending: synchronous completion can
         // reuse the request before call() returns. Retries retain this ID.
         let _cancel = CancelOnDrop {
@@ -532,6 +539,7 @@ impl Request {
         })
         .call()
         .ok();
+        drop(previous_callbacks);
 
         result.await
     }

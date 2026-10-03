@@ -439,6 +439,31 @@ static void test_timeout_callback_can_cancel_and_reuse() {
 }
 
 #ifdef RPC_CORE_FEATURE_FUTURE
+template <typename T>
+static void test_future_starts_before_releasing_replaced_callbacks(bool synchronous_failure) {
+  for (bool response_callback : {false, true}) {
+    fixture f;
+    f.r->set_ready(!synchronous_failure);
+    auto req = f.r->cmd("pending");
+    std::vector<finally_t> attempts;
+    auto capture = std::shared_ptr<int>(new int, [weak = request_w(req), &attempts, &f](int* value) {
+      delete value;
+      f.r->set_ready(true);
+      attempts.push_back(weak.lock()->call().type);
+    });
+    if (response_callback) req->rsp([capture] {});
+    else req->finally([capture] {});
+    capture.reset();
+    auto future = req->future<T>();
+    ASSERT(attempts == std::vector<finally_t>{synchronous_failure ? finally_t::normal : finally_t::busy});
+    ASSERT(f.sent.size() == 1);
+    f.reply(0, "response");
+    ASSERT(future.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+    ASSERT(future.get().type == (synchronous_failure ? finally_t::rpc_not_ready : finally_t::normal));
+    ASSERT(!req->is_canceled());
+  }
+}
+
 static void test_future_busy_and_reuse() {
   fixture f;
   auto req = f.r->cmd("x");
@@ -597,6 +622,10 @@ int main() {
   test_retries_keep_call_and_configuration();
   test_timeout_callback_can_cancel_and_reuse();
 #ifdef RPC_CORE_FEATURE_FUTURE
+  for (bool synchronous_failure : {false, true}) {
+    test_future_starts_before_releasing_replaced_callbacks<void>(synchronous_failure);
+    test_future_starts_before_releasing_replaced_callbacks<std::string>(synchronous_failure);
+  }
   test_future_busy_and_reuse();
 #endif
 }

@@ -76,7 +76,9 @@ propagating. A completed response, synchronous retry or new call started during
 that callback keeps its own outcome and registration.
 
 An overlapping `future()` returns `FinallyType::Busy` without replacing the
-original callbacks. Each accepted call snapshots its configuration. Builder
+original callbacks. A future retains replaced callback captures until its own
+call has started, so capture destructors cannot start a call with partially
+installed async callbacks. Each accepted call snapshots its configuration. Builder
 changes configure the next call; retries retain the original payload, RPC and
 callbacks. A new call starts with the full configured retry budget, and retries
 invoke `finally` only once for the logical call. After `cancel()`, call

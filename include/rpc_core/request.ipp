@@ -109,6 +109,9 @@ std::future<result<R>> request::future(const rpc_s& rpc) {
     promise->set_value({finally_t::busy, R{}});
     return promise->get_future();
   }
+  auto owner = shared_from_this();
+  // Capture destructors may reenter call(); release them only after setup and send.
+  auto previous_callbacks = std::make_pair(rsp_handle_, finally_);
   auto response = std::make_shared<std::unique_ptr<R>>();
   rsp([response](R r, finally_t) {
     response->reset(new R(std::move(r)));
@@ -129,6 +132,8 @@ std::future<result<void>> request::future(const rpc_s& rpc) {
     promise->set_value({finally_t::busy});
     return promise->get_future();
   }
+  auto owner = shared_from_this();
+  auto previous_callbacks = std::make_pair(rsp_handle_, finally_);
   mark_need_rsp();
   finally([promise](finally_t type) mutable {
     if (!promise) return;
@@ -157,6 +162,8 @@ asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
   auto executor = co_await asio::this_coro::executor;
   co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
       [pending = owner.get(), &executor](auto& self) mutable {
+        auto keeper = pending->shared_from_this();
+        auto previous_callbacks = std::make_pair(pending->rsp_handle_, pending->finally_);
         using ST = std::remove_reference<decltype(self)>::type;
         auto self_sp = std::make_shared<ST>(std::forward<ST>(self));
         auto slot = self_sp->get_cancellation_state().slot();
@@ -192,6 +199,8 @@ asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
   auto executor = co_await asio::this_coro::executor;
   co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
       [pending = owner.get(), &executor](auto& self) mutable {
+        auto keeper = pending->shared_from_this();
+        auto previous_callbacks = std::make_pair(pending->rsp_handle_, pending->finally_);
         using ST = std::remove_reference<decltype(self)>::type;
         auto self_sp = std::make_shared<ST>(std::forward<ST>(self));
         auto slot = self_sp->get_cancellation_state().slot();
