@@ -55,6 +55,12 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
   Or you can use [stream_connection](include/rpc_core/connection.hpp).
 * Optional: C++20 (for coroutine api, co_await co_call)
 
+With CMake, `RPC_CORE_FEATURE_CO_ASIO=ON` enables the Asio coroutine API and
+propagates C++20, Asio include paths and thread linkage through the `rpc_core`
+target. Set `ASIO_PATH` or `RPC_CORE_ASIO_INCLUDE_DIR` to locate Asio headers.
+The RPC headers include Asio when this feature is enabled. `RPC_CORE_TEST_CO_ASIO`
+only enables the coroutine regression target, keeping the core's C++14 default.
+
 ## Usage
 
 Include `rpc_core.hpp` to obtain the inline RPC implementations. Declaration headers

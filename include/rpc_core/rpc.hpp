@@ -6,6 +6,10 @@
 // config
 #include "config.hpp"
 
+#ifdef RPC_CORE_FEATURE_CO_ASIO
+#include <asio.hpp>
+#endif
+
 // include
 #include "connection.hpp"
 #include "detail/callable/callable.hpp"

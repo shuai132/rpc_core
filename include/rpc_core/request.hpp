@@ -10,6 +10,10 @@
 // config
 #include "config.hpp"
 
+#ifdef RPC_CORE_FEATURE_CO_ASIO
+#include <asio.hpp>
+#endif
+
 // include
 #include "detail/callable/callable.hpp"
 #include "detail/msg_wrapper.hpp"
