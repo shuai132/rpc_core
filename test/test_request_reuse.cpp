@@ -47,6 +47,75 @@ std::function<void()> reentrant_response::on_decode;
 bool reentrant_response::fail = false;
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_response_unwind_runs_finally() {
+  for (int arity : {0, 1, 2}) {
+    for (bool reuse : {false, true}) {
+      fixture f;
+      std::vector<finally_t> finished, next_finished;
+      auto req = f.r->cmd("pending");
+      request_w weak = req;
+      req->finally([&](finally_t status) {
+        ASSERT(!weak.expired());
+        finished.push_back(status);
+      });
+      auto response = [&] {
+        if (reuse) {
+          req->rsp([] {})->finally([&](finally_t status) { next_finished.push_back(status); });
+          ASSERT(req->call());
+        } else {
+          req.reset();
+        }
+        throw std::runtime_error("response callback failed");
+      };
+      if (arity == 0) req->rsp(response);
+      else if (arity == 1) req->rsp([&](std::string) { response(); });
+      else req->rsp([&](std::string, finally_t) { response(); });
+      ASSERT(req->call());
+      bool caught = false;
+      try {
+        f.reply(0, "old");
+      } catch (const std::runtime_error& error) {
+        caught = std::string(error.what()) == "response callback failed";
+      }
+      ASSERT(caught);
+      ASSERT(finished == std::vector<finally_t>{finally_t::normal});
+      f.expire(0);
+      ASSERT(finished.size() == 1);
+      if (reuse) {
+        ASSERT(req->call().type == finally_t::busy);
+        ASSERT(next_finished.empty());
+        f.reply(1, "new");
+        ASSERT(next_finished == std::vector<finally_t>{finally_t::normal});
+        req.reset();
+      }
+      ASSERT(weak.expired());
+    }
+  }
+}
+
+static void test_finally_unwind_releases_request() {
+  fixture f;
+  auto req = f.r->cmd("pending");
+  request_w weak = req;
+  int responses = 0, completions = 0;
+  req->rsp([&] { ++responses; })->finally([&](finally_t status) {
+    ASSERT(status == finally_t::normal && responses == 1);
+    ++completions;
+    req.reset();
+    throw std::runtime_error("finally failed");
+  });
+  ASSERT(req->call());
+  bool caught = false;
+  try {
+    f.reply(0, "reply");
+  } catch (const std::runtime_error& error) {
+    caught = std::string(error.what()) == "finally failed";
+  }
+  ASSERT(caught && completions == 1 && weak.expired());
+  f.expire(0);
+  ASSERT(completions == 1);
+}
+
 static void test_response_unwind_cleans_only_its_registration() {
   for (bool replace : {false, true}) {
     auto conn = std::make_shared<connection>();
@@ -345,6 +414,8 @@ static void test_clearing_finally_callback(bool no_arguments) {
 
 int main() {
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_response_unwind_runs_finally();
+  test_finally_unwind_releases_request();
   test_response_unwind_cleans_only_its_registration();
 #endif
   test_response_deserialization_cannot_finish_reused_request(false);

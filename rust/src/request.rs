@@ -516,13 +516,26 @@ impl Request {
         };
         *completed.completion.borrow_mut() = Some(type_.clone());
         debug!("on_finish: cmd:{} type:{:?}", completed.cmd, type_);
-        let finally = completed.finally.clone();
         let self_keeper = request.self_keeper.take();
         drop(request);
-        response();
-        if let Some(finally) = finally {
-            finally(type_);
+        // Run finally before releasing this call, including during response unwinding.
+        struct FinallyScope {
+            callback: Option<Rc<dyn Fn(FinallyType)>>,
+            type_: FinallyType,
         }
+        impl Drop for FinallyScope {
+            fn drop(&mut self) {
+                if let Some(callback) = self.callback.take() {
+                    callback(self.type_.clone());
+                }
+            }
+        }
+        let completion = FinallyScope {
+            callback: completed.finally.clone(),
+            type_,
+        };
+        response();
+        drop(completion);
         drop(self_keeper);
     }
 }

@@ -332,12 +332,16 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
     completed->completion = type;
     RPC_CORE_LOGD("on_finish: cmd:%s type:%s", completed->cmd.c_str(), finally_t_str(type));
     auto keeper = std::move(self_keeper_);
-    auto callback = completed->finally;
+    // Run finally before releasing this call, including during response unwinding.
+    struct finally_scope {
+      std::shared_ptr<std::function<void(finally_t)>> callback;
+      finally_t type;
+      ~finally_scope() noexcept(false) {
+        if (callback && *callback) (*callback)(type);
+      }
+    } completion{completed->finally, type};
     // Detach this completion before user code can start another call.
     std::forward<F>(response)();
-    if (callback && *callback) {
-      (*callback)(type);
-    }
   }
 
  private:

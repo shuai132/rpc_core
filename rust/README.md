@@ -80,6 +80,10 @@ invoke `finally` only once for the logical call. After `cancel()`, call
 Canceling a request or resetting its session during custom response deserialization
 discards that decoded result. If the request is reused, neither successful nor
 failed decoding can finish the new call or invoke the old response callback.
+With panic unwinding enabled, a panic in a response callback still runs `finally`
+once with that response's completion status before propagating. The request stays
+alive through `finally`, and a new call started by the response callback remains
+independent. A `finally` callback invoked during unwinding must not panic.
 
 Replacing a response, timeout or `finally` callback releases its old captures
 outside the request's internal borrow. Capture destructors may cancel or

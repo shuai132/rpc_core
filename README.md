@@ -158,6 +158,10 @@ including when a request is reused.
 Canceling a request or resetting its session during custom response deserialization
 discards that decoded result. If the request is reused, neither successful nor
 failed decoding can finish the new call or invoke the old response callback.
+If a response callback throws, `finally` still runs once with that response's
+completion status before the exception propagates. The request stays alive through
+`finally`, and a new call started by the response callback remains independent.
+A `finally` callback invoked during stack unwinding must not throw.
 
 A `dispose` group cancels each distinct request at most once per `dismiss()`, in
 registration order. Duplicate registrations do not cancel a new call started by

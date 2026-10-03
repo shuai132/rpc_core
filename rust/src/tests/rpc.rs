@@ -59,6 +59,81 @@ fn unsubscribe_command_conversion_can_reenter_rpc() {
 }
 
 #[test]
+fn response_unwind_runs_finally() {
+    for reuse in [false, true] {
+        let f = PendingFixture::new();
+        let request = f.rpc.cmd("pending");
+        let weak = Rc::downgrade(&request);
+        let finished = Rc::new(RefCell::new(Vec::new()));
+        let next_finished = Rc::new(RefCell::new(Vec::new()));
+        let copy = finished.clone();
+        let request_weak = weak.clone();
+        request.finally(move |status| {
+            assert!(request_weak.upgrade().is_some());
+            copy.borrow_mut().push(status);
+        });
+        let request_weak = weak.clone();
+        let copy = next_finished.clone();
+        request.rsp(move |_: String| {
+            if reuse {
+                let request = request_weak.upgrade().unwrap();
+                let copy = copy.clone();
+                request
+                    .rsp(|_: String| {})
+                    .finally(move |status| copy.borrow_mut().push(status));
+                request.call().unwrap();
+            }
+            panic!("response callback failed");
+        });
+        request.call().unwrap();
+        drop(request);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f.reply(0, "old")));
+        assert_eq!(
+            result.unwrap_err().downcast_ref::<&str>(),
+            Some(&"response callback failed")
+        );
+        assert_eq!(*finished.borrow(), vec![FinallyType::Normal]);
+        f.expire(0);
+        assert_eq!(finished.borrow().len(), 1);
+        if reuse {
+            assert_eq!(weak.upgrade().unwrap().call(), Err(FinallyType::Busy));
+            assert!(next_finished.borrow().is_empty());
+            f.reply(1, "new");
+            assert_eq!(*next_finished.borrow(), vec![FinallyType::Normal]);
+        }
+        assert!(weak.upgrade().is_none());
+    }
+}
+
+#[test]
+fn finally_unwind_releases_request() {
+    let f = PendingFixture::new();
+    let request = f.rpc.cmd("pending");
+    let weak = Rc::downgrade(&request);
+    let responses = Rc::new(RefCell::new(0));
+    let completions = Rc::new(RefCell::new(0));
+    let copy = responses.clone();
+    request.rsp(move |_: String| *copy.borrow_mut() += 1);
+    let copy = completions.clone();
+    request.finally(move |status| {
+        assert_eq!(status, FinallyType::Normal);
+        assert_eq!(*responses.borrow(), 1);
+        *copy.borrow_mut() += 1;
+        panic!("finally failed");
+    });
+    request.call().unwrap();
+    drop(request);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f.reply(0, "reply")));
+    assert_eq!(
+        result.unwrap_err().downcast_ref::<&str>(),
+        Some(&"finally failed")
+    );
+    assert!(weak.upgrade().is_none());
+    f.expire(0);
+    assert_eq!(*completions.borrow(), 1);
+}
+
+#[test]
 fn response_deserialization_cannot_finish_a_reused_request() {
     thread_local! {
         static ON_DECODE: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
