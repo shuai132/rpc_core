@@ -212,7 +212,28 @@ static void test_enum_decode_rejects_narrowing() {
   }
 }
 
+static void test_pair_decode_preserves_reference_bindings() {
+  int first = 10;
+  std::string second = "old";
+  std::pair<int&, std::string&> references(first, second);
+  const auto encoded = serialize(std::make_pair(42, std::string("new")));
+  ASSERT(deserialize(encoded, references));
+  ASSERT(first == 42 && second == "new");
+  ASSERT(&references.first == &first && &references.second == &second);
+  first = 7;
+  second = "unchanged";
+  auto truncated = encoded.substr(0, encoded.size() - 1);
+  ASSERT(!deserialize(truncated, references));
+  ASSERT(first == 7 && second == "unchanged");
+  std::pair<int, std::string> value{7, "unchanged"};
+  ASSERT(!deserialize(truncated, value));
+  ASSERT(value == std::make_pair(7, std::string("unchanged")));
+  ASSERT(deserialize(encoded, value));
+  ASSERT(value == std::make_pair(42, std::string("new")));
+}
+
 int main() {
+  test_pair_decode_preserves_reference_bindings();
   test_enum_decode_rejects_narrowing();
   test_failed_binary_decode_preserves_storage_bounds();
   test_container_adaptor_invariants();

@@ -224,6 +224,11 @@ Enum decoding rejects values outside the underlying integer type's range and
 leaves the destination unchanged on failure. The existing unsigned wire encoding,
 including its representation of negative signed enum values, is unchanged.
 
+Pair decoding supports writable reference members without changing their bindings.
+Both elements are decoded before assigning them to the destination, so malformed
+input leaves the pair and any referenced values unchanged. Const members cannot
+be deserialization destinations.
+
 The binary format assumes little-endian hosts and fixes the floating-point formats:
 
 | C++ type | Wire format | Size |
