@@ -147,6 +147,9 @@ the bytes actually received, including when the limit is disabled.
 Dropping a TCP or RPC client stops its connection/reconnect tasks and closes its
 transport. Dropping a server stops accepting new connections; established server
 sessions retain their own lifetime until their transport closes.
+`RpcClient::stop()` is equivalent to `close()` and can be called through the shared
+`Rc` returned by `new()`, including from callbacks. It cancels automatic reconnect;
+an explicit `open()` can start the client again.
 Calling a server's `stop()` from its session callback also stops that listener
 from accepting queued connections. A later `start()` creates a new listener.
 

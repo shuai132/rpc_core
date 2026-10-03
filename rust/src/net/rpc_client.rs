@@ -167,7 +167,7 @@ impl RpcClient {
         self.inner.borrow_mut().tcp_client.cancel_reconnect();
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&self) {
         self.close();
     }
 

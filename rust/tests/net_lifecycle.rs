@@ -40,6 +40,38 @@ fn dropping_connected_client_closes_socket() {
 }
 
 #[test]
+fn rpc_client_stop_is_usable_from_shared_handles() {
+    run(async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let client = RpcClient::new(RpcConfigBuilder::new().build());
+        let weak = Rc::downgrade(&client);
+        let (opened_tx, mut opened) = tokio::sync::mpsc::unbounded_channel();
+        client.on_open(move |rpc| {
+            assert!(rpc.is_ready());
+            weak.upgrade().unwrap().stop();
+            opened_tx.send(rpc).unwrap();
+        });
+        let (closed_tx, mut closed) = tokio::sync::mpsc::unbounded_channel();
+        client.on_close(move || {
+            closed_tx.send(()).unwrap();
+        });
+        client.set_reconnect(1);
+        // A stopped client can still be opened explicitly afterward.
+        for _ in 0..2 {
+            client.open("127.0.0.1", listener.local_addr().unwrap().port());
+            let (mut peer, _) = listener.accept().await.unwrap();
+            let rpc = opened.recv().await.unwrap();
+            closed.recv().await.unwrap();
+            assert!(!rpc.is_ready());
+            assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+            assert!(timeout(Duration::from_millis(30), listener.accept())
+                .await
+                .is_err());
+        }
+    });
+}
+
+#[test]
 fn dropping_client_cancels_connection_and_reconnect_tasks() {
     run(async {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
