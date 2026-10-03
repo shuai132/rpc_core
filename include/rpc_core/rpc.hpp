@@ -102,8 +102,13 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
         if (*shared_state != reply_state::idle) return {finally_t::busy};
         auto owner = weak.lock();
         auto send = reply;
-        auto data = serialize(std::move(rsp));
         *shared_state = reply_state::sending;
+        // Serialization can reenter this reply; exceptions must also release it.
+        struct reply_scope {
+          reply_state& state;
+          ~reply_scope() { if (state == reply_state::sending) state = reply_state::idle; }
+        } scope{*shared_state};
+        auto data = serialize(std::move(rsp));
         auto status = send(std::move(data));
         *shared_state = status ? reply_state::sent : reply_state::idle;
         if (owner) owner->rsp_ready = (*shared_state == reply_state::sent);

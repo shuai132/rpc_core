@@ -1,10 +1,73 @@
 #include <functional>
+#include <stdexcept>
 #include <vector>
 #include "rpc_core.hpp"
 #include "assert_def.h"
 
 using namespace rpc_core;
 using deferred = request_response<std::string, std::string>;
+
+struct custom_reply {
+  std::string value;
+  std::function<void()> on_serialize;
+  void operator>>(serialize_oarchive& ar) const {
+    if (on_serialize) on_serialize();
+    value >> ar;
+  }
+};
+
+struct reply_fixture {
+  std::shared_ptr<connection> conn = std::make_shared<connection>();
+  rpc_s server = rpc::create(conn);
+  request_response<std::string, custom_reply> pending;
+  std::vector<std::string> sent;
+
+  reply_fixture() {
+    server->set_ready(true);
+    server->subscribe("deferred", [&](request_response<std::string, custom_reply> rr) { pending = std::move(rr); });
+    conn->send_package_impl = [&](std::string data) { sent.push_back(std::move(data)); return true; };
+    detail::msg_wrapper command;
+    command.cmd = "deferred";
+    command.type = static_cast<detail::msg_wrapper::msg_type>(detail::msg_wrapper::command | detail::msg_wrapper::need_rsp);
+    command.data = "request";
+    conn->on_recv_package(detail::coder::serialize(command).second);
+    ASSERT(pending);
+  }
+};
+
+static void test_deferred_reply_blocks_serialization_reentry() {
+  reply_fixture f;
+  auto copy = f.pending->rsp;
+  ASSERT(f.pending->rsp({"outer", [&] {
+    ASSERT(copy({"nested", {}}).type == finally_t::busy);
+  }}));
+  ASSERT(f.pending->rsp_ready && f.sent.size() == 1);
+  ASSERT(detail::coder::deserialize(f.sent.front()).second.data == "outer");
+  ASSERT(copy({"duplicate", {}}).type == finally_t::busy);
+}
+
+static void test_deferred_reply_can_retry_after_exception() {
+  for (bool in_transport : {false, true}) {
+    reply_fixture f;
+    auto send = f.conn->send_package_impl;
+    if (in_transport) {
+      f.conn->send_package_impl = [](std::string) -> bool { throw std::runtime_error("transport failed"); };
+    }
+    bool caught = false;
+    try {
+      f.pending->rsp({"failed", [=] {
+        if (!in_transport) throw std::runtime_error("serialization failed");
+      }});
+    } catch (const std::runtime_error&) {
+      caught = true;
+    }
+    ASSERT(caught && !f.pending->rsp_ready && f.sent.empty());
+    f.conn->send_package_impl = std::move(send);
+    ASSERT(f.pending->rsp({"retry", {}}));
+    ASSERT(f.pending->rsp_ready && f.sent.size() == 1);
+    ASSERT(detail::coder::deserialize(f.sent.front()).second.data == "retry");
+  }
+}
 
 static void test_reply_survives_reconnect_and_reports_offline() {
   auto pair = loopback_connection::create();
@@ -373,6 +436,8 @@ static void test_sequence_wrap_keeps_pending_calls() {
 }
 
 int main() {
+  test_deferred_reply_blocks_serialization_reentry();
+  test_deferred_reply_can_retry_after_exception();
   test_sequence_wrap_keeps_pending_calls();
   test_scheduled_subscription_keeps_state_and_lifetime();
   test_wide_string_replies();

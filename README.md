@@ -201,6 +201,9 @@ Successful replies are sent once; subsequent attempts return `busy`. Failed
 attempts are not cached. A `rpc_not_ready` attempt can be retried by the caller
 with its own data after the same session reconnects. Notifications without a requested reply return
 `no_need_rsp`.
+Reentrant attempts during reply serialization or sending also return `busy`.
+Exceptions from user serialization or transport code propagate to the caller and
+release the in-flight state, allowing another attempt.
 
 Connections provide `send_package_impl`, returning `bool`: `true` means the
 transport accepted the packet, and `false` means it could not send it. The RPC
