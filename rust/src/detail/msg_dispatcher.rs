@@ -329,10 +329,21 @@ impl MsgDispatcher {
 
 impl Drop for MsgDispatcher {
     fn drop(&mut self) {
+        let mut failure = None;
         for (_, pending) in self.rsp_handle_map.drain() {
             if let Some(expired) = pending.expired {
-                expired();
+                if let Err(error) =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| expired()))
+                {
+                    // Other requests still need completion to release their self-keepers.
+                    if failure.is_none() {
+                        failure = Some(error);
+                    }
+                }
             }
+        }
+        if let Some(error) = failure {
+            std::panic::resume_unwind(error);
         }
     }
 }

@@ -143,6 +143,11 @@ With panic unwinding enabled, reset completes every old call even if completion
 callbacks panic, then resumes the first panic. Calls started by those callbacks
 remain in the new session.
 
+Dropping the RPC completes all remaining requests with `RpcExpired`. With panic
+unwinding enabled, it finishes the full batch and releases their self-keepers even
+if completion callbacks panic, then resumes the first panic. Completion callbacks
+must not panic when the RPC is already being dropped during unwinding.
+
 The adapter decides whether a connection resumes the old session. There is no
 session handshake or automatic reply replay; the adapter must stop delivering
 bytes from the old transport before attaching a different peer.

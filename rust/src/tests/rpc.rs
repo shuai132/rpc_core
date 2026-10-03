@@ -960,6 +960,53 @@ fn dropping_rpc_finishes_and_releases_pending_requests() {
 }
 
 #[test]
+fn dropping_rpc_finishes_all_requests_before_resuming_callback_panic() {
+    for with_timer in [false, true] {
+        let rpc = Rpc::new(None);
+        rpc.get_connection()
+            .borrow_mut()
+            .set_send_package_impl(Box::new(|_| true));
+        rpc.set_ready(true);
+        let timers = Rc::new(RefCell::new(Vec::<Box<dyn Fn()>>::new()));
+        if with_timer {
+            let saved = timers.clone();
+            rpc.set_timer(move |_, callback| saved.borrow_mut().push(callback));
+        }
+        let finished = Rc::new(RefCell::new(Vec::new()));
+        let mut observers = Vec::new();
+        for id in 0usize..3 {
+            let request = rpc.cmd("pending");
+            observers.push(Rc::downgrade(&request));
+            let finished = finished.clone();
+            request
+                .rsp(|_: String| {})
+                .finally(move |status| {
+                    finished.borrow_mut().push((id, status));
+                    std::panic::panic_any(id);
+                })
+                .call()
+                .unwrap();
+        }
+        let failure = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(rpc)))
+            .expect_err("completion panic must propagate");
+        assert_eq!(finished.borrow().len(), 3);
+        assert_eq!(
+            failure.downcast_ref::<usize>(),
+            Some(&finished.borrow()[0].0)
+        );
+        assert!(finished
+            .borrow()
+            .iter()
+            .all(|(_, status)| *status == FinallyType::RpcExpired));
+        assert!(observers.iter().all(|request| request.upgrade().is_none()));
+        for timer in timers.borrow_mut().drain(..) {
+            timer();
+        }
+        assert_eq!(finished.borrow().len(), 3);
+    }
+}
+
+#[test]
 fn dropping_old_rpc_does_not_finish_new_call() {
     let old_conn = DefaultConnection::new();
     old_conn
