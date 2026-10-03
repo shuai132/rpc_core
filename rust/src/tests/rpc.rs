@@ -13,6 +13,51 @@ use rpc_core::rpc::Rpc;
 
 struct NoopWake;
 
+struct ReentrantCommand(Rc<Rpc>);
+
+impl std::fmt::Display for ReentrantCommand {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.set_ready(true);
+        formatter.write_str("echo")
+    }
+}
+
+fn check_command_name_conversion(remove: bool) {
+    let (server_connection, client_connection) = rpc_core::connection::LoopbackConnection::new();
+    let server = Rpc::new(Some(server_connection));
+    let client = Rpc::new(Some(client_connection));
+    client.set_ready(true);
+    client.set_timer(|_, _| {});
+    if remove {
+        server.subscribe("echo", |value: String| value);
+        server.unsubscribe(ReentrantCommand(server.clone()));
+    } else {
+        server.subscribe(ReentrantCommand(server.clone()), |value: String| value);
+    }
+    let request = client.cmd("echo");
+    request.msg("hello");
+    let mut future = Box::pin(request.future::<String>());
+    let Poll::Ready(result) = poll_once(future.as_mut()) else {
+        panic!("loopback request did not complete");
+    };
+    if remove {
+        assert_eq!(result.type_, FinallyType::NoSuchCmd);
+    } else {
+        assert_eq!(result.type_, FinallyType::Normal);
+        assert_eq!(result.result.as_deref(), Some("hello"));
+    }
+}
+
+#[test]
+fn subscribe_command_conversion_can_reenter_rpc() {
+    check_command_name_conversion(false);
+}
+
+#[test]
+fn unsubscribe_command_conversion_can_reenter_rpc() {
+    check_command_name_conversion(true);
+}
+
 #[test]
 fn response_deserialization_cannot_finish_a_reused_request() {
     thread_local! {

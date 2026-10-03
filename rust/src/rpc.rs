@@ -46,8 +46,9 @@ impl Rpc {
         R: serde::Serialize,
         F: Fn(P) -> R + 'static,
     {
+        let cmd = cmd.to_string();
         let previous = self.inner.borrow().dispatcher.borrow_mut().subscribe_cmd(
-            cmd.to_string(),
+            cmd,
             Rc::new(move |msg: MsgWrapper| -> Option<MsgWrapper> {
                 if let Ok(value) = msg.unpack_as::<P>() {
                     let rsp: R = handle(value);
@@ -70,12 +71,13 @@ impl Rpc {
     where
         C: ToString,
     {
+        let cmd = cmd.to_string();
         let previous = self
             .inner
             .borrow()
             .dispatcher
             .borrow_mut()
-            .unsubscribe_cmd(cmd.to_string());
+            .unsubscribe_cmd(cmd);
         drop(previous);
     }
 

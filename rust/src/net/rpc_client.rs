@@ -157,7 +157,8 @@ impl RpcClient {
     }
 
     pub fn open(&self, host: impl ToString, port: u16) {
-        self.inner.borrow_mut().tcp_client.open(host, port);
+        let tcp_client = self.inner.borrow().tcp_client.clone();
+        tcp_client.open(host, port);
     }
 
     pub fn close(&self) {

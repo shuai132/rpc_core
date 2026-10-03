@@ -21,6 +21,31 @@ fn run(future: impl std::future::Future<Output = ()>) {
 }
 
 #[test]
+fn host_conversion_can_reenter_rpc_client() {
+    struct Host(Rc<RpcClient>);
+    impl std::fmt::Display for Host {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            self.0.on_close(|| {});
+            formatter.write_str("127.0.0.1")
+        }
+    }
+
+    run(async {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let client = RpcClient::new(RpcConfigBuilder::new().build());
+        let (tx, mut opened) = tokio::sync::mpsc::unbounded_channel();
+        client.on_open(move |_| {
+            tx.send(()).unwrap();
+        });
+        client.open(Host(client.clone()), listener.local_addr().unwrap().port());
+        let (mut peer, _) = listener.accept().await.unwrap();
+        opened.recv().await.unwrap();
+        client.close();
+        assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+    });
+}
+
+#[test]
 fn dropping_connected_client_closes_socket() {
     run(async {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
