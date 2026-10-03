@@ -47,6 +47,47 @@ std::function<void()> reentrant_response::on_decode;
 bool reentrant_response::fail = false;
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_timeout_unwind_finishes_only_its_call() {
+  for (int retries : {-1, 0, 2}) {
+    for (auto status : {finally_t::timeout, finally_t::canceled, finally_t::session_reset}) {
+      fixture f;
+      std::vector<finally_t> finished;
+      auto req = f.r->cmd("pending")->mark_need_rsp()->retry(retries)
+          ->finally([&](finally_t result) { finished.push_back(result); });
+      request_w weak = req;
+      req->timeout([&] {
+        if (status != finally_t::timeout) {
+          if (status == finally_t::session_reset) f.r->reset_session();
+          else req->cancel()->reset_cancel();
+          req->timeout(nullptr)->retry(0);
+          ASSERT(req->call());
+        }
+        req.reset();
+        throw std::runtime_error("timeout callback failed");
+      });
+      ASSERT(req->call());
+      bool caught = false;
+      try {
+        f.expire(0);
+      } catch (const std::runtime_error& error) {
+        caught = std::string(error.what()) == "timeout callback failed";
+      }
+      ASSERT(caught);
+      ASSERT(finished == std::vector<finally_t>{status});
+      f.expire(0);
+      f.reply(0, "late");
+      ASSERT(finished.size() == 1);
+      ASSERT(f.sent.size() == (status == finally_t::timeout ? 1 : 2));
+      if (status != finally_t::timeout) {
+        ASSERT(weak.lock()->call().type == finally_t::busy);
+        f.reply(1, "new");
+        ASSERT(finished.size() == 2 && finished.back() == finally_t::normal);
+      }
+      ASSERT(weak.expired());
+    }
+  }
+}
+
 static void test_response_decode_unwind_finishes_only_its_call() {
   for (int arity : {1, 2}) {
     for (auto status : {finally_t::rsp_serialize_error, finally_t::canceled, finally_t::session_reset}) {
@@ -156,24 +197,32 @@ static void test_finally_unwind_releases_request() {
   ASSERT(completions == 1);
 }
 
-static void test_response_unwind_cleans_only_its_registration() {
+static void test_callback_unwind_cleans_only_its_registration(bool timeout) {
   for (bool replace : {false, true}) {
     auto conn = std::make_shared<connection>();
     auto dispatcher = std::make_shared<detail::msg_dispatcher>(conn);
     dispatcher->init();
-    dispatcher->set_timer_impl([](uint32_t, detail::msg_dispatcher::timeout_cb) {});
+    detail::msg_dispatcher::timeout_cb timer;
+    dispatcher->set_timer_impl([&](uint32_t, detail::msg_dispatcher::timeout_cb cb) { timer = std::move(cb); });
     int resets = 0;
-    dispatcher->subscribe_rsp(7, [&](detail::msg_wrapper) -> bool {
+    auto callback = [&] {
       if (replace) {
         dispatcher->subscribe_rsp(7, [](detail::msg_wrapper) { return true; }, nullptr, 1,
                                   nullptr, [&] { ++resets; });
       }
-      throw std::runtime_error("response callback failed");
-    }, nullptr, 1, nullptr, [&] { resets += 10; });
+      throw std::runtime_error("callback failed");
+    };
+    dispatcher->subscribe_rsp(7, [&](detail::msg_wrapper) { callback(); return true; }, callback,
+                              1, nullptr, [&] { resets += 10; });
     auto response = detail::msg_wrapper::make_rsp<std::string>(7);
     bool caught = false;
     try {
-      conn->on_recv_package(detail::coder::serialize(response).second);
+      if (timeout) {
+        auto fire = timer;
+        fire();
+      } else {
+        conn->on_recv_package(detail::coder::serialize(response).second);
+      }
     } catch (const std::runtime_error&) {
       caught = true;
     }
@@ -454,10 +503,12 @@ static void test_clearing_finally_callback(bool no_arguments) {
 
 int main() {
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_timeout_unwind_finishes_only_its_call();
   test_response_decode_unwind_finishes_only_its_call();
   test_response_unwind_runs_finally();
   test_finally_unwind_releases_request();
-  test_response_unwind_cleans_only_its_registration();
+  test_callback_unwind_cleans_only_its_registration(false);
+  test_callback_unwind_cleans_only_its_registration(true);
 #endif
   test_response_deserialization_cannot_finish_reused_request(false);
   test_response_deserialization_cannot_finish_reused_request(true);

@@ -165,6 +165,9 @@ If a response callback throws, `finally` still runs once with that response's
 completion status before the exception propagates. The request stays alive through
 `finally`, and a new call started by the response callback remains independent.
 A `finally` callback invoked during stack unwinding must not throw.
+If a timeout callback throws, its still-active call ends with `timeout` without
+retrying, and the exception propagates. Its old timer registration is removed;
+a call started after cancellation or session reset remains independent.
 
 A `dispose` group cancels each distinct request at most once per `dismiss()`, in
 registration order. Duplicate registrations do not cancel a new call started by

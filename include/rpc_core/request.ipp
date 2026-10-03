@@ -55,7 +55,9 @@ void request::on_timeout() {
   auto options = active_;
   const auto call_id = call_id_;
   const auto seq = seq_;
+  attempt_callback_scope completion{*self, call_id, seq, finally_t::timeout};
   if (options->timeout_cb) options->timeout_cb();
+  completion.completed = true;
   if (!matches_attempt(call_id, seq) || canceled_) return;
   if (retries_remaining_ == -1 || retries_remaining_ > 0) {
     if (retries_remaining_ > 0) --retries_remaining_;

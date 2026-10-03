@@ -37,18 +37,19 @@ pub struct Request {
     pub(crate) inner: RefCell<RequestImpl>,
 }
 
-// A decoder panic must not leave a self-owned call without a dispatcher entry.
-struct ResponseDecodeScope<'a> {
+// User code may unwind after this attempt stops accepting responses.
+struct AttemptCallbackScope<'a> {
     request: &'a Request,
     call_id: u32,
     seq: SeqType,
+    failure: FinallyType,
     completed: bool,
 }
 
-impl Drop for ResponseDecodeScope<'_> {
+impl Drop for AttemptCallbackScope<'_> {
     fn drop(&mut self) {
         if !self.completed && self.request.matches_attempt(self.call_id, self.seq) {
-            self.request.on_finish(FinallyType::RspSerializeError);
+            self.request.on_finish(self.failure.clone());
         }
     }
 }
@@ -183,10 +184,11 @@ impl Request {
                     let inner = this.inner.borrow();
                     (inner.call_id, inner.seq)
                 };
-                let mut decoding = ResponseDecodeScope {
+                let mut decoding = AttemptCallbackScope {
                     request: &this,
                     call_id,
                     seq,
+                    failure: FinallyType::RspSerializeError,
                     completed: false,
                 };
                 let decoded = msg.unpack_as::<P>();
@@ -507,9 +509,17 @@ impl Request {
                 inner.seq,
             )
         };
+        let mut completion = AttemptCallbackScope {
+            request: self,
+            call_id,
+            seq,
+            failure: FinallyType::Timeout,
+            completed: false,
+        };
         if let Some(callback) = &options.timeout_cb {
             callback();
         }
+        completion.completed = true;
         if !self.matches_attempt(call_id, seq) || self.is_canceled() {
             return;
         }

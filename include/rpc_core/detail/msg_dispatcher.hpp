@@ -48,6 +48,18 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
   }
 
  private:
+  struct pending_scope {
+    msg_dispatcher& owner;
+    seq_type seq;
+    uint64_t registration;
+    ~pending_scope() {
+      auto pending = owner.rsp_handle_map_.find(seq);
+      if (pending != owner.rsp_handle_map_.end() && pending->second.registration == registration) {
+        owner.rsp_handle_map_.erase(pending);
+      }
+    }
+  };
+
   result<void> send_response(const msg_wrapper& msg, uint32_t generation) {
     if (generation != session_generation_) return {finally_t::session_reset};
     if (responses_paused_) return {finally_t::rpc_not_ready};
@@ -117,17 +129,7 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
         {
           // Keep this call visible to reset_session() while custom decoding runs.
           // Cleanup also runs if a user callback throws, and cannot erase a replacement.
-          struct response_scope {
-            msg_dispatcher& owner;
-            seq_type seq;
-            uint64_t registration;
-            ~response_scope() {
-              auto pending = owner.rsp_handle_map_.find(seq);
-              if (pending != owner.rsp_handle_map_.end() && pending->second.registration == registration) {
-                owner.rsp_handle_map_.erase(pending);
-              }
-            }
-          } scope{*this, msg.seq, it->second.registration};
+          pending_scope scope{*this, msg.seq, it->second.registration};
           auto cb = std::move(it->second.handle);
           it->second.handle = nullptr;
           handled = cb(std::move(msg));
@@ -202,14 +204,13 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
       }
       auto it = self_lock->rsp_handle_map_.find(seq);
       if (it != self_lock->rsp_handle_map_.cend() && it->second.registration == registration && it->second.handle) {
-        // Stop accepting this attempt's response, but keep it visible to reset_session().
-        it->second.handle = nullptr;
-        if (timeout_cb) {
-          timeout_cb();
-        }
-        it = self_lock->rsp_handle_map_.find(seq);
-        if (it != self_lock->rsp_handle_map_.cend() && it->second.registration == registration) {
-          self_lock->rsp_handle_map_.erase(it);
+        {
+          pending_scope scope{*self_lock, seq, registration};
+          // Stop accepting this attempt's response, but keep it visible to reset_session().
+          it->second.handle = nullptr;
+          if (timeout_cb) {
+            timeout_cb();
+          }
         }
         RPC_CORE_LOGV("Timeout seq=%d, rsp_handle_map_.size=%zu", seq, self_lock->rsp_handle_map_.size());
       }

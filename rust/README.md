@@ -87,6 +87,9 @@ With panic unwinding enabled, a panic in a response callback still runs `finally
 once with that response's completion status before propagating. The request stays
 alive through `finally`, and a new call started by the response callback remains
 independent. A `finally` callback invoked during unwinding must not panic.
+With panic unwinding enabled, a panic in a timeout callback ends its still-active
+call with `Timeout` without retrying, and propagates. Its old timer registration
+is removed; a call started after cancellation or session reset remains independent.
 
 Replacing a response, timeout or `finally` callback releases its old captures
 outside the request's internal borrow. Capture destructors may cancel or
