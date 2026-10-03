@@ -229,6 +229,11 @@ Both elements are decoded before assigning them to the destination, so malformed
 input leaves the pair and any referenced values unchanged. Const members cannot
 be deserialization destinations.
 
+The struct macros support packed scalar fields by copying their bytes through
+aligned temporary values. Integer, floating-point, enum and pointer fields retain
+their existing wire format. Non-scalar fields still require their normal object
+alignment; packing does not make misaligned standard-library objects safe.
+
 The binary format assumes little-endian hosts and fixes the floating-point formats:
 
 | C++ type | Wire format | Size |

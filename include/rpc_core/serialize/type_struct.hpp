@@ -131,10 +131,16 @@
 #define RPC_CORE_DETAIL_SERIALIZE_PASTE63(func, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62) RPC_CORE_DETAIL_SERIALIZE_PASTE2(func, v1) RPC_CORE_DETAIL_SERIALIZE_PASTE62(func, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62)
 #define RPC_CORE_DETAIL_SERIALIZE_PASTE64(func, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62, v63) RPC_CORE_DETAIL_SERIALIZE_PASTE2(func, v1) RPC_CORE_DETAIL_SERIALIZE_PASTE63(func, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49, v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62, v63)
 
-#define RPC_CORE_DETAIL_SERIALIZE_FIELD(v1) ar & t.v1;
-#define RPC_CORE_DETAIL_SERIALIZE_FIELD_INNER(v1) ar & this->v1;
+#define RPC_CORE_DETAIL_ARCHIVE_MEMBER(owner, member)                                     \
+  ::rpc_core::detail::archive_member<decltype((owner).member)>(                            \
+      ar, owner, [](auto& object) { return static_cast<const void*>(&object.member); },    \
+      [](auto& object) -> decltype(auto) { return (object.member); },                      \
+      std::is_scalar<decltype((owner).member)>{});
+#define RPC_CORE_DETAIL_SERIALIZE_FIELD(v1) RPC_CORE_DETAIL_ARCHIVE_MEMBER(t, v1)
+#define RPC_CORE_DETAIL_SERIALIZE_FIELD_INNER(v1) RPC_CORE_DETAIL_ARCHIVE_MEMBER(*this, v1)
 // clang-format on
 
+#include <cstring>
 #include <string>
 #include <type_traits>
 
@@ -175,6 +181,39 @@ serialize_iarchive& operator&(serialize_iarchive& ia, T& t) {
   return ia;
 }
 
+namespace detail {
+
+// Packed scalar members need not satisfy their type's normal alignment. Use
+// byte addresses and aligned locals, without binding references to those fields.
+template <typename T>
+inline void archive_scalar(serialize_oarchive& ar, const void* field) {
+  typename std::remove_cv<T>::type value;
+  std::memcpy(&value, field, sizeof(T));
+  ar & value;
+}
+
+template <typename T>
+inline void archive_scalar(serialize_iarchive& ar, const void* field) {
+  static_assert(!std::is_const<T>::value, "cannot deserialize a const member");
+  if (ar.error) return;
+  T value{};
+  ar & value;
+  if (!ar.error) std::memcpy(const_cast<void*>(field), &value, sizeof(T));
+}
+
+template <typename T, typename Archive, typename Owner, typename Address, typename Reference>
+inline void archive_member(Archive& ar, Owner& owner, Address address, Reference, std::true_type) {
+  archive_scalar<T>(ar, address(owner));
+}
+
+template <typename T, typename Archive, typename Owner, typename Address, typename Reference>
+inline void archive_member(Archive& ar, Owner& owner, Address, Reference reference, std::false_type) {
+  // Instantiate only the reference accessor: non-scalar fields may overload
+  // operator& or be noncopyable, and retain their existing serialization path.
+  ar & reference(owner);
+}
+
+}  // namespace detail
 }  // namespace rpc_core
 
 #define RPC_CORE_DEFINE_TYPE(Type, ...)                                           \
