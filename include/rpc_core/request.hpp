@@ -82,7 +82,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
       const auto call_id = self->call_id_;
       const auto seq = self->seq_;
+      response_decode_scope decoding{*self, call_id, seq};
       auto rsp = msg.unpack_as<T>();
+      decoding.completed = true;
       // Custom deserialization can cancel and reuse this request.
       if (!self->matches_attempt(call_id, seq)) return true;
       if (rsp.first) {
@@ -119,7 +121,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
       const auto call_id = self->call_id_;
       const auto seq = self->seq_;
+      response_decode_scope decoding{*self, call_id, seq};
       auto rsp = msg.unpack_as<T>();
+      decoding.completed = true;
       // Custom deserialization can cancel and reuse this request.
       if (!self->matches_attempt(call_id, seq)) return true;
       if (rsp.first) {
@@ -316,6 +320,19 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
  private:
   inline result<void> send_attempt();
   inline void on_timeout();
+
+  // A decoder exception must not leave a self-owned call without a dispatcher entry.
+  struct response_decode_scope {
+    request& owner;
+    uint32_t call_id;
+    seq_type seq;
+    bool completed = false;
+    ~response_decode_scope() noexcept(false) {
+      if (!completed && owner.matches_attempt(call_id, seq)) {
+        owner.on_finish(finally_t::rsp_serialize_error);
+      }
+    }
+  };
 
   bool matches_attempt(uint32_t call_id, seq_type seq) const {
     return active_ && call_id_ == call_id && seq_ == seq;

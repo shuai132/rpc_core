@@ -59,6 +59,69 @@ fn unsubscribe_command_conversion_can_reenter_rpc() {
 }
 
 #[test]
+fn response_decode_unwind_finishes_only_its_call() {
+    thread_local! {
+        static ON_DECODE: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
+    }
+    struct FailingResponse;
+    impl<'de> serde::Deserialize<'de> for FailingResponse {
+        fn deserialize<D: serde::Deserializer<'de>>(_: D) -> Result<Self, D::Error> {
+            let callback = ON_DECODE.with(|callback| callback.borrow_mut().take().unwrap());
+            callback();
+            panic!("response decoder failed");
+        }
+    }
+
+    for status in [
+        FinallyType::RspSerializeError,
+        FinallyType::Canceled,
+        FinallyType::SessionReset,
+    ] {
+        let f = PendingFixture::new();
+        let request = f.rpc.cmd("pending");
+        let weak = Rc::downgrade(&request);
+        let finished = Rc::new(RefCell::new(Vec::new()));
+        let copy = finished.clone();
+        request
+            .rsp(|_: FailingResponse| panic!("failed response was delivered"))
+            .finally(move |status| copy.borrow_mut().push(status));
+        let request_weak = weak.clone();
+        let rpc = f.rpc.clone();
+        let expected = status.clone();
+        ON_DECODE.with(|callback| {
+            *callback.borrow_mut() = Some(Box::new(move || {
+                if expected != FinallyType::RspSerializeError {
+                    let request = request_weak.upgrade().unwrap();
+                    if expected == FinallyType::SessionReset {
+                        rpc.reset_session();
+                    } else {
+                        request.cancel().reset_cancel();
+                    }
+                    request.rsp(|data: String| assert_eq!(data, "new"));
+                    request.call().unwrap();
+                }
+            }));
+        });
+        request.call().unwrap();
+        drop(request);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f.reply(0, "old")));
+        assert_eq!(
+            result.unwrap_err().downcast_ref::<&str>(),
+            Some(&"response decoder failed")
+        );
+        assert_eq!(*finished.borrow(), vec![status.clone()]);
+        f.expire(0);
+        assert_eq!(finished.borrow().len(), 1);
+        if status != FinallyType::RspSerializeError {
+            assert_eq!(weak.upgrade().unwrap().call(), Err(FinallyType::Busy));
+            f.reply(1, "new");
+            assert_eq!(*finished.borrow(), vec![status, FinallyType::Normal]);
+        }
+        assert!(weak.upgrade().is_none());
+    }
+}
+
+#[test]
 fn response_unwind_runs_finally() {
     for reuse in [false, true] {
         let f = PendingFixture::new();

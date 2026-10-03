@@ -47,6 +47,46 @@ std::function<void()> reentrant_response::on_decode;
 bool reentrant_response::fail = false;
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_response_decode_unwind_finishes_only_its_call() {
+  for (int arity : {1, 2}) {
+    for (auto status : {finally_t::rsp_serialize_error, finally_t::canceled, finally_t::session_reset}) {
+      fixture f;
+      std::vector<finally_t> finished;
+      auto req = f.r->cmd("pending")->finally([&](finally_t result) { finished.push_back(result); });
+      request_w weak = req;
+      if (arity == 1) req->rsp([](reentrant_response) { ASSERT(false); });
+      else req->rsp([](reentrant_response, finally_t) { ASSERT(false); });
+      reentrant_response::on_decode = [&] {
+        if (status != finally_t::rsp_serialize_error) {
+          if (status == finally_t::session_reset) f.r->reset_session();
+          else req->cancel()->reset_cancel();
+          req->rsp([](std::string data) { ASSERT(data == "new"); });
+          ASSERT(req->call());
+        }
+        req.reset();
+        throw std::runtime_error("response decoder failed");
+      };
+      ASSERT(req->call());
+      bool caught = false;
+      try {
+        f.reply(0, "old");
+      } catch (const std::runtime_error& error) {
+        caught = std::string(error.what()) == "response decoder failed";
+      }
+      ASSERT(caught);
+      ASSERT(finished == std::vector<finally_t>{status});
+      f.expire(0);
+      ASSERT(finished.size() == 1);
+      if (status != finally_t::rsp_serialize_error) {
+        ASSERT(weak.lock()->call().type == finally_t::busy);
+        f.reply(1, "new");
+        ASSERT(finished.size() == 2 && finished.back() == finally_t::normal);
+      }
+      ASSERT(weak.expired());
+    }
+  }
+}
+
 static void test_response_unwind_runs_finally() {
   for (int arity : {0, 1, 2}) {
     for (bool reuse : {false, true}) {
@@ -414,6 +454,7 @@ static void test_clearing_finally_callback(bool no_arguments) {
 
 int main() {
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_response_decode_unwind_finishes_only_its_call();
   test_response_unwind_runs_finally();
   test_finally_unwind_releases_request();
   test_response_unwind_cleans_only_its_registration();

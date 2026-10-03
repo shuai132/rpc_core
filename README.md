@@ -158,6 +158,9 @@ including when a request is reused.
 Canceling a request or resetting its session during custom response deserialization
 discards that decoded result. If the request is reused, neither successful nor
 failed decoding can finish the new call or invoke the old response callback.
+If custom response decoding throws while its call is still active, the call ends
+with `rsp_serialize_error` and skips the response callback; the exception still
+propagates. A call already canceled or reset is not completed again.
 If a response callback throws, `finally` still runs once with that response's
 completion status before the exception propagates. The request stays alive through
 `finally`, and a new call started by the response callback remains independent.

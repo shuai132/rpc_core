@@ -37,6 +37,22 @@ pub struct Request {
     pub(crate) inner: RefCell<RequestImpl>,
 }
 
+// A decoder panic must not leave a self-owned call without a dispatcher entry.
+struct ResponseDecodeScope<'a> {
+    request: &'a Request,
+    call_id: u32,
+    seq: SeqType,
+    completed: bool,
+}
+
+impl Drop for ResponseDecodeScope<'_> {
+    fn drop(&mut self) {
+        if !self.completed && self.request.matches_attempt(self.call_id, self.seq) {
+            self.request.on_finish(FinallyType::RspSerializeError);
+        }
+    }
+}
+
 // Builder changes configure the next call, including its retries.
 pub(crate) struct CallOptions {
     pub(crate) rpc: Option<Weak<Rpc>>,
@@ -167,7 +183,14 @@ impl Request {
                     let inner = this.inner.borrow();
                     (inner.call_id, inner.seq)
                 };
+                let mut decoding = ResponseDecodeScope {
+                    request: &this,
+                    call_id,
+                    seq,
+                    completed: false,
+                };
                 let decoded = msg.unpack_as::<P>();
+                decoding.completed = true;
                 // Custom deserialization can cancel and reuse this request.
                 if !this.matches_attempt(call_id, seq) {
                     return true;
