@@ -232,7 +232,57 @@ static void test_pair_decode_preserves_reference_bindings() {
   ASSERT(value == std::make_pair(42, std::string("new")));
 }
 
+template <typename Char>
+static void test_string_decode_from_own_storage() {
+  using String = std::basic_string<Char>;
+  for (size_t length : {size_t(8), size_t(128)}) {
+    String source(length, Char('a'));
+    for (size_t i = 0; i < length; ++i) source[i] = Char(i + 1);
+    source[2] = Char(0);
+    for (const auto& range : {std::make_pair(size_t(0), length), std::make_pair(size_t(0), length / 2),
+                              std::make_pair(size_t(1), length - 1), std::make_pair(length / 4, length / 2)}) {
+      auto actual = source;
+      const auto expected = actual.substr(range.first, range.second);
+      detail::string_view input(reinterpret_cast<const char*>(actual.data() + range.first), range.second * sizeof(Char));
+      ASSERT(deserialize(input, actual));
+      ASSERT(actual == expected);
+    }
+    if (sizeof(Char) > 1) {
+      auto actual = source;
+      const char* unaligned = reinterpret_cast<const char*>(actual.data()) + 1;
+      String expected(length - 1, Char{});
+      std::memcpy(&expected[0], unaligned, expected.size() * sizeof(Char));
+      ASSERT(deserialize(detail::string_view(unaligned, expected.size() * sizeof(Char)), actual));
+      ASSERT(actual == expected);
+    }
+  }
+
+  String actual(128, Char('z'));
+  actual.resize(actual.capacity(), Char('z'));
+  auto expected = actual;
+  expected.push_back(Char{});
+  // The terminating zero is part of the readable buffer, even when growing requires allocation.
+  detail::string_view input(reinterpret_cast<const char*>(actual.data()), (actual.size() + 1) * sizeof(Char));
+  ASSERT(deserialize(input, actual));
+  ASSERT(actual == expected);
+
+  actual.reserve(512);
+  actual.clear();
+  const auto capacity = actual.capacity();
+  const auto storage = actual.data();
+  String external(128, Char('x'));
+  const auto encoded = serialize(external);
+  ASSERT(deserialize(encoded, actual));
+  ASSERT(actual == external && actual.capacity() == capacity && actual.data() == storage);
+  ASSERT(deserialize(detail::string_view(nullptr, 0), actual));
+  ASSERT(actual.empty());
+}
+
 int main() {
+  test_string_decode_from_own_storage<char>();
+  test_string_decode_from_own_storage<wchar_t>();
+  test_string_decode_from_own_storage<char16_t>();
+  test_string_decode_from_own_storage<char32_t>();
   test_pair_decode_preserves_reference_bindings();
   test_enum_decode_rejects_narrowing();
   test_failed_binary_decode_preserves_storage_bounds();

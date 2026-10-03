@@ -216,6 +216,10 @@ High-performance and memory-saving binary serialization.
 * std::string is used as inner data container, it's serialize/deserialize is zero-overhead. so, it is recommended to use
   std::string whenever possible, using it to store binary data is also a good choice.
 
+String decoding supports input views into the destination's own storage, including
+subranges and wide-character data. Overlapping input is copied before the destination
+changes; non-overlapping input continues to reuse the destination's capacity.
+
 Decoding `binary_wrap` validates the length and copies the payload before replacing
 its storage. Invalid or truncated input leaves the destination unchanged. The input
 may also refer to the destination's existing storage.

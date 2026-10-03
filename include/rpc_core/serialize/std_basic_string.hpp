@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstring>
+#include <functional>
 
 namespace rpc_core {
 
@@ -34,6 +35,19 @@ inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   if (!ia.require(ia.size) || ia.size % sizeof(VT) != 0) {
     ia.error = true;
     return ia;
+  }
+  if (ia.size != 0) {
+    const auto* begin = reinterpret_cast<const char*>(t.data());
+    const auto* end = begin + (t.size() + 1) * sizeof(VT);
+    const std::less<const char*> less;
+    if (less(ia.data, end) && less(begin, ia.data + ia.size)) {
+      // Preserve aliased input before resize can overwrite it or release its storage.
+      T decoded(t.get_allocator());
+      decoded.resize(ia.size / sizeof(VT));
+      std::memcpy(&decoded[0], ia.data, ia.size);
+      t.swap(decoded);
+      return ia;
+    }
   }
   t.resize(ia.size / sizeof(VT));
   if (!t.empty()) std::memcpy(&t[0], ia.data, t.size() * sizeof(VT));
