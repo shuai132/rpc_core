@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 namespace rpc_core {
 
@@ -24,15 +25,19 @@ inline serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<std::is_same<T, binary_wrap>::value, int>::type = 0>
 inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
-  t.size << ia;
-  if (!ia.require(t.size)) return ia;
-  t._data_ = std::shared_ptr<uint8_t>(new uint8_t[t.size], [](const uint8_t* p) {
+  size_t size = 0;
+  size << ia;
+  if (!ia.require(size)) return ia;
+  auto data = std::shared_ptr<uint8_t>(new uint8_t[size], [](const uint8_t* p) {
     delete[] p;
   });
+  // Keep the previous storage alive while copying; the input may refer to it.
+  if (size != 0) memcpy(data.get(), ia.data, size);
+  ia.data += size;
+  ia.size -= size;
+  t._data_ = std::move(data);
   t.data = t._data_.get();
-  if (t.size != 0) memcpy(t.data, ia.data, t.size);
-  ia.data += t.size;
-  ia.size -= t.size;
+  t.size = size;
   return ia;
 }
 

@@ -152,7 +152,32 @@ static void test_container_adaptor_invariants() {
   ASSERT(stack.top() == 2);
 }
 
+static void test_failed_binary_decode_preserves_storage_bounds() {
+  std::string original = "old";
+  binary_wrap value;
+  const auto encoded = serialize(binary_wrap(&original[0], original.size()));
+  ASSERT(deserialize(encoded, value));
+  auto storage = value._data_;
+  auto pointer = value.data;
+  for (const auto& invalid : {std::string{}, serialize(size_t(1000)) + "short"}) {
+    ASSERT(!deserialize(invalid, value));
+    ASSERT(value.size == original.size() && value.data == pointer && value._data_ == storage);
+    ASSERT(serialize(value) == encoded);
+  }
+  ASSERT(deserialize(serialize(binary_wrap{}), value));
+  ASSERT(value.size == 0);
+  ASSERT(deserialize(encoded, value));
+  ASSERT(serialize(value) == encoded);
+
+  auto nested = encoded;
+  ASSERT(deserialize(serialize(binary_wrap(&nested[0], nested.size())), value));
+  detail::string_view borrowed(static_cast<const char*>(value.data), value.size);
+  ASSERT(deserialize(borrowed, value));
+  ASSERT(serialize(value) == encoded);
+}
+
 int main() {
+  test_failed_binary_decode_preserves_storage_bounds();
   test_container_adaptor_invariants();
   test_fixed_array_lengths();
   test_floating_chrono();
