@@ -439,6 +439,7 @@ impl Request {
         struct FutureResultInner<R> {
             result: Option<FutureRet<R>>,
             waker: Option<Waker>,
+            completed: bool,
         }
         struct FutureResult<R> {
             inner: Rc<RefCell<FutureResultInner<R>>>,
@@ -492,12 +493,18 @@ impl Request {
             inner: Rc::new(RefCell::new(FutureResultInner {
                 result: None,
                 waker: None,
+                completed: false,
             })),
         };
         let result_c1 = result.inner.clone();
         let result_c2 = result.inner.clone();
         self.rsp(move |msg: R| {
             let mut result = result_c1.borrow_mut();
+            // The reusable builder can retain these callbacks for later calls.
+            // Consuming the first result must not enable them again.
+            if result.completed {
+                return;
+            }
             result.result = Some(FutureRet {
                 type_: FinallyType::Normal,
                 result: Some(msg),
@@ -505,6 +512,10 @@ impl Request {
         })
         .finally(move |finally| {
             let mut result = result_c2.borrow_mut();
+            if result.completed {
+                return;
+            }
+            result.completed = true;
             if result.result.is_some() {
                 result.result.as_mut().unwrap().type_ = finally;
             } else {

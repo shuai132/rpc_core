@@ -109,6 +109,9 @@ connections also run without holding RPC state borrows, allowing custom
 Dropping a polled, pending `future()` cancels its logical call, including retries.
 Use `reset_cancel()` before reusing that request. Dropping an unpolled future or
 an old future after its call completed does not cancel a newer call.
+A completed future keeps its original response and status even if the request is
+reused with `call()` before that future is polled again. Its retained callbacks
+ignore later calls; use a new `future()` to await a new result.
 Future polling clones the current waker and releases any replaced waker outside
 internal borrows. A custom waker may complete or cancel the request without a
 borrow panic or losing the completion notification.

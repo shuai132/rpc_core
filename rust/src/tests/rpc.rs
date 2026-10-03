@@ -1617,6 +1617,59 @@ fn dropping_unpolled_or_busy_future_leaves_active_call_alone() {
 }
 
 #[test]
+fn completed_future_keeps_its_result_when_request_is_reused() {
+    for first in [
+        FinallyType::Normal,
+        FinallyType::Timeout,
+        FinallyType::Canceled,
+    ] {
+        for second in [
+            FinallyType::Normal,
+            FinallyType::Timeout,
+            FinallyType::Canceled,
+        ] {
+            let f = PendingFixture::new();
+            let request = f.rpc.cmd("pending");
+            let mut future = Box::pin(request.future::<String>());
+            assert!(poll_once(future.as_mut()).is_pending());
+            match first {
+                FinallyType::Normal => f.reply(0, "original"),
+                FinallyType::Timeout => f.expire(0),
+                _ => {
+                    request.cancel();
+                }
+            }
+            // Reuse the builder without replacing the callbacks, before polling
+            // the completed future. The second call must not change its result.
+            request.reset_cancel().call().unwrap();
+            match second {
+                FinallyType::Normal => f.reply(1, "later"),
+                FinallyType::Timeout => f.expire(1),
+                _ => {
+                    request.cancel();
+                }
+            }
+            let Poll::Ready(result) = poll_once(future.as_mut()) else {
+                panic!("completed future lost its result");
+            };
+            assert_eq!(result.type_, first, "later completion: {second:?}");
+            assert_eq!(
+                result.result.as_deref(),
+                (first == FinallyType::Normal).then_some("original")
+            );
+            drop(future);
+            request.reset_cancel();
+            let mut next = Box::pin(request.future::<String>());
+            assert!(poll_once(next.as_mut()).is_pending());
+            f.reply(2, "next future");
+            assert!(
+                matches!(poll_once(next.as_mut()), Poll::Ready(result) if result.type_ == FinallyType::Normal && result.result.as_deref() == Some("next future"))
+            );
+        }
+    }
+}
+
+#[test]
 fn old_future_drop_does_not_cancel_reused_request() {
     for complete_with_response in [false, true] {
         let f = PendingFixture::new();
