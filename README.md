@@ -199,7 +199,8 @@ reply caching, replay, delivery acknowledgement or session negotiation is provid
 
 A receive callback may destroy its stream connection. Any remaining frames in
 that input chunk are discarded, and saved `on_recv_bytes` callbacks return `false`
-after the connection is destroyed.
+after the connection is destroyed. Saved `send_package_impl` callbacks also return
+`false` after their stream connection is destroyed.
 
 Connection callbacks and `data_packer::on_data` retain the running callable when
 it is replaced, cleared, or its owner is destroyed. They remain assignable from

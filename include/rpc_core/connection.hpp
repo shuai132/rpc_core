@@ -89,9 +89,11 @@ struct stream_connection : public connection {
  public:
   explicit stream_connection(uint32_t max_body_size = UINT32_MAX) : state_(std::make_shared<stream_state>(max_body_size)) {
     state_->owner = this;
-    send_package_impl = [this](const std::string &package) {
-      auto payload = state_->packer.pack(package);
-      return !payload.empty() && send_bytes_impl && send_bytes_impl(std::move(payload));
+    send_package_impl = [state = state_](const std::string &package) {
+      if (!state->owner) return false;
+      auto payload = state->packer.pack(package);
+      auto& send = state->owner->send_bytes_impl;
+      return !payload.empty() && send && send(std::move(payload));
     };
     state_->packer.on_data = [state = state_.get()](std::string payload) {
       if (state->owner) state->owner->on_recv_package(std::move(payload));

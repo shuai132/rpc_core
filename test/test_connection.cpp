@@ -68,7 +68,24 @@ static void test_callbacks_keep_state_and_survive_owner_destruction() {
   ASSERT(weak.expired());
 }
 
+static void test_saved_send_callback_after_connection_destruction() {
+  auto conn = std::make_shared<stream_connection>();
+  std::weak_ptr<stream_connection> weak = conn;
+  int sends = 0;
+  conn->send_bytes_impl = [&](std::string data) {
+    ASSERT(data == detail::data_packer().pack("live"));
+    ++sends;
+    return true;
+  };
+  std::function<bool(std::string)> send = conn->send_package_impl;
+  ASSERT(send("live") && sends == 1);
+  conn.reset();
+  ASSERT(weak.expired());
+  ASSERT(!send("expired") && sends == 1);
+}
+
 int main() {
+  test_saved_send_callback_after_connection_destruction();
   test_send_replacement_during_response();
   test_callbacks_keep_state_and_survive_owner_destruction();
 }
