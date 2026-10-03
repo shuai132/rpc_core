@@ -118,14 +118,16 @@ impl TcpClient {
     where
         F: Fn() + 'static,
     {
-        *self.on_open.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_open.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn on_open_failed<F>(&self, callback: F)
     where
         F: Fn(&dyn Error) + 'static,
     {
-        *self.on_open_failed.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_open_failed.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn on_data<F>(&self, callback: F)
@@ -139,7 +141,8 @@ impl TcpClient {
     where
         F: Fn() + 'static,
     {
-        *self.on_close.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_close.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn send(&self, data: Vec<u8>) -> bool {

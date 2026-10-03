@@ -175,21 +175,28 @@ impl RpcClient {
     where
         F: Fn(Rc<Rpc>) + 'static,
     {
-        self.inner.borrow_mut().on_open = Some(Rc::new(callback));
+        let previous = self.inner.borrow_mut().on_open.replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn on_open_failed<F>(&self, callback: F)
     where
         F: Fn(&dyn Error) + 'static,
     {
-        self.inner.borrow_mut().on_open_failed = Some(Rc::new(callback));
+        let previous = self
+            .inner
+            .borrow_mut()
+            .on_open_failed
+            .replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn on_close<F>(&self, callback: F)
     where
         F: Fn() + 'static,
     {
-        self.inner.borrow_mut().on_close = Some(Rc::new(callback));
+        let previous = self.inner.borrow_mut().on_close.replace(Rc::new(callback));
+        drop(previous);
     }
 }
 

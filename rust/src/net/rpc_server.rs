@@ -40,7 +40,8 @@ impl RpcSession {
     where
         F: Fn() + 'static,
     {
-        *self.on_close.borrow_mut() = Some(Box::new(callback));
+        let previous = self.on_close.borrow_mut().replace(Box::new(callback));
+        drop(previous);
     }
 }
 
@@ -173,7 +174,8 @@ impl RpcServer {
     where
         F: Fn(Weak<RpcSession>) + 'static,
     {
-        *self.on_session.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_session.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 }
 

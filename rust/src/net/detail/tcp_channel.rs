@@ -47,14 +47,16 @@ impl TcpChannel {
     where
         F: Fn(Vec<u8>) + 'static,
     {
-        *self.on_data.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_data.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn on_close<F>(&self, callback: F)
     where
         F: Fn() + 'static,
     {
-        *self.on_close.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_close.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 
     pub fn send(&self, data: Vec<u8>) -> bool {

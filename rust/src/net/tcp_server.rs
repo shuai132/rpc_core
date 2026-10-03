@@ -105,7 +105,8 @@ impl TcpServer {
     where
         F: Fn(Weak<TcpChannel>) + 'static,
     {
-        *self.on_session.borrow_mut() = Some(Rc::new(callback));
+        let previous = self.on_session.borrow_mut().replace(Rc::new(callback));
+        drop(previous);
     }
 }
 
