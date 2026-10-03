@@ -12,6 +12,10 @@
   }                                                                                            \
   template <typename T, typename std::enable_if<std::is_same<CLASS, T>::value, int>::type = 0> \
   ::rpc_core::serialize_iarchive& operator<<(T& t, ::rpc_core::serialize_iarchive& ia) {       \
+    if (!ia.require(ia.size) || ia.size == 0) {                                               \
+      ia.error = true;                                                                       \
+      return ia;                                                                            \
+    }                                                                                       \
     try {                                                                                      \
       t = nlohmann::json::parse(ia.data, ia.data + ia.size).get<T>();                          \
     } catch (const std::exception&) {                                                        \

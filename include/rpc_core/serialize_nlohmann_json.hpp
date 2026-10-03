@@ -13,6 +13,10 @@ inline std::string serialize(T&& t) {
 
 template <typename T>
 inline bool deserialize(const detail::string_view& data, T& t) {
+  if (data.data() == nullptr || data.size() == 0) {
+    RPC_CORE_LOGE("JSON deserialization failed");
+    return false;
+  }
   try {
     t = nlohmann::json::parse(data.data(), data.data() + data.size()).get<T>();
     return true;

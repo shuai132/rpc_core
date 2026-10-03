@@ -14,6 +14,10 @@ serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::value, int>::type = 0>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
+  if (!ia.require(ia.size) || ia.size == 0) {
+    ia.error = true;
+    return ia;
+  }
   try {
     nlohmann::json::parse(ia.data, ia.data + ia.size).swap(t);
   } catch (const std::exception&) {
