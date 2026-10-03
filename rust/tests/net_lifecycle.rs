@@ -147,8 +147,10 @@ fn stop_inside_session_callback_discards_queued_connections() {
         tokio::task::yield_now().await;
         // Queue both handshakes before allowing the local accept task to run.
         let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-        let _first = std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
-        let _second = std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
+        let _first =
+            std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
+        let _second =
+            std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
         rx.recv().await.unwrap();
         tokio::task::yield_now().await;
         assert_eq!(accepted.get(), 1);

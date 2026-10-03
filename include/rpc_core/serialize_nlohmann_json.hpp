@@ -16,8 +16,8 @@ inline bool deserialize(const detail::string_view& data, T& t) {
   try {
     t = nlohmann::json::parse(data.data(), data.data() + data.size()).get<T>();
     return true;
-  } catch (std::exception& e) {
-    RPC_CORE_LOGE("deserialize: %s", e.what());
+  } catch (const std::exception&) {
+    RPC_CORE_LOGE("JSON deserialization failed");
     return false;
   }
 }

@@ -14,8 +14,8 @@
   ::rpc_core::serialize_iarchive& operator<<(T& t, ::rpc_core::serialize_iarchive& ia) {       \
     try {                                                                                      \
       t = nlohmann::json::parse(ia.data, ia.data + ia.size).get<T>();                          \
-    } catch (std::exception & e) {                                                             \
-      RPC_CORE_LOGE("deserialize: %s", e.what());                                              \
+    } catch (const std::exception&) {                                                        \
+      RPC_CORE_LOGE("JSON deserialization failed");                                          \
       ia.error = true;                                                                         \
     }                                                                                          \
     return ia;                                                                                 \

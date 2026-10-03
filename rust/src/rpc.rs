@@ -53,8 +53,8 @@ impl Rpc {
                     let rsp: R = handle(value);
                     match MsgWrapper::make_rsp(msg.seq, rsp) {
                         Ok(rsp) => Some(rsp),
-                        Err(error) => {
-                            log::error!("response serialization failed: {error}");
+                        Err(_) => {
+                            log::error!("response serialization failed");
                             None
                         }
                     }

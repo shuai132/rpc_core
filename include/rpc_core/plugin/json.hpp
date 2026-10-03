@@ -16,8 +16,8 @@ template <typename T, typename std::enable_if<std::is_same<nlohmann::json, T>::v
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   try {
     nlohmann::json::parse(ia.data, ia.data + ia.size).swap(t);
-  } catch (std::exception& e) {
-    RPC_CORE_LOGE("deserialize: %s", e.what());
+  } catch (const std::exception&) {
+    RPC_CORE_LOGE("JSON deserialization failed");
     ia.error = true;
   }
   return ia;
