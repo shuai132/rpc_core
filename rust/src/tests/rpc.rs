@@ -1050,6 +1050,94 @@ fn cancel_during_timeout_does_not_retry_or_finish_twice() {
 }
 
 #[test]
+fn replacing_future_waker_can_cancel_the_request() {
+    thread_local! {
+        static ON_DROP: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
+    }
+    struct ReentrantWake;
+    impl Wake for ReentrantWake {
+        fn wake(self: Arc<Self>) {}
+    }
+    impl Drop for ReentrantWake {
+        fn drop(&mut self) {
+            let callback = ON_DROP.with(|slot| slot.borrow_mut().take());
+            if let Some(callback) = callback {
+                callback();
+            }
+        }
+    }
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    struct Counter(AtomicUsize);
+    impl Wake for Counter {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let f = PendingFixture::new();
+    let request = f.rpc.cmd("pending");
+    let mut future = Box::pin(request.future::<String>());
+    let old = Waker::from(Arc::new(ReentrantWake));
+    assert!(future
+        .as_mut()
+        .poll(&mut Context::from_waker(&old))
+        .is_pending());
+    drop(old);
+    let weak = Rc::downgrade(&request);
+    ON_DROP.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(move || {
+            weak.upgrade().unwrap().cancel();
+        }))
+    });
+    let counter = Arc::new(Counter(AtomicUsize::new(0)));
+    let new = Waker::from(counter.clone());
+    let result = future.as_mut().poll(&mut Context::from_waker(&new));
+    let result = match result {
+        Poll::Ready(result) => result,
+        Poll::Pending => {
+            assert_eq!(counter.0.load(Ordering::SeqCst), 1);
+            let Poll::Ready(result) = poll_once(future.as_mut()) else {
+                panic!("waker replacement lost the cancellation result");
+            };
+            result
+        }
+    };
+    assert_eq!(result.type_, FinallyType::Canceled);
+}
+
+#[test]
+fn cloning_future_waker_can_complete_the_request() {
+    use std::task::{RawWaker, RawWakerVTable};
+    thread_local! {
+        static ON_CLONE: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
+    }
+    fn clone_waker(_: *const ()) -> RawWaker {
+        let callback = ON_CLONE.with(|slot| slot.borrow_mut().take());
+        if let Some(callback) = callback {
+            callback();
+        }
+        RawWaker::new(std::ptr::null(), &VTABLE)
+    }
+    fn noop(_: *const ()) {}
+    static VTABLE: RawWakerVTable = RawWakerVTable::new(clone_waker, noop, noop, noop);
+    // SAFETY: This stateless waker never dereferences its data. Its optional
+    // test hook is thread-local; cloning and dropping need no shared ownership.
+    let waker = unsafe { Waker::from_raw(RawWaker::new(std::ptr::null(), &VTABLE)) };
+    let f = PendingFixture::new();
+    let request = f.rpc.cmd("pending");
+    let weak = Rc::downgrade(&request);
+    ON_CLONE.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(move || {
+            weak.upgrade().unwrap().cancel();
+        }))
+    });
+    let mut future = Box::pin(request.future::<String>());
+    let Poll::Ready(result) = future.as_mut().poll(&mut Context::from_waker(&waker)) else {
+        panic!("completion during waker cloning was lost");
+    };
+    assert_eq!(result.type_, FinallyType::Canceled);
+}
+
+#[test]
 fn future_notifies_the_most_recent_waker() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     struct Counter(AtomicUsize);

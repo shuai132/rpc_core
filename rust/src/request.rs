@@ -446,13 +446,20 @@ impl Request {
         impl<R> Future for FutureResult<R> {
             type Output = FutureRet<R>;
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                let mut result = self.inner.borrow_mut();
-                if let Some(result) = result.result.take() {
-                    Poll::Ready(result)
-                } else {
-                    result.waker = Some(cx.waker().clone());
-                    Poll::Pending
+                if let Some(result) = self.inner.borrow_mut().result.take() {
+                    return Poll::Ready(result);
                 }
+                // Waker cloning and dropping can run user code that completes this call.
+                let waker = cx.waker().clone();
+                let previous = {
+                    let mut result = self.inner.borrow_mut();
+                    if let Some(result) = result.result.take() {
+                        return Poll::Ready(result);
+                    }
+                    result.waker.replace(waker)
+                };
+                drop(previous);
+                Poll::Pending
             }
         }
 
