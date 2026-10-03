@@ -120,6 +120,17 @@ impl TcpChannel {
         );
         self.active_loops.set(2);
         *self.is_open.borrow_mut() = true;
+        // Own cleanup before spawning so it also runs on panic or an unpolled
+        // task being dropped. Do not invoke user callbacks while unwinding.
+        struct IoScope(Rc<TcpChannel>);
+        impl Drop for IoScope {
+            fn drop(&mut self) {
+                self.0.do_close();
+                self.0.finish_loop();
+            }
+        }
+        let read_scope = IoScope(self.clone());
+        let write_scope = IoScope(self.clone());
         let this = self.clone();
         tokio::task::spawn_local(async move {
             let (read_half, write_half) = tokio::io::split(stream);
@@ -128,6 +139,7 @@ impl TcpChannel {
             if this.config.borrow().auto_pack {
                 let this = this.clone();
                 tokio::task::spawn_local(async move {
+                    let _scope = read_scope;
                     let mut read_half = read_half;
                     loop {
                         if !*this.is_open.borrow() {
@@ -145,11 +157,11 @@ impl TcpChannel {
                         }
                     }
                     trace!("loop exit: read");
-                    this.finish_loop();
                 });
             } else {
                 let this = this.clone();
                 tokio::task::spawn_local(async move {
+                    let _scope = read_scope;
                     let mut read_half = read_half;
                     loop {
                         if !*this.is_open.borrow() {
@@ -167,12 +179,12 @@ impl TcpChannel {
                         }
                     }
                     trace!("loop exit: read");
-                    this.finish_loop();
                 });
             }
 
             // write loop task
             tokio::task::spawn_local(async move {
+                let _scope = write_scope;
                 let mut write_half = write_half;
                 loop {
                     if !*this.is_open.borrow() {
@@ -206,7 +218,6 @@ impl TcpChannel {
                 if let Some(on_close) = callback {
                     on_close();
                 }
-                this.finish_loop();
             });
         });
     }
@@ -301,6 +312,105 @@ impl Drop for TcpChannel {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dropping_unpolled_io_tasks_releases_channel_state() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let tasks = tokio::task::LocalSet::new();
+        let channel = TcpChannel::new(Rc::new(RefCell::new(TcpConfig::new())));
+        let _peer = runtime.block_on(tasks.run_until(async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let peer = TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            channel.do_open(stream);
+            peer
+        }));
+        assert_eq!(channel.active_loops.get(), 2);
+        drop(tasks);
+        assert_eq!(channel.active_loops.get(), 0);
+        assert!(!channel.is_open());
+        assert!(!channel.send(vec![1]));
+    }
+
+    #[test]
+    fn callback_panic_finishes_io_and_allows_reopen() {
+        for auto_pack in [false, true] {
+            for panic_on_close in [false, true] {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+                    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                        let mut peer = TcpStream::connect(listener.local_addr().unwrap())
+                            .await
+                            .unwrap();
+                        let (stream, _) = listener.accept().await.unwrap();
+                        let channel = TcpChannel::new(Rc::new(RefCell::new(TcpConfig {
+                            auto_pack,
+                            ..TcpConfig::new()
+                        })));
+                        let panics = Rc::new(Cell::new(0));
+                        let count = panics.clone();
+                        channel.on_data(move |_| {
+                            count.set(count.get() + 1);
+                            panic!("receive callback failed");
+                        });
+                        let closes = Rc::new(Cell::new(0));
+                        let count = closes.clone();
+                        let panic_count = panics.clone();
+                        channel.on_close(move || {
+                            count.set(count.get() + 1);
+                            if panic_on_close {
+                                panic_count.set(panic_count.get() + 1);
+                                panic!("close callback failed");
+                            }
+                        });
+                        channel.do_open(stream);
+                        if panic_on_close {
+                            channel.close();
+                        } else {
+                            if auto_pack {
+                                peer.write_all(&1u32.to_le_bytes()).await.unwrap();
+                            }
+                            peer.write_all(b"x").await.unwrap();
+                        }
+                        channel.wait_close_finish().await;
+                        assert!(!channel.is_open());
+                        assert_eq!(panics.get(), 1);
+                        assert_eq!(closes.get(), 1);
+                        assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+
+                        let (tx, mut received) = tokio::sync::mpsc::unbounded_channel();
+                        channel.on_data(move |data| {
+                            tx.send(data).unwrap();
+                        });
+                        channel.on_close(|| {});
+                        let mut peer = TcpStream::connect(listener.local_addr().unwrap())
+                            .await
+                            .unwrap();
+                        let (stream, _) = listener.accept().await.unwrap();
+                        channel.do_open(stream);
+                        if auto_pack {
+                            peer.write_all(&1u32.to_le_bytes()).await.unwrap();
+                        }
+                        peer.write_all(b"y").await.unwrap();
+                        assert_eq!(received.recv().await.unwrap(), b"y");
+                        channel.close();
+                        channel.wait_close_finish().await;
+                    })
+                    .await
+                    .expect("callback panic stranded IO shutdown");
+                }));
+            }
+        }
+    }
 
     #[test]
     fn default_frame_limit_is_shared_by_all_config_constructors() {
