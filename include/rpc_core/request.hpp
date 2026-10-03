@@ -55,8 +55,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
 
   template <typename T>
   request_s msg(T&& message) {
+    auto self = shared_from_this();
     this->payload_ = serialize(std::forward<T>(message));
-    return shared_from_this();
+    return self;
   }
 
   template <typename F, typename std::enable_if<callable_traits<F>::argc == 2, int>::type = 0>
@@ -169,20 +170,22 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    * @return
    */
   request_s finally(std::function<void(finally_t)> finally) {
+    auto self = shared_from_this();
     finally_ = std::make_shared<std::function<void(finally_t)>>(std::move(finally));
-    return shared_from_this();
+    return self;
   }
 
   request_s finally(std::function<void()> finally) {
+    auto self = shared_from_this();
     if (!finally) {
       finally_.reset();
-      return shared_from_this();
+      return self;
     }
     finally_ = std::make_shared<std::function<void(finally_t)>>([finally = std::move(finally)](finally_t t) mutable {
       RPC_CORE_UNUSED(t);
       finally();
     });
-    return shared_from_this();
+    return self;
   }
 
   /**
@@ -206,8 +209,9 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    * timeout callback for wait `rsp`
    */
   request_s timeout(std::function<void()> timeout_cb) {
+    auto self = shared_from_this();
     timeout_cb_ = std::move(timeout_cb);
-    return shared_from_this();
+    return self;
   }
 
   inline request_s add_to(dispose& dispose);
@@ -249,13 +253,13 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
    */
   template <typename _ = void>
   request_s mark_need_rsp() {
-    rsp([] {});
-    return shared_from_this();
+    return rsp([] {});
   }
 
   request_s rpc(rpc_w rpc) {
+    auto self = shared_from_this();
     rpc_ = std::move(rpc);
-    return shared_from_this();
+    return self;
   }
 
   rpc_w rpc() {

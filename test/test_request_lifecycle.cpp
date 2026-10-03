@@ -6,6 +6,33 @@
 
 using namespace rpc_core;
 
+static void test_request_setters_keep_owner_during_capture_release() {
+  for (int setter = 0; setter < 7; ++setter) {
+    auto req = request::create();
+    request_w observer = req;
+    auto capture = std::shared_ptr<int>(new int, [&](int* value) {
+      delete value;
+      req.reset();
+    });
+    if (setter < 4) req->finally([capture] {});
+    else if (setter < 6) req->timeout([capture] {});
+    else req->rsp([capture] {});
+    capture.reset();
+    request_s retained;
+    if (setter == 0) retained = req->finally([] {});
+    if (setter == 1) retained = req->finally([](finally_t) {});
+    if (setter == 2) retained = req->finally(std::function<void()>{});
+    if (setter == 3) retained = req->finally(std::function<void(finally_t)>{});
+    if (setter == 4) retained = req->timeout([] {});
+    if (setter == 5) retained = req->timeout(nullptr);
+    if (setter == 6) retained = req->mark_need_rsp();
+    ASSERT(!req && retained && !observer.expired());
+    ASSERT(retained->call().type == finally_t::rpc_expired);
+    retained.reset();
+    ASSERT(observer.expired());
+  }
+}
+
 template <typename T>
 struct tracked_allocator {
   using value_type = T;
@@ -20,6 +47,55 @@ struct tracked_allocator {
   T* allocate(size_t count) { return std::allocator<T>{}.allocate(count); }
   void deallocate(T* data, size_t count) { std::allocator<T>{}.deallocate(data, count); }
 };
+
+struct releasing_message {
+  request_s& owner;
+  void operator>>(serialize_oarchive& archive) const {
+    owner.reset();
+    42 >> archive;
+  }
+};
+
+static void test_message_serialization_keeps_request_alive() {
+  auto r = rpc::create();
+  r->set_ready(true);
+  int sent = 0;
+  r->get_connection()->send_package_impl = [&](std::string packet) {
+    auto decoded = detail::coder::deserialize(packet);
+    ASSERT(decoded.first && decoded.second.cmd == "value");
+    auto message = decoded.second.unpack_as<int>();
+    ASSERT(message.first && message.second == 42);
+    ++sent;
+    return true;
+  };
+  auto req = r->cmd("value");
+  request_w observer = req;
+  auto retained = req->msg(releasing_message{req});
+  ASSERT(!req && retained && !observer.expired());
+  ASSERT(retained->call() && sent == 1);
+  retained.reset();
+  ASSERT(observer.expired());
+}
+
+static void test_rpc_replacement_keeps_request_during_control_block_release() {
+  auto req = request::create();
+  request_w observer = req;
+  auto actual = rpc::create();
+  auto capture = std::shared_ptr<int>(new int, [&](int* value) {
+    delete value;
+    req.reset();
+  });
+  rpc_s alias(actual.get(), [](rpc*) {}, tracked_allocator<rpc>{capture});
+  req->rpc(alias);
+  alias.reset();
+  capture.reset();
+  ASSERT(req);
+  auto retained = req->rpc(actual);
+  ASSERT(!req && retained && !observer.expired());
+  ASSERT(retained->rpc().lock() == actual);
+  retained.reset();
+  ASSERT(observer.expired());
+}
 
 static void test_dispose_control_block_release_can_reenter() {
   struct on_drop {
@@ -382,6 +458,9 @@ static void test_duplicate_dispose_registration_does_not_cancel_a_restarted_call
 }
 
 int main() {
+  test_request_setters_keep_owner_during_capture_release();
+  test_message_serialization_keeps_request_alive();
+  test_rpc_replacement_keeps_request_during_control_block_release();
   test_dispose_control_block_release_can_reenter();
   test_long_lived_dispose_releases_expired_control_blocks();
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)

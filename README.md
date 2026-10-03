@@ -156,6 +156,9 @@ original payload, RPC and callbacks. Retries belong to the same logical call,
 consume a fresh retry budget for each new call, and invoke `finally` only once.
 Reused callbacks retain their mutable captures across calls. Replacing a callback
 configures a new instance for future calls; the active call keeps its old instance.
+Builder methods keep the request alive through custom serialization and the
+release of replaced captures or control blocks. Their returned shared pointer
+remains usable even if that code releases the caller's last request reference.
 Passing an empty `std::function<void()>` or `std::function<void(finally_t)>` to
 `finally()` clears the callback for future calls without affecting an active call.
 After `cancel()`, use `reset_cancel()` before calling again. Asio `co_call()` also
