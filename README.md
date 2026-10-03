@@ -220,6 +220,10 @@ Decoding `binary_wrap` validates the length and copies the payload before replac
 its storage. Invalid or truncated input leaves the destination unchanged. The input
 may also refer to the destination's existing storage.
 
+Enum decoding rejects values outside the underlying integer type's range and
+leaves the destination unchanged on failure. The existing unsigned wire encoding,
+including its representation of negative signed enum values, is unchanged.
+
 The binary format assumes little-endian hosts and fixes the floating-point formats:
 
 | C++ type | Wire format | Size |

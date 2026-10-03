@@ -176,7 +176,44 @@ static void test_failed_binary_decode_preserves_storage_bounds() {
   ASSERT(serialize(value) == encoded);
 }
 
+enum class SmallUnsigned : uint8_t { value = 1 };
+enum class SmallSigned : int8_t { value = 1 };
+enum class WideSigned : intmax_t { value = 1 };
+enum class WideUnsigned : uintmax_t { value = 1 };
+
+static void test_enum_decode_rejects_narrowing() {
+  SmallUnsigned small = SmallUnsigned::value;
+  ASSERT(!deserialize(serialize(uintmax_t(256)), small));
+  ASSERT(small == SmallUnsigned::value);
+  SmallSigned signed_small = SmallSigned::value;
+  for (auto invalid : {uintmax_t(128), uintmax_t(255), static_cast<uintmax_t>(intmax_t(-129))}) {
+    ASSERT(!deserialize(serialize(invalid), signed_small));
+    ASSERT(signed_small == SmallSigned::value);
+  }
+  for (int value : {-128, -1, 0, 1, 127}) {
+    auto expected = static_cast<SmallSigned>(value);
+    ASSERT(deserialize(serialize(expected), signed_small));
+    ASSERT(signed_small == expected);
+  }
+  ASSERT(deserialize(serialize(uintmax_t(255)), small));
+  ASSERT(static_cast<uint8_t>(small) == 255);
+  for (auto value : {(std::numeric_limits<intmax_t>::min)(), intmax_t(-1), (std::numeric_limits<intmax_t>::max)()}) {
+    auto expected = static_cast<WideSigned>(value);
+    WideSigned actual{};
+    ASSERT(deserialize(serialize(expected), actual) && actual == expected);
+  }
+  const auto largest = static_cast<WideUnsigned>((std::numeric_limits<uintmax_t>::max)());
+  WideUnsigned actual{};
+  ASSERT(deserialize(serialize(largest), actual) && actual == largest);
+  for (const auto& invalid : {std::string{}, std::string("\x02\x01", 2)}) {
+    small = SmallUnsigned::value;
+    ASSERT(!deserialize(invalid, small));
+    ASSERT(small == SmallUnsigned::value);
+  }
+}
+
 int main() {
+  test_enum_decode_rejects_narrowing();
   test_failed_binary_decode_preserves_storage_bounds();
   test_container_adaptor_invariants();
   test_fixed_array_lengths();
