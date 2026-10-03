@@ -14,6 +14,61 @@ use rpc_core::rpc::Rpc;
 struct NoopWake;
 
 #[test]
+fn response_deserialization_cannot_finish_a_reused_request() {
+    thread_local! {
+        static ON_DECODE: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
+    }
+    struct ReentrantResponse;
+    impl<'de> serde::Deserialize<'de> for ReentrantResponse {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+            let callback = ON_DECODE.with(|callback| callback.borrow_mut().take().unwrap());
+            callback();
+            if value == "invalid" {
+                Err(serde::de::Error::custom("invalid response"))
+            } else {
+                Ok(Self)
+            }
+        }
+    }
+
+    for value in ["old", "invalid"] {
+        let f = PendingFixture::new();
+        let request = f.rpc.cmd("pending");
+        let finished = Rc::new(RefCell::new(Vec::new()));
+        let copy = finished.clone();
+        request
+            .rsp(|_: ReentrantResponse| panic!("stale decoded response was delivered"))
+            .finally(move |status| copy.borrow_mut().push(status));
+        let weak = Rc::downgrade(&request);
+        let replies = Rc::new(RefCell::new(Vec::new()));
+        let copy = replies.clone();
+        ON_DECODE.with(|callback| {
+            *callback.borrow_mut() = Some(Box::new(move || {
+                let request = weak.upgrade().unwrap();
+                request.cancel().reset_cancel();
+                request.rsp(move |value: String| copy.borrow_mut().push(value));
+                request.call().unwrap();
+            }));
+        });
+        request.call().unwrap();
+        f.reply(0, value);
+        assert_eq!(*finished.borrow(), vec![FinallyType::Canceled]);
+        assert!(replies.borrow().is_empty());
+        assert_eq!(request.call(), Err(FinallyType::Busy));
+        f.expire(0);
+        f.reply(1, "new");
+        assert_eq!(*replies.borrow(), vec!["new"]);
+        assert_eq!(
+            *finished.borrow(),
+            vec![FinallyType::Canceled, FinallyType::Normal]
+        );
+        f.expire(1);
+        assert_eq!(finished.borrow().len(), 2);
+    }
+}
+
+#[test]
 fn calls_without_a_message_use_json_unit() {
     let (server_connection, client_connection) = rpc_core::connection::LoopbackConnection::new();
     let server = Rpc::new(Some(server_connection));

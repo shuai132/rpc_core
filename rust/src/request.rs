@@ -163,7 +163,16 @@ impl Request {
                     return true;
                 }
 
-                if let Ok(value) = msg.unpack_as::<P>() {
+                let (call_id, seq) = {
+                    let inner = this.inner.borrow();
+                    (inner.call_id, inner.seq)
+                };
+                let decoded = msg.unpack_as::<P>();
+                // Custom deserialization can cancel and reuse this request.
+                if !this.matches_attempt(call_id, seq) {
+                    return true;
+                }
+                if let Ok(value) = decoded {
                     this.finish_response(FinallyType::Normal, || cb(value));
                     true
                 } else {

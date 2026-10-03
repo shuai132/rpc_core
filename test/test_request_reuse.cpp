@@ -31,6 +31,50 @@ struct fixture {
   }
 };
 
+struct reentrant_response {
+  static std::function<void()> on_decode;
+  static bool fail;
+
+  void operator<<(serialize_iarchive& ar) {
+    auto callback = std::move(on_decode);
+    callback();
+    ar.error = fail;
+  }
+};
+
+std::function<void()> reentrant_response::on_decode;
+bool reentrant_response::fail = false;
+
+static void test_response_deserialization_cannot_finish_reused_request() {
+  for (bool fail : {false, true}) {
+    for (int arity : {1, 2}) {
+      fixture f;
+      std::vector<finally_t> finished;
+      int replies = 0;
+      auto req = f.r->cmd("pending")->finally([&](finally_t status) { finished.push_back(status); });
+      if (arity == 1) req->rsp([](reentrant_response) { ASSERT(false); });
+      else req->rsp([](reentrant_response, finally_t) { ASSERT(false); });
+      reentrant_response::fail = fail;
+      reentrant_response::on_decode = [&] {
+        req->cancel()->reset_cancel()->rsp([&](std::string value) {
+          ASSERT(value == "new");
+          ++replies;
+        });
+        ASSERT(req->call());
+      };
+      ASSERT(req->call());
+      f.reply(0, "old");
+      ASSERT(finished == std::vector<finally_t>{finally_t::canceled});
+      ASSERT(replies == 0 && req->call().type == finally_t::busy);
+      f.expire(0);
+      f.reply(1, "new");
+      ASSERT(replies == 1 && finished.size() == 2 && finished.back() == finally_t::normal);
+      f.expire(1);
+      ASSERT(finished.size() == 2);
+    }
+  }
+}
+
 static void test_busy_keeps_original_call() {
   fixture f, other;
   int replies = 0, finished = 0, next_finished = 0;
@@ -268,6 +312,7 @@ static void test_clearing_finally_callback(bool no_arguments) {
 }
 
 int main() {
+  test_response_deserialization_cannot_finish_reused_request();
   test_clearing_finally_callback(false);
   test_clearing_finally_callback(true);
   test_timer_registration_can_disconnect_rpc();

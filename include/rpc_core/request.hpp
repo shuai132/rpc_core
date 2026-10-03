@@ -76,7 +76,11 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         return true;
       }
 
+      const auto call_id = self->call_id_;
+      const auto seq = self->seq_;
       auto rsp = msg.unpack_as<T>();
+      // Custom deserialization can cancel and reuse this request.
+      if (!self->matches_attempt(call_id, seq)) return true;
       if (rsp.first) {
         self->finish_response(finally_t::normal, [&] { cb(std::move(rsp.second), finally_t::normal); });
         return true;
@@ -109,7 +113,11 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
         return true;
       }
 
+      const auto call_id = self->call_id_;
+      const auto seq = self->seq_;
       auto rsp = msg.unpack_as<T>();
+      // Custom deserialization can cancel and reuse this request.
+      if (!self->matches_attempt(call_id, seq)) return true;
       if (rsp.first) {
         self->finish_response(finally_t::normal, [&] { cb(std::move(rsp.second)); });
         return true;
