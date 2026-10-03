@@ -140,6 +140,8 @@ original payload, RPC and callbacks. Retries belong to the same logical call,
 consume a fresh retry budget for each new call, and invoke `finally` only once.
 Reused callbacks retain their mutable captures across calls. Replacing a callback
 configures a new instance for future calls; the active call keeps its old instance.
+Passing an empty `std::function<void()>` or `std::function<void(finally_t)>` to
+`finally()` clears the callback for future calls without affecting an active call.
 After `cancel()`, use `reset_cancel()` before calling again. Asio `co_call()` also
 responds to terminal coroutine cancellation; cancellation affects only that call,
 including when a request is reused.

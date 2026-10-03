@@ -158,6 +158,10 @@ class request : detail::noncopyable, public std::enable_shared_from_this<request
   }
 
   request_s finally(std::function<void()> finally) {
+    if (!finally) {
+      finally_.reset();
+      return shared_from_this();
+    }
     finally_ = std::make_shared<std::function<void(finally_t)>>([finally = std::move(finally)](finally_t t) mutable {
       RPC_CORE_UNUSED(t);
       finally();

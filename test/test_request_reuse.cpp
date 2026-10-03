@@ -235,7 +235,41 @@ static void test_timer_registration_can_disconnect_rpc() {
   ASSERT(finished.size() == 2 && finished.back() == finally_t::normal);
 }
 
+static void test_clearing_finally_callback(bool no_arguments) {
+  auto r = rpc::create();
+  r->get_connection()->send_package_impl = [](std::string) { return true; };
+  r->set_ready(true);
+  rpc::timeout_cb timer;
+  r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timer = std::move(cb); });
+  int finished = 0;
+  auto req = r->cmd("pending")->mark_need_rsp()->finally([&] { ++finished; });
+  auto clear = [&] {
+    if (no_arguments) req->finally(std::function<void()>{});
+    else req->finally(std::function<void(finally_t)>{});
+  };
+  ASSERT(req->call());
+  clear();
+  auto fire = std::move(timer);
+  fire();
+  ASSERT(finished == 1);
+
+  // The next accepted call uses the cleared callback, including immediate failures.
+  ASSERT(req->call());
+  fire = std::move(timer);
+  fire();
+  ASSERT(finished == 1);
+  r->set_ready(false);
+  ASSERT(req->call().type == finally_t::rpc_not_ready);
+  ASSERT(finished == 1);
+
+  req->finally([&] { ++finished; });
+  ASSERT(req->call().type == finally_t::rpc_not_ready);
+  ASSERT(finished == 2);
+}
+
 int main() {
+  test_clearing_finally_callback(false);
+  test_clearing_finally_callback(true);
   test_timer_registration_can_disconnect_rpc();
   test_reentrant_retry_survives_old_send_failure();
   test_reused_callbacks_keep_mutable_state();
