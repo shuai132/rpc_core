@@ -202,7 +202,8 @@ impl MsgDispatcher {
 
     pub fn dispatch(this: &Rc<RefCell<Self>>, mut msg: MsgWrapper) {
         let generation = this.borrow().session_generation;
-        if msg.type_.contains(MsgType::Command) {
+        let direction = msg.type_.bits() & (MsgType::Command | MsgType::Response).bits();
+        if direction == MsgType::Command.bits() {
             // ping
             let is_ping = msg.type_.contains(MsgType::Ping);
             if is_ping {
@@ -237,7 +238,7 @@ impl MsgDispatcher {
                     let _ = Self::send_response(this, &rsp, generation);
                 }
             }
-        } else if msg.type_.contains(MsgType::Response) {
+        } else if direction == MsgType::Response.bits() {
             // pong or response
             debug!(
                 "<= seq:{} type:{}",
@@ -296,6 +297,69 @@ mod tests {
     use super::*;
     use crate::connection::DefaultConnection;
     use std::cell::Cell;
+
+    #[test]
+    fn ambiguous_message_directions_do_not_dispatch_or_finish_requests() {
+        let conn = DefaultConnection::new();
+        let dispatcher = MsgDispatcher::new(conn.clone());
+        let commands = Rc::new(Cell::new(0));
+        let responses = Rc::new(Cell::new(0));
+        let sent = Rc::new(Cell::new(0));
+        let copy = sent.clone();
+        conn.borrow_mut().set_send_package_impl(Box::new(move |_| {
+            copy.set(copy.get() + 1);
+            true
+        }));
+        let copy = commands.clone();
+        dispatcher.borrow_mut().subscribe_cmd(
+            "cmd".into(),
+            Rc::new(move |msg| {
+                copy.set(copy.get() + 1);
+                Some(MsgWrapper::make_rsp(msg.seq, ()).unwrap())
+            }),
+        );
+        let copy = responses.clone();
+        MsgDispatcher::subscribe_rsp(
+            &dispatcher,
+            7,
+            Rc::new(move |_| {
+                copy.set(copy.get() + 1);
+                true
+            }),
+            None,
+            1000,
+            None,
+            None,
+        );
+        let deliver = |type_| {
+            let mut message = MsgWrapper::new();
+            message.seq = 7;
+            message.cmd = "cmd".into();
+            message.type_ = type_;
+            conn.borrow()
+                .on_recv_package(coder::serialize(&message).unwrap());
+        };
+
+        // Exercise every combination of known flags with both or neither direction.
+        let directions = (MsgType::Command | MsgType::Response).bits();
+        for bits in 0..=MsgType::all().bits() {
+            let direction = bits & directions;
+            if direction == 0 || direction == directions {
+                deliver(MsgType::from_bits(bits).unwrap());
+                assert_eq!(commands.get(), 0);
+                assert_eq!(responses.get(), 0);
+                assert_eq!(sent.get(), 0);
+                assert!(dispatcher.borrow().rsp_handle_map.contains_key(&7));
+            }
+        }
+
+        deliver(MsgType::Command | MsgType::NeedRsp);
+        assert_eq!(commands.get(), 1);
+        assert_eq!(sent.get(), 1);
+        deliver(MsgType::Response);
+        assert_eq!(responses.get(), 1);
+        assert!(!dispatcher.borrow().rsp_handle_map.contains_key(&7));
+    }
 
     #[test]
     fn old_timer_cannot_remove_registration_with_reused_sequence() {

@@ -57,6 +57,10 @@ See [src/tests](src/tests) for details:
 
 # Request reuse
 
+Incoming messages must identify exactly one direction: command or response.
+Messages with both or neither flag are ignored without invoking handlers,
+sending replies or completing pending requests, matching the C++ dispatcher.
+
 A request supports repeated calls after completion or cancellation, including
 from its response or `finally` callback. Only one call may be active per request;
 create separate requests for concurrent calls. `call()` and `call_with_rpc()`
