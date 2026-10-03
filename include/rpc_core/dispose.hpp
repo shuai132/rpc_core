@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <exception>
 #include <memory>
+#include <set>
 #include <unordered_set>
 #include <vector>
 
@@ -26,6 +27,24 @@ class dispose : detail::noncopyable {
  public:
   void add(const request_s& request) {
     RPC_CORE_LOGV("add: ptr:%p", request.get());
+    if (adds_until_prune_ == 0) {
+      // Scan periodically, with the interval growing with the retained set.
+      // An alias can share either its pointer or its owner with another request.
+      // Only identical pointers with identical ownership are duplicates.
+      using key = std::pair<const rpc_core::request*, request_w>;
+      auto less = [](const key& a, const key& b) {
+        return a.first != b.first ? std::less<const rpc_core::request*>{}(a.first, b.first)
+                                  : std::owner_less<request_w>{}(a.second, b.second);
+      };
+      std::set<key, decltype(less)> seen(less);
+      auto end = std::remove_if(requests_.begin(), requests_.end(), [&](const request_w& item) {
+        auto owner = item.lock();
+        return !owner || !seen.emplace(owner.get(), item).second;
+      });
+      requests_.erase(end, requests_.end());
+      adds_until_prune_ = (std::max)(size_t{64}, requests_.size());
+    }
+    --adds_until_prune_;
     requests_.push_back(request_w{request});
   }
 
@@ -37,12 +56,14 @@ class dispose : detail::noncopyable {
       return r == request;
     });
     requests_.erase(iter, requests_.end());
+    adds_until_prune_ = (std::max)(size_t{64}, requests_.size());
   }
 
   void dismiss() {
     // Cancel callbacks may remove requests, add new ones or dismiss again.
     std::vector<request_w> pending;
     pending.swap(requests_);
+    adds_until_prune_ = 0;
     std::unordered_set<const request*> canceled;
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
     std::exception_ptr failure;
@@ -74,6 +95,7 @@ class dispose : detail::noncopyable {
 
  private:
   std::vector<request_w> requests_;
+  size_t adds_until_prune_ = 0;
 };
 
 using dispose_s = std::shared_ptr<dispose>;

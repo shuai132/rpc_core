@@ -121,6 +121,9 @@ borrow panic or losing the completion notification.
 A `Dispose` group cancels each distinct request at most once per `dismiss()`, in
 registration order. Duplicate registrations do not cancel a new call started by
 that request's cancellation callback. Requests may be registered again afterward.
+Registration periodically removes expired and duplicate weak references without
+canceling live requests. The scan interval grows with the retained set, so a
+long-lived group does not accumulate a record for every historical call.
 With panic unwinding enabled, `dismiss()` cancels the entire detached batch even
 if completion callbacks panic, then resumes the first panic.
 

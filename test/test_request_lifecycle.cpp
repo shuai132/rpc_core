@@ -6,6 +6,66 @@
 
 using namespace rpc_core;
 
+template <typename T>
+struct tracked_allocator {
+  using value_type = T;
+  std::shared_ptr<int> lifetime;
+  explicit tracked_allocator(std::shared_ptr<int> value) : lifetime(std::move(value)) {}
+  template <typename U>
+  tracked_allocator(const tracked_allocator<U>& other) : lifetime(other.lifetime) {}
+  template <typename U>
+  bool operator==(const tracked_allocator<U>& other) const { return lifetime == other.lifetime; }
+  template <typename U>
+  bool operator!=(const tracked_allocator<U>& other) const { return !(*this == other); }
+  T* allocate(size_t count) { return std::allocator<T>{}.allocate(count); }
+  void deallocate(T* data, size_t count) { std::allocator<T>{}.deallocate(data, count); }
+};
+
+static void test_long_lived_dispose_releases_expired_control_blocks() {
+  dispose group;
+  auto live = request::create();
+  auto removed = request::create();
+  group.add(removed);
+  group.remove(removed);
+  std::vector<std::weak_ptr<int>> allocations;
+  for (int i = 0; i < 10000; ++i) {
+    auto lifetime = std::make_shared<int>(i);
+    allocations.emplace_back(lifetime);
+    // This alias tracks its separate control block's allocation lifetime.
+    // The underlying request remains owned by live throughout the test.
+    request_s alias(live.get(), [](request*) {}, tracked_allocator<request>{lifetime});
+    group.add(alias);
+    group.add(live);
+  }
+  size_t retained = 0;
+  for (const auto& allocation : allocations) retained += !allocation.expired();
+  ASSERT(retained < 256);
+  ASSERT(!live->is_canceled() && !removed->is_canceled());
+  group.dismiss();
+  ASSERT(live->is_canceled() && !removed->is_canceled());
+  for (const auto& allocation : allocations) ASSERT(allocation.expired());
+
+  // Pruning must keep distinct owners even if their stored pointers are equal.
+  live->reset_cancel();
+  request_s alias(live.get(), [](request*) {});
+  group.add(alias);
+  for (int i = 0; i < 1000; ++i) group.add(live);
+  alias.reset();
+  group.dismiss();
+  ASSERT(live->is_canceled());
+
+  // One owner may also alias different requests; both must remain registered.
+  live->reset_cancel();
+  auto other = request::create();
+  auto owner = std::make_shared<int>(0);
+  request_s first(owner, live.get()), second(owner, other.get());
+  group.add(first);
+  group.add(second);
+  for (int i = 0; i < 1000; ++i) group.add(first);
+  group.dismiss();
+  ASSERT(live->is_canceled() && other->is_canceled());
+}
+
 static void test_response_reentry(int arity) {
   auto conn = std::make_shared<connection>();
   std::vector<std::string> sent;
@@ -274,6 +334,7 @@ static void test_duplicate_dispose_registration_does_not_cancel_a_restarted_call
 }
 
 int main() {
+  test_long_lived_dispose_releases_expired_control_blocks();
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
   test_dispose_completes_batch_after_callback_exception();
 #endif
