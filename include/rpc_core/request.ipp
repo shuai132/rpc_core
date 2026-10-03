@@ -184,8 +184,9 @@ asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
         pending->finally([executor, response, slot, self = std::move(self_sp)](finally_t type) mutable {
           if (!self) return;
           slot.clear();
-          asio::dispatch(executor, [self = std::move(self), response, type]() mutable {
-            self->complete({type, *response ? std::move(**response) : R{}});
+          // The executor may resume later, after this request has been reused.
+          asio::dispatch(executor, [self = std::move(self), response = std::move(*response), type]() mutable {
+            self->complete({type, response ? std::move(*response) : R{}});
           });
         });
         pending->call();

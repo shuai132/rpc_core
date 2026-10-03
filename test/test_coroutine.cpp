@@ -5,6 +5,50 @@
 
 using namespace rpc_core;
 
+static void test_queued_completion_keeps_its_response() {
+  for (auto status : {finally_t::normal, finally_t::timeout, finally_t::canceled}) {
+    asio::io_context io;
+    auto r = rpc::create();
+    r->set_ready(true);
+    std::vector<std::string> sent;
+    std::vector<rpc::timeout_cb> timers;
+    r->get_connection()->send_package_impl = [&](std::string packet) { sent.push_back(std::move(packet)); return true; };
+    r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timers.push_back(std::move(cb)); });
+    auto reply = [&](size_t index, std::string data) {
+      auto command = detail::coder::deserialize(sent[index]);
+      ASSERT(command.first);
+      auto response = detail::msg_wrapper::make_rsp(command.second.seq, &data);
+      r->get_connection()->on_recv_package(detail::coder::serialize(response).second);
+    };
+    auto req = r->cmd("pending");
+    int completed = 0;
+    asio::co_spawn(io, req->co_call<std::string>(), [&](std::exception_ptr error, result<std::string> response) {
+      ASSERT(!error && response.type == status);
+      ASSERT(response.data == (status == finally_t::normal ? "original" : ""));
+      ++completed;
+    });
+    io.poll();
+    ASSERT(sent.size() == 1 && completed == 0);
+    // Deliver the completion on the same thread while the executor is paused.
+    // The continuation is queued, allowing reuse before it consumes the result.
+    if (status == finally_t::normal) reply(0, "original");
+    else if (status == finally_t::timeout) { auto fire = timers[0]; fire(); }
+    else req->cancel()->reset_cancel();
+    ASSERT(completed == 0);
+    ASSERT(req->call());
+    reply(1, "later");
+    ASSERT(completed == 0);
+    io.restart();
+    io.poll();
+    ASSERT(completed == 1);
+    ASSERT(req->call());
+    reply(2, "after resuming");
+    io.restart();
+    io.poll();
+    ASSERT(completed == 1);
+  }
+}
+
 template <typename T>
 static void test_coroutine_starts_before_releasing_replaced_callbacks(bool synchronous_failure) {
   for (bool response_callback : {false, true}) {
@@ -110,6 +154,7 @@ static void test_scheduled_coroutine_keeps_handler_and_borrowed_request() {
 }
 
 int main() {
+  test_queued_completion_keeps_its_response();
   for (bool synchronous_failure : {false, true}) {
     test_coroutine_starts_before_releasing_replaced_callbacks<void>(synchronous_failure);
     test_coroutine_starts_before_releasing_replaced_callbacks<std::string>(synchronous_failure);
