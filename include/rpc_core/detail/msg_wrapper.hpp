@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 
+#include "../serialize.hpp"
 #include "../type.hpp"
 #include "copyable.hpp"
 #include "log.h"

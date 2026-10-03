@@ -57,6 +57,10 @@ For TCP-based implementation: [asio_net](https://github.com/shuai132/asio_net)
 
 ## Usage
 
+Include `rpc_core.hpp` to obtain the inline RPC implementations. Declaration headers
+such as `rpc_core/rpc.hpp`, `rpc_core/request.hpp` and `rpc_core/dispose.hpp` may be
+included before it without changing serialization lookup.
+
 * basic usage:  
   notice: both sender and receiver can use `subscribe` and `call` apis
 
