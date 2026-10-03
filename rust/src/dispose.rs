@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::rc::{Rc, Weak};
 
 use crate::request::Request;
@@ -13,12 +14,15 @@ impl Dispose {
     }
 
     pub fn dismiss(&mut self) {
-        for item in &self.requests {
+        let pending = std::mem::take(&mut self.requests);
+        let mut canceled = HashSet::new();
+        for item in pending {
             if let Some(request) = item.upgrade() {
-                request.cancel();
+                if canceled.insert(Rc::as_ptr(&request)) {
+                    request.cancel();
+                }
             }
         }
-        self.requests.clear();
     }
 }
 

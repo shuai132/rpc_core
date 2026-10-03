@@ -150,6 +150,10 @@ After `cancel()`, use `reset_cancel()` before calling again. Asio `co_call()` al
 responds to terminal coroutine cancellation; cancellation affects only that call,
 including when a request is reused.
 
+A `dispose` group cancels each distinct request at most once per `dismiss()`, in
+registration order. Duplicate registrations do not cancel a new call started by
+that request's cancellation callback. Requests may be registered again afterward.
+
 ```c++
 auto req = rpc->cmd("cmd")->msg(std::string("hello"))->rsp([](std::string) {});
 auto started = req->call();

@@ -201,7 +201,32 @@ static void test_timer_retains_mutable_state_between_calls() {
   ASSERT((counts == std::vector<int>{1, 2}));
 }
 
+static void test_duplicate_dispose_registration_does_not_cancel_a_restarted_call() {
+  auto r = rpc::create();
+  r->get_connection()->send_package_impl = [](std::string) { return true; };
+  r->set_ready(true);
+  r->set_timer([](uint32_t, rpc::timeout_cb) {});
+  dispose group;
+  int finished = 0;
+  auto req = r->cmd("pending")->mark_need_rsp();
+  req->finally([&](finally_t status) {
+    ASSERT(status == finally_t::canceled);
+    if (++finished == 1) ASSERT(req->reset_cancel()->call());
+  });
+  req->add_to(group)->add_to(group);
+  ASSERT(req->call());
+  group.dismiss();
+  ASSERT(finished == 1 && !req->is_canceled());
+  req->cancel();
+  ASSERT(finished == 2);
+  req->reset_cancel()->add_to(group);
+  ASSERT(req->call());
+  group.dismiss();
+  ASSERT(finished == 3 && req->is_canceled());
+}
+
 int main() {
+  test_duplicate_dispose_registration_does_not_cancel_a_restarted_call();
   test_timer_replacement_keeps_running_callable_alive();
   test_timer_retains_mutable_state_between_calls();
   test_synchronous_timer_cannot_send_completed_attempt();

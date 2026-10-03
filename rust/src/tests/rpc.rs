@@ -14,6 +14,34 @@ use rpc_core::rpc::Rpc;
 struct NoopWake;
 
 #[test]
+fn duplicate_dispose_registration_does_not_cancel_a_restarted_call() {
+    let f = PendingFixture::new();
+    let request = f.rpc.cmd("pending");
+    let mut group = rpc_core::dispose::Dispose::new();
+    request.add_to(&mut group).add_to(&mut group);
+    let finished = Rc::new(std::cell::Cell::new(0));
+    let copy = finished.clone();
+    let weak = Rc::downgrade(&request);
+    request.rsp(|_: String| {}).finally(move |status| {
+        assert_eq!(status, FinallyType::Canceled);
+        copy.set(copy.get() + 1);
+        if copy.get() == 1 {
+            weak.upgrade().unwrap().reset_cancel().call().unwrap();
+        }
+    });
+    request.call().unwrap();
+    group.dismiss();
+    assert_eq!(finished.get(), 1);
+    assert!(!request.is_canceled());
+    request.cancel();
+    assert_eq!(finished.get(), 2);
+    request.reset_cancel().add_to(&mut group).call().unwrap();
+    group.dismiss();
+    assert_eq!(finished.get(), 3);
+    assert!(request.is_canceled());
+}
+
+#[test]
 fn removing_dispatcher_callbacks_can_cancel_pending_requests() {
     for operation in ["replace command", "unsubscribe", "replace timer"] {
         let f = PendingFixture::new();

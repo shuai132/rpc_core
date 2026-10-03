@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 // #define RPC_CORE_LOG_SHOW_VERBOSE
@@ -41,9 +42,10 @@ class dispose : detail::noncopyable {
     // Cancel callbacks may remove requests, add new ones or dismiss again.
     std::vector<request_w> pending;
     pending.swap(requests_);
+    std::unordered_set<const request*> canceled;
     for (const auto& item : pending) {
       auto r = item.lock();
-      if (r) {
+      if (r && canceled.insert(r.get()).second) {
         r->cancel();
       }
     }

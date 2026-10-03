@@ -86,6 +86,10 @@ Dropping a polled, pending `future()` cancels its logical call, including retrie
 Use `reset_cancel()` before reusing that request. Dropping an unpolled future or
 an old future after its call completed does not cancel a newer call.
 
+A `Dispose` group cancels each distinct request at most once per `dismiss()`, in
+registration order. Duplicate registrations do not cancel a new call started by
+that request's cancellation callback. Requests may be registered again afterward.
+
 # Logical sessions
 
 An `Rpc` object represents a logical session. `set_ready(false)` marks a temporary
