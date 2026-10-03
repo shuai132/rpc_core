@@ -149,9 +149,9 @@ Passing an empty `std::function<void()>` or `std::function<void(finally_t)>` to
 After `cancel()`, use `reset_cancel()` before calling again. Asio `co_call()` also
 responds to terminal coroutine cancellation; cancellation affects only that call,
 including when a request is reused.
-If custom response deserialization cancels and reuses the request, the old decoded
-result is discarded. Neither successful nor failed decoding can finish the new
-call or invoke the old response callback.
+Canceling a request or resetting its session during custom response deserialization
+discards that decoded result. If the request is reused, neither successful nor
+failed decoding can finish the new call or invoke the old response callback.
 
 A `dispose` group cancels each distinct request at most once per `dismiss()`, in
 registration order. Duplicate registrations do not cancel a new call started by

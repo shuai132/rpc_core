@@ -1,4 +1,5 @@
 #include <chrono>
+#include <stdexcept>
 #include <vector>
 
 #include "rpc_core.hpp"
@@ -45,7 +46,34 @@ struct reentrant_response {
 std::function<void()> reentrant_response::on_decode;
 bool reentrant_response::fail = false;
 
-static void test_response_deserialization_cannot_finish_reused_request() {
+static void test_response_unwind_cleans_only_its_registration() {
+  for (bool replace : {false, true}) {
+    auto conn = std::make_shared<connection>();
+    auto dispatcher = std::make_shared<detail::msg_dispatcher>(conn);
+    dispatcher->init();
+    dispatcher->set_timer_impl([](uint32_t, detail::msg_dispatcher::timeout_cb) {});
+    int resets = 0;
+    dispatcher->subscribe_rsp(7, [&](detail::msg_wrapper) -> bool {
+      if (replace) {
+        dispatcher->subscribe_rsp(7, [](detail::msg_wrapper) { return true; }, nullptr, 1,
+                                  nullptr, [&] { ++resets; });
+      }
+      throw std::runtime_error("response callback failed");
+    }, nullptr, 1, nullptr, [&] { resets += 10; });
+    auto response = detail::msg_wrapper::make_rsp<std::string>(7);
+    bool caught = false;
+    try {
+      conn->on_recv_package(detail::coder::serialize(response).second);
+    } catch (const std::runtime_error&) {
+      caught = true;
+    }
+    ASSERT(caught);
+    dispatcher->reset_session();
+    ASSERT(resets == (replace ? 1 : 0));
+  }
+}
+
+static void test_response_deserialization_cannot_finish_reused_request(bool reset_session) {
   for (bool fail : {false, true}) {
     for (int arity : {1, 2}) {
       fixture f;
@@ -56,7 +84,9 @@ static void test_response_deserialization_cannot_finish_reused_request() {
       else req->rsp([](reentrant_response, finally_t) { ASSERT(false); });
       reentrant_response::fail = fail;
       reentrant_response::on_decode = [&] {
-        req->cancel()->reset_cancel()->rsp([&](std::string value) {
+        if (reset_session) f.r->reset_session();
+        else req->cancel()->reset_cancel();
+        req->rsp([&](std::string value) {
           ASSERT(value == "new");
           ++replies;
         });
@@ -64,7 +94,7 @@ static void test_response_deserialization_cannot_finish_reused_request() {
       };
       ASSERT(req->call());
       f.reply(0, "old");
-      ASSERT(finished == std::vector<finally_t>{finally_t::canceled});
+      ASSERT(finished == std::vector<finally_t>{reset_session ? finally_t::session_reset : finally_t::canceled});
       ASSERT(replies == 0 && req->call().type == finally_t::busy);
       f.expire(0);
       f.reply(1, "new");
@@ -312,7 +342,9 @@ static void test_clearing_finally_callback(bool no_arguments) {
 }
 
 int main() {
-  test_response_deserialization_cannot_finish_reused_request();
+  test_response_unwind_cleans_only_its_registration();
+  test_response_deserialization_cannot_finish_reused_request(false);
+  test_response_deserialization_cannot_finish_reused_request(true);
   test_clearing_finally_callback(false);
   test_clearing_finally_callback(true);
   test_timer_registration_can_disconnect_rpc();

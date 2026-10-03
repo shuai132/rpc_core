@@ -77,9 +77,9 @@ changes configure the next call; retries retain the original payload, RPC and
 callbacks. A new call starts with the full configured retry budget, and retries
 invoke `finally` only once for the logical call. After `cancel()`, call
 `reset_cancel()` before reusing the request.
-If custom response deserialization cancels and reuses the request, the old decoded
-result is discarded. Neither successful nor failed decoding can finish the new
-call or invoke the old response callback.
+Canceling a request or resetting its session during custom response deserialization
+discards that decoded result. If the request is reused, neither successful nor
+failed decoding can finish the new call or invoke the old response callback.
 
 Replacing a response, timeout or `finally` callback releases its old captures
 outside the request's internal borrow. Capture destructors may cancel or

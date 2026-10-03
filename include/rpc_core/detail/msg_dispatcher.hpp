@@ -113,9 +113,26 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
           RPC_CORE_LOGD("no rsp for seq:%u", msg.seq);
           break;
         }
-        auto cb = std::move(it->second.handle);
-        rsp_handle_map_.erase(it);
-        if (cb(std::move(msg))) {
+        bool handled = false;
+        {
+          // Keep this call visible to reset_session() while custom decoding runs.
+          // Cleanup also runs if a user callback throws, and cannot erase a replacement.
+          struct response_scope {
+            msg_dispatcher& owner;
+            seq_type seq;
+            uint64_t registration;
+            ~response_scope() {
+              auto pending = owner.rsp_handle_map_.find(seq);
+              if (pending != owner.rsp_handle_map_.end() && pending->second.registration == registration) {
+                owner.rsp_handle_map_.erase(pending);
+              }
+            }
+          } scope{*this, msg.seq, it->second.registration};
+          auto cb = std::move(it->second.handle);
+          it->second.handle = nullptr;
+          handled = cb(std::move(msg));
+        }
+        if (handled) {
           RPC_CORE_LOGV("rsp_handle_map_.size=%zu", rsp_handle_map_.size());
         } else {
           RPC_CORE_LOGE("may deserialize error");

@@ -252,19 +252,51 @@ impl MsgDispatcher {
                     "rsp"
                 }
             );
-            let handle = {
+            let pending = {
                 let mut dispatcher = this.borrow_mut();
-                let handle = dispatcher
+                dispatcher
                     .rsp_handle_map
                     .get_mut(&msg.seq)
-                    .and_then(|pending| pending.handle.take());
-                if handle.is_some() {
-                    dispatcher.rsp_handle_map.remove(&msg.seq);
-                }
-                handle
+                    .and_then(|pending| {
+                        pending
+                            .handle
+                            .take()
+                            .map(|handle| (handle, pending.registration))
+                    })
             };
-            if let Some(handle) = handle {
-                if handle(msg) {
+            if let Some((handle, registration)) = pending {
+                // Keep the call visible to reset_session() during custom decoding.
+                // Cleanup on unwind must not remove a newer registration.
+                struct ResponseScope<'a> {
+                    dispatcher: &'a RefCell<MsgDispatcher>,
+                    seq: SeqType,
+                    registration: u64,
+                }
+                impl Drop for ResponseScope<'_> {
+                    fn drop(&mut self) {
+                        let removed = {
+                            let mut dispatcher = self.dispatcher.borrow_mut();
+                            if dispatcher
+                                .rsp_handle_map
+                                .get(&self.seq)
+                                .is_some_and(|pending| pending.registration == self.registration)
+                            {
+                                dispatcher.rsp_handle_map.remove(&self.seq)
+                            } else {
+                                None
+                            }
+                        };
+                        drop(removed);
+                    }
+                }
+                let scope = ResponseScope {
+                    dispatcher: this,
+                    seq: msg.seq,
+                    registration,
+                };
+                let handled = handle(msg);
+                drop(scope);
+                if handled {
                     trace!("rsp_handle_map.size={}", this.borrow().rsp_handle_map.len());
                 } else {
                     error!("may deserialize error");
@@ -300,6 +332,49 @@ mod tests {
     use super::*;
     use crate::connection::DefaultConnection;
     use std::cell::Cell;
+
+    #[test]
+    fn response_unwind_cleans_only_its_registration() {
+        for replace in [false, true] {
+            let conn = DefaultConnection::new();
+            let dispatcher = MsgDispatcher::new(conn);
+            dispatcher.borrow_mut().set_timer_impl(|_, _| {});
+            let resets = Rc::new(Cell::new(0));
+            let old_resets = resets.clone();
+            let new_resets = resets.clone();
+            let weak = Rc::downgrade(&dispatcher);
+            MsgDispatcher::subscribe_rsp(
+                &dispatcher,
+                7,
+                Rc::new(move |_| {
+                    if replace {
+                        let resets = new_resets.clone();
+                        MsgDispatcher::subscribe_rsp(
+                            &weak.upgrade().unwrap(),
+                            7,
+                            Rc::new(|_| true),
+                            None,
+                            1,
+                            None,
+                            Some(Rc::new(move || resets.set(resets.get() + 1))),
+                        );
+                    }
+                    panic!("response callback failed");
+                }),
+                None,
+                1,
+                None,
+                Some(Rc::new(move || old_resets.set(old_resets.get() + 10))),
+            );
+            let response = MsgWrapper::make_rsp(7, ()).unwrap();
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                MsgDispatcher::dispatch(&dispatcher, response);
+            }));
+            assert!(result.is_err());
+            MsgDispatcher::reset_session(&dispatcher);
+            assert_eq!(resets.get(), if replace { 1 } else { 0 });
+        }
+    }
 
     #[test]
     fn ambiguous_message_directions_do_not_dispatch_or_finish_requests() {

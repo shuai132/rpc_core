@@ -77,7 +77,12 @@ fn response_deserialization_cannot_finish_a_reused_request() {
         }
     }
 
-    for value in ["old", "invalid"] {
+    for (value, reset_session) in [
+        ("old", false),
+        ("invalid", false),
+        ("old", true),
+        ("invalid", true),
+    ] {
         let f = PendingFixture::new();
         let request = f.rpc.cmd("pending");
         let finished = Rc::new(RefCell::new(Vec::new()));
@@ -88,26 +93,33 @@ fn response_deserialization_cannot_finish_a_reused_request() {
         let weak = Rc::downgrade(&request);
         let replies = Rc::new(RefCell::new(Vec::new()));
         let copy = replies.clone();
+        let rpc = f.rpc.clone();
         ON_DECODE.with(|callback| {
             *callback.borrow_mut() = Some(Box::new(move || {
                 let request = weak.upgrade().unwrap();
-                request.cancel().reset_cancel();
+                if reset_session {
+                    rpc.reset_session();
+                } else {
+                    request.cancel().reset_cancel();
+                }
                 request.rsp(move |value: String| copy.borrow_mut().push(value));
                 request.call().unwrap();
             }));
         });
         request.call().unwrap();
         f.reply(0, value);
-        assert_eq!(*finished.borrow(), vec![FinallyType::Canceled]);
+        let expected = if reset_session {
+            FinallyType::SessionReset
+        } else {
+            FinallyType::Canceled
+        };
+        assert_eq!(*finished.borrow(), vec![expected.clone()]);
         assert!(replies.borrow().is_empty());
         assert_eq!(request.call(), Err(FinallyType::Busy));
         f.expire(0);
         f.reply(1, "new");
         assert_eq!(*replies.borrow(), vec!["new"]);
-        assert_eq!(
-            *finished.borrow(),
-            vec![FinallyType::Canceled, FinallyType::Normal]
-        );
+        assert_eq!(*finished.borrow(), vec![expected, FinallyType::Normal]);
         f.expire(1);
         assert_eq!(finished.borrow().len(), 2);
     }
