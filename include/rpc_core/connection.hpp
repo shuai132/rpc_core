@@ -119,7 +119,8 @@ struct stream_connection : public connection {
 
  public:
   detail::shared_function<bool(std::string)> send_bytes_impl;
-  // false means invalid framing; stop receiving until reset() for a new stream.
+  // Invalid framing or a receive exception requires reset() for a new stream.
+  // Further receives return false until then.
   detail::shared_function<bool(const void *data, size_t size)> on_recv_bytes;
 
  private:

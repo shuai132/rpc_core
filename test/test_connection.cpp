@@ -1,7 +1,49 @@
 #include "rpc_core.hpp"
 #include "assert_def.h"
+#include <stdexcept>
 
 using namespace rpc_core;
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_receive_exception_invalidates_stream() {
+  for (bool throw_from_deferred : {false, true}) {
+    stream_connection conn;
+    detail::data_packer packer;
+    std::vector<std::string> received;
+    // The next frame's body resembles a complete frame. Losing its real header
+    // must not allow its body to be delivered as an unrelated packet.
+    auto body = packer.pack("fake");
+    auto header = packer.pack(body).substr(0, 4);
+    conn.on_recv_package = [&](std::string data) {
+      received.push_back(data);
+      if (data == "start") {
+        auto deferred = packer.pack("deferred") + header;
+        ASSERT(conn.on_recv_bytes(deferred.data(), deferred.size()));
+        if (!throw_from_deferred) throw std::runtime_error("receive failed");
+      } else if (data == "deferred") {
+        throw std::runtime_error("receive failed");
+      }
+    };
+    auto input = packer.pack("start") + (throw_from_deferred ? std::string{} : header);
+    bool caught = false;
+    try {
+      conn.on_recv_bytes(input.data(), input.size());
+    } catch (const std::runtime_error& error) {
+      caught = std::string(error.what()) == "receive failed";
+    }
+    ASSERT(caught && received.size() == (throw_from_deferred ? 2 : 1));
+    const auto count = received.size();
+    conn.on_recv_package = [&](std::string data) { received.push_back(std::move(data)); };
+    ASSERT(!conn.on_recv_bytes(body.data(), body.size()));
+    ASSERT(!conn.on_recv_bytes(nullptr, 0));
+    ASSERT(received.size() == count);
+    conn.reset();
+    auto fresh = packer.pack("fresh");
+    ASSERT(conn.on_recv_bytes(fresh.data(), fresh.size()));
+    ASSERT(received.size() == count + 1 && received.back() == "fresh");
+  }
+}
+#endif
 
 static void test_send_replacement_during_response() {
   for (bool clear : {false, true}) {
@@ -85,6 +127,9 @@ static void test_saved_send_callback_after_connection_destruction() {
 }
 
 int main() {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_receive_exception_invalidates_stream();
+#endif
   test_saved_send_callback_after_connection_destruction();
   test_send_replacement_during_response();
   test_callbacks_keep_state_and_survive_owner_destruction();

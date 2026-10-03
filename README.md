@@ -241,6 +241,10 @@ for `send_bytes_impl`. `on_recv_bytes()` returns `false` on invalid framing;
 stop reading that stream and call `reset()` before feeding a new stream. Frames
 received reentrantly are processed after the current input chunk. No automatic
 reply caching, replay, delivery acknowledgement or session negotiation is provided.
+If a receive callback throws, the exception propagates and invalidates that stream.
+Remaining input and reentrant queued bytes are discarded; further receives return
+`false` until `reset()` begins a new stream, preventing lost bytes from shifting
+frame boundaries.
 
 `on_recv_bytes(nullptr, size)` with nonzero `size` returns `false` and requires
 `reset()` before receiving again. A null buffer with zero length is a valid no-op

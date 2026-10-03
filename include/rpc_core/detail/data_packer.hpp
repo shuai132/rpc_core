@@ -48,7 +48,7 @@ class data_packer : detail::noncopyable {
   }
 
  public:
-  // After invalid framing, only reset() may start another stream.
+  // Invalid framing or interrupted delivery requires reset() for another stream.
   bool feed(const void *data, size_t size) {
     if (failed_) return false;
     if (size != 0 && data == nullptr) {
@@ -60,9 +60,18 @@ class data_packer : detail::noncopyable {
       return true;
     }
     struct guard {
-      bool &active;
-      ~guard() { active = false; }
-    } scope{feeding_};
+      data_packer &owner;
+      bool completed = false;
+      ~guard() {
+        owner.feeding_ = false;
+        if (!completed) {
+          // An exception can discard an unknown suffix of the input chunk.
+          // Clear queued input and refuse further parsing until explicit reset.
+          owner.reset();
+          owner.failed_ = true;
+        }
+      }
+    } scope{*this};
     feeding_ = true;
     if (!feed_chunk(data, size)) return false;
     while (!deferred_.empty()) {
@@ -70,6 +79,7 @@ class data_packer : detail::noncopyable {
       next.swap(deferred_);
       if (!feed_chunk(next.data(), next.size())) return false;
     }
+    scope.completed = true;
     return true;
   }
 
