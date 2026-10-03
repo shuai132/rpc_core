@@ -270,6 +270,82 @@ static void test_failed_binary_decode_preserves_storage_bounds() {
   ASSERT(serialize(value) == encoded);
 }
 
+template <typename Pointer>
+static void check_smart_pointer_decode_from_owned_storage() {
+  for (size_t length : {size_t(0), size_t(3), size_t(1024)}) {
+    const std::string expected(length, 'x');
+    Pointer value(new std::string(serialize(std::make_shared<std::string>(expected))));
+    detail::string_view borrowed(value->data(), value->size());
+    ASSERT(deserialize(borrowed, value));
+    ASSERT(value && *value == expected);
+  }
+}
+
+template <typename Pointer>
+static void check_smart_pointer_failed_decode_preserves_value() {
+  using Value = typename Pointer::element_type;
+  Pointer value(new Value{7, 8});
+  const auto original = value.get();
+  const auto encoded = serialize(std::make_shared<Value>(Value{1, 2, 3}));
+  for (size_t length = 0; length < encoded.size(); ++length) {
+    ASSERT(!deserialize(encoded.substr(0, length), value));
+    ASSERT(value.get() == original && *value == (Value{7, 8}));
+  }
+  ASSERT(deserialize(encoded, value));
+  ASSERT(*value == (Value{1, 2, 3}));
+}
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+template <typename Pointer>
+static void check_smart_pointer_decode_exception_preserves_value() {
+  Pointer value(new throwing_heap_element{42});
+  const auto original = value.get();
+  const auto encoded = serialize(std::make_shared<throwing_heap_element>(throwing_heap_element{99}));
+  bool caught = false;
+  try {
+    deserialize(encoded, value);
+  } catch (const std::runtime_error&) {
+    caught = true;
+  }
+  ASSERT(caught && value.get() == original && value->value == 42);
+}
+#endif
+
+struct private_destructor_value {
+  int value = 0;
+  void operator<<(serialize_iarchive& ar) { value << ar; }
+ private:
+  ~private_destructor_value() = default;
+  friend struct noncopyable_pointer_deleter;
+};
+
+struct noncopyable_pointer_deleter {
+  int& deletes;
+  explicit noncopyable_pointer_deleter(int& deletes) : deletes(deletes) {}
+  noncopyable_pointer_deleter(const noncopyable_pointer_deleter&) = delete;
+  noncopyable_pointer_deleter(noncopyable_pointer_deleter&&) = default;
+  void operator()(private_destructor_value* p) const {
+    ++deletes;
+    delete p;
+  }
+};
+
+static void test_unique_pointer_retains_custom_deleter() {
+  int deletes = 0;
+  noncopyable_pointer_deleter deleter(deletes);
+  {
+    std::unique_ptr<private_destructor_value, noncopyable_pointer_deleter&> value(new private_destructor_value{}, deleter);
+    value->value = 42;
+    auto original = value.get();
+    ASSERT(!deserialize(serialize(true), value));
+    ASSERT(value.get() == original && value->value == 42 && deletes == 1);
+    ASSERT(deserialize(serialize(std::make_shared<int>(7)), value));
+    ASSERT(value->value == 7 && deletes == 2);
+    ASSERT(&value.get_deleter() == &deleter);
+  }
+  ASSERT(deletes == 3);
+}
+
 enum class SmallUnsigned : uint8_t { value = 1 };
 enum class SmallSigned : int8_t { value = 1 };
 enum class WideSigned : intmax_t { value = 1 };
@@ -381,6 +457,15 @@ int main() {
   test_pair_decode_preserves_reference_bindings();
   test_enum_decode_rejects_narrowing();
   test_failed_binary_decode_preserves_storage_bounds();
+  check_smart_pointer_decode_from_owned_storage<std::shared_ptr<std::string>>();
+  check_smart_pointer_decode_from_owned_storage<std::unique_ptr<std::string>>();
+  test_unique_pointer_retains_custom_deleter();
+  check_smart_pointer_failed_decode_preserves_value<std::shared_ptr<std::vector<int>>>();
+  check_smart_pointer_failed_decode_preserves_value<std::unique_ptr<std::vector<int>>>();
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  check_smart_pointer_decode_exception_preserves_value<std::shared_ptr<throwing_heap_element>>();
+  check_smart_pointer_decode_exception_preserves_value<std::unique_ptr<throwing_heap_element>>();
+#endif
   test_container_adaptor_invariants();
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
   check_heap_after_decode_exception<std::vector<throwing_heap_element>>();

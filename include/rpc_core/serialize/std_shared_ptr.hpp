@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 namespace rpc_core {
 
@@ -32,8 +33,10 @@ inline serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
   if (ia.error) return ia;
   if (notnull) {
     using Type = typename T::element_type;
-    t = std::make_shared<Type>();
-    *t << ia;
+    // The input may belong to the previous pointee. Retain it until decoding ends.
+    auto decoded = std::make_shared<Type>();
+    *decoded << ia;
+    if (!ia.error) t = std::move(decoded);
   } else {
     t.reset();
   }

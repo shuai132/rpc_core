@@ -407,6 +407,12 @@ json: `{"id":1,"age":18,"name":"test"}`
   ```
   choose `RPC_CORE_DEFINE_TYPE` or `RPC_CORE_DEFINE_TYPE_INNER` for private member variable.
 
+Smart-pointer decoding retains the previous pointee until its replacement has
+decoded successfully, allowing input stored inside that pointee. Truncated input
+or a decoding exception leaves the previous pointer and value unchanged.
+`std::unique_ptr` retains its existing deleter and uses it to clean up a failed
+replacement.
+
 When decoding `std::priority_queue`, the successfully decoded prefix is rebuilt
 using the destination's comparator, including when an element decoder throws.
 The original exception propagates after rebuilding. This recovery requires heap
