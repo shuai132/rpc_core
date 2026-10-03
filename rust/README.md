@@ -143,6 +143,8 @@ the bytes actually received, including when the limit is disabled.
 Dropping a TCP or RPC client stops its connection/reconnect tasks and closes its
 transport. Dropping a server stops accepting new connections; established server
 sessions retain their own lifetime until their transport closes.
+Calling a server's `stop()` from its session callback also stops that listener
+from accepting queued connections. A later `start()` creates a new listener.
 
 Set both `ping_interval_ms` and `pong_timeout_ms` to enable heartbeat checks on a
 client or server. A zero ping interval disables checks. Pings are sent one at a

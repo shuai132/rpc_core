@@ -129,6 +129,38 @@ fn ipv6_enabled_servers_accept_ipv6_clients() {
 }
 
 #[test]
+fn stop_inside_session_callback_discards_queued_connections() {
+    run(async {
+        let port = unused_port().await;
+        let server = TcpServer::new(port, TcpConfig::new());
+        let weak = server.downgrade();
+        let accepted = Rc::new(std::cell::Cell::new(0));
+        let count = accepted.clone();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        server.on_session(move |session| {
+            count.set(count.get() + 1);
+            weak.upgrade().unwrap().stop();
+            session.upgrade().unwrap().close();
+            tx.send(()).unwrap();
+        });
+        server.start();
+        tokio::task::yield_now().await;
+        // Queue both handshakes before allowing the local accept task to run.
+        let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+        let _first = std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
+        let _second = std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
+        rx.recv().await.unwrap();
+        tokio::task::yield_now().await;
+        assert_eq!(accepted.get(), 1);
+        server.start();
+        tokio::task::yield_now().await;
+        let _fresh = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+        rx.recv().await.unwrap();
+        assert_eq!(accepted.get(), 2);
+    });
+}
+
+#[test]
 fn dropping_servers_stops_listening() {
     run(async {
         let port = unused_port().await;
