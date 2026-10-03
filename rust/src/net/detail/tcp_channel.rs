@@ -105,6 +105,27 @@ impl TcpChannel {
         self.do_close();
     }
 
+    pub(crate) fn notify_open(&self, callback: impl FnOnce()) {
+        struct OpenScope<'a> {
+            channel: &'a TcpChannel,
+            completed: bool,
+        }
+        impl Drop for OpenScope<'_> {
+            fn drop(&mut self) {
+                if !self.completed {
+                    self.channel.close();
+                }
+            }
+        }
+        // A failed initialization notification must not strand the IO tasks.
+        let mut notification = OpenScope {
+            channel: self,
+            completed: false,
+        };
+        callback();
+        notification.completed = true;
+    }
+
     pub async fn wait_close_finish(&self) {
         while self.active_loops.get() != 0 {
             self.close_finish_notify.notified().await;

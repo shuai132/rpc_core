@@ -225,6 +225,10 @@ tasks before their first poll also releases the channel's active-task state.
 Configured automatic reconnect still runs after a panic in `on_close` or
 `on_open_failed`, respecting any close or reconnect-policy change made by the
 callback. The original callback panic still propagates from its task.
+If `on_open` or `on_session` panics during connection initialization, that
+connection closes and releases its IO tasks. Client reconnect follows the current
+policy, including explicit stop or reopen from the callback. A server's panicking
+accept task still exits; call `start()` to resume listening. The panic is not swallowed.
 Calling a server's `stop()` from its session callback also stops that listener
 from accepting queued connections. A later `start()` creates a new listener.
 

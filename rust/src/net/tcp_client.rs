@@ -220,7 +220,7 @@ impl TcpClient {
                 Ok(()) => {
                     let callback = this.on_open.borrow().clone();
                     if let Some(on_open) = callback {
-                        on_open();
+                        this.channel.notify_open(move || on_open());
                     }
                 }
                 Err(err) => {
@@ -397,6 +397,59 @@ mod tests {
                 opens.recv().await.unwrap();
                 assert!(client.is_open());
                 client.close();
+            });
+        }
+    }
+
+    #[test]
+    fn open_callback_panic_closes_transport_and_preserves_next_open() {
+        for action in ["reconnect", "replace", "stop"] {
+            run(async {
+                use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let port = listener.local_addr().unwrap().port();
+                let client = TcpClient::new(TcpConfig::new());
+                let (tx, mut events) = tokio::sync::mpsc::unbounded_channel();
+                let closed = tx.clone();
+                client.on_close(move || {
+                    closed.send("close").unwrap();
+                });
+                let weak = client.downgrade();
+                let first = Cell::new(true);
+                client.on_open(move || {
+                    tx.send("open").unwrap();
+                    if first.replace(false) {
+                        let client = weak.upgrade().unwrap();
+                        if action == "replace" {
+                            client.open("127.0.0.1", port);
+                        }
+                        if action == "stop" {
+                            client.stop();
+                        }
+                        panic!("open callback failed");
+                    }
+                });
+                client.set_reconnect(1);
+                client.open("127.0.0.1", port);
+                let (mut old_peer, _) = listener.accept().await.unwrap();
+                assert_eq!(events.recv().await, Some("open"));
+                assert_eq!(old_peer.read(&mut [0]).await.unwrap(), 0);
+                assert_eq!(events.recv().await, Some("close"));
+                if action == "stop" {
+                    assert!(timeout(Duration::from_millis(100), listener.accept())
+                        .await
+                        .is_err());
+                    client.open("127.0.0.1", port);
+                }
+                let (mut peer, _) = listener.accept().await.unwrap();
+                assert_eq!(events.recv().await, Some("open"));
+                assert!(client.send(b"ok".to_vec()));
+                let mut data = [0; 2];
+                peer.read_exact(&mut data).await.unwrap();
+                assert_eq!(&data, b"ok");
+                peer.write_all(b"still open").await.unwrap();
+                client.stop();
+                assert_eq!(events.recv().await, Some("close"));
             });
         }
     }

@@ -81,7 +81,8 @@ impl TcpServer {
                                 error!("Failed to configure accepted connection: {err}");
                                 continue;
                             }
-                            on_session(Rc::downgrade(&session));
+                            let weak = Rc::downgrade(&session);
+                            session.notify_open(move || on_session(weak));
                         }
                     }
                     Err(err) => error!("Error accepting connection: {err}"),
@@ -127,6 +128,56 @@ mod tests {
     use tokio::io::AsyncReadExt;
     use tokio::net::TcpStream;
     use tokio::time::{sleep, timeout, Duration};
+
+    #[test]
+    fn session_callback_panic_closes_transport_and_allows_restart() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+            timeout(Duration::from_secs(3), async {
+                let reserved = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = reserved.local_addr().unwrap();
+                let server = TcpServer::new(address.port(), TcpConfig::new());
+                let (tx, mut sessions) = tokio::sync::mpsc::unbounded_channel();
+                let first = Cell::new(true);
+                server.on_session(move |session| {
+                    tx.send(session).unwrap();
+                    if first.replace(false) {
+                        panic!("session callback failed");
+                    }
+                });
+                drop(reserved);
+                for attempt in 0..2 {
+                    server.start();
+                    let mut peer = loop {
+                        if let Ok(stream) = TcpStream::connect(address).await {
+                            break stream;
+                        }
+                        sleep(Duration::from_millis(1)).await;
+                    };
+                    let weak = sessions.recv().await.unwrap();
+                    if attempt == 0 {
+                        assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+                        assert!(weak.upgrade().is_none());
+                        assert!(server.accept_task.borrow().as_ref().unwrap().is_finished());
+                    } else {
+                        let session = weak.upgrade().unwrap();
+                        assert!(session.send(b"ok".to_vec()));
+                        let mut data = [0; 2];
+                        peer.read_exact(&mut data).await.unwrap();
+                        assert_eq!(&data, b"ok");
+                        session.close();
+                        session.wait_close_finish().await;
+                    }
+                }
+                server.stop();
+            })
+            .await
+            .expect("session callback panic stranded a connection");
+        }));
+    }
 
     #[test]
     fn socket_configuration_failure_keeps_accepting() {
