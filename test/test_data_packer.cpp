@@ -38,6 +38,44 @@ static void test_simple() {
   ASSERT(testData == feedRecData);
 }
 
+static void test_invalid_buffer_arguments() {
+  rpc_core::detail::data_packer packer;
+  int received = 0;
+  packer.on_data = [&](std::string) { ++received; };
+  const auto valid = packer.pack("valid");
+  ASSERT(packer.feed(nullptr, 0));
+  ASSERT(!packer.feed(nullptr, 1));
+  ASSERT(!packer.feed(valid.data(), valid.size()) && received == 0);
+  packer.reset();
+  ASSERT(packer.feed(valid.data(), valid.size()) && received == 1);
+
+  int writes = 0;
+  ASSERT(!packer.pack(nullptr, 1, [&](const void*, size_t) { ++writes; return true; }));
+  ASSERT(writes == 0);
+  ASSERT(packer.pack(nullptr, 1).empty());
+  const auto empty = packer.pack(nullptr, 0);
+  ASSERT(empty == std::string(4, '\0'));
+  std::string streamed_empty;
+  ASSERT(packer.pack(nullptr, 0, [&](const void* data, size_t size) {
+    if (size != 0) streamed_empty.append(static_cast<const char*>(data), size);
+    return true;
+  }));
+  ASSERT(streamed_empty == empty);
+  ASSERT(packer.feed(empty.data(), empty.size()) && received == 2);
+
+  packer.on_data = [&](std::string) {
+    ++received;
+    ASSERT(!packer.feed(nullptr, 1));
+  };
+  const auto two_frames = valid + valid;
+  ASSERT(!packer.feed(two_frames.data(), two_frames.size()));
+  ASSERT(received == 3);
+  ASSERT(!packer.feed(nullptr, 0));
+  packer.reset();
+  packer.on_data = [&](std::string) { ++received; };
+  ASSERT(packer.feed(valid.data(), valid.size()) && received == 4);
+}
+
 static void test_random() {
   RPC_CORE_LOGI();
   RPC_CORE_LOGI("test_random...");
@@ -219,6 +257,7 @@ static void test_stream_callback_can_destroy_connection(bool save_callback) {
 namespace rpc_core_test {
 
 void test_data_packer() {
+  test_invalid_buffer_arguments();
   test_simple();
   test_random();
   test_empty_body();

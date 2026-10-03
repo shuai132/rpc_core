@@ -20,7 +20,7 @@ class data_packer : detail::noncopyable {
 
  public:
   bool pack(const void *data, size_t size, const std::function<bool(const void *data, size_t size)> &cb) const {
-    if (size > max_body_size_) {
+    if (size > max_body_size_ || (size != 0 && data == nullptr)) {
       return false;
     }
     auto ret = cb(&size, 4);
@@ -33,12 +33,13 @@ class data_packer : detail::noncopyable {
 
   std::string pack(const void *data, size_t size) const {
     std::string payload;
+    if (size != 0 && data == nullptr) return payload;
     if (size > max_body_size_) {
       RPC_CORE_LOGW("size > max_body_size: %zu > %u", size, max_body_size_);
       return payload;
     }
     payload.insert(0, (char *)&size, 4);
-    payload.insert(payload.size(), (char *)data, size);
+    if (size != 0) payload.insert(payload.size(), (char *)data, size);
     return payload;
   }
 
@@ -50,6 +51,10 @@ class data_packer : detail::noncopyable {
   // After invalid framing, only reset() may start another stream.
   bool feed(const void *data, size_t size) {
     if (failed_) return false;
+    if (size != 0 && data == nullptr) {
+      failed_ = true;
+      return false;
+    }
     if (feeding_) {
       if (size != 0) deferred_.append(static_cast<const char *>(data), size);
       return true;

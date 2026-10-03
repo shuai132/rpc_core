@@ -210,6 +210,11 @@ stop reading that stream and call `reset()` before feeding a new stream. Frames
 received reentrantly are processed after the current input chunk. No automatic
 reply caching, replay, delivery acknowledgement or session negotiation is provided.
 
+`on_recv_bytes(nullptr, size)` with nonzero `size` returns `false` and requires
+`reset()` before receiving again. A null buffer with zero length is a valid no-op
+on a healthy stream. `data_packer::pack()` also rejects nonempty null buffers
+before emitting any bytes, while `(nullptr, 0)` produces an empty frame.
+
 A receive callback may destroy its stream connection. Any remaining frames in
 that input chunk are discarded, and saved `on_recv_bytes` callbacks return `false`
 after the connection is destroyed. Saved `send_package_impl` callbacks also return
