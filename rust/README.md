@@ -201,6 +201,9 @@ server, session or channel.
 With panic unwinding enabled, a panic in a receive or close callback still closes
 the channel and completes IO shutdown, allowing it to be reopened. Dropping IO
 tasks before their first poll also releases the channel's active-task state.
+Configured automatic reconnect still runs after a panic in `on_close` or
+`on_open_failed`, respecting any close or reconnect-policy change made by the
+callback. The original callback panic still propagates from its task.
 Calling a server's `stop()` from its session callback also stops that listener
 from accepting queued connections. A later `start()` creates a new listener.
 

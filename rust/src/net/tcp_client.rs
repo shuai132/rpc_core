@@ -27,6 +27,15 @@ pub struct TcpClient {
     this: RefCell<Weak<Self>>,
 }
 
+// User notifications may panic or change the reconnect policy.
+struct ReconnectScope<'a>(&'a TcpClient);
+
+impl Drop for ReconnectScope<'_> {
+    fn drop(&mut self) {
+        self.0.schedule_reconnect();
+    }
+}
+
 // public
 impl TcpClient {
     pub fn new(config: TcpConfig) -> Rc<Self> {
@@ -56,11 +65,11 @@ impl TcpClient {
                 let Some(this) = this_weak.upgrade() else {
                     return;
                 };
+                let _reconnect = ReconnectScope(&this);
                 let callback = this.on_close.borrow().clone();
                 if let Some(on_close) = callback {
                     on_close();
                 }
-                this.schedule_reconnect();
             });
             r
         })
@@ -213,11 +222,11 @@ impl TcpClient {
                     }
                 }
                 Err(err) => {
+                    let _reconnect = ReconnectScope(&this);
                     let callback = this.on_open_failed.borrow().clone();
                     if let Some(on_open_failed) = callback {
                         on_open_failed(&*err);
                     }
-                    this.schedule_reconnect();
                 }
             }
         });
@@ -280,6 +289,83 @@ mod tests {
         runtime.block_on(tokio::task::LocalSet::new().run_until(async {
             timeout(Duration::from_secs(3), future).await.unwrap();
         }));
+    }
+
+    #[test]
+    fn close_callback_panic_preserves_reconnect_policy() {
+        for stop in [false, true] {
+            run(async {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let client = TcpClient::new(TcpConfig::new());
+                let (opened, mut opens) = tokio::sync::mpsc::unbounded_channel();
+                client.on_open(move || {
+                    let _ = opened.send(());
+                });
+                let (closed, mut closes) = tokio::sync::mpsc::unbounded_channel();
+                let weak = client.downgrade();
+                client.on_close(move || {
+                    if stop {
+                        weak.upgrade().unwrap().close();
+                    }
+                    let _ = closed.send(());
+                    panic!("close callback failed");
+                });
+                client.set_reconnect(1);
+                client.open("127.0.0.1", listener.local_addr().unwrap().port());
+                let (peer, _) = listener.accept().await.unwrap();
+                opens.recv().await.unwrap();
+                drop(peer);
+                closes.recv().await.unwrap();
+                if stop {
+                    assert!(timeout(Duration::from_millis(100), listener.accept())
+                        .await
+                        .is_err());
+                } else {
+                    let (_peer, _) = listener.accept().await.unwrap();
+                    opens.recv().await.unwrap();
+                }
+                client.on_close(|| {});
+                client.close();
+            });
+        }
+    }
+
+    #[test]
+    fn open_failure_callback_panic_preserves_reconnect_policy() {
+        for stop in [false, true] {
+            run(async {
+                let unavailable = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let port = unavailable.local_addr().unwrap().port();
+                drop(unavailable);
+                let client = TcpClient::new(TcpConfig::new());
+                let (failed, mut failures) = tokio::sync::mpsc::unbounded_channel();
+                let weak = client.downgrade();
+                client.on_open_failed(move |_| {
+                    if stop {
+                        weak.upgrade().unwrap().close();
+                    }
+                    let _ = failed.send(());
+                    panic!("open failure callback failed");
+                });
+                let (opened, mut opens) = tokio::sync::mpsc::unbounded_channel();
+                client.on_open(move || {
+                    let _ = opened.send(());
+                });
+                client.set_reconnect(1);
+                client.open("127.0.0.1", port);
+                failures.recv().await.unwrap();
+                let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+                if stop {
+                    assert!(timeout(Duration::from_millis(100), listener.accept())
+                        .await
+                        .is_err());
+                } else {
+                    let (_peer, _) = listener.accept().await.unwrap();
+                    opens.recv().await.unwrap();
+                }
+                client.close();
+            });
+        }
     }
 
     #[test]
