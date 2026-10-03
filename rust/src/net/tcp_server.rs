@@ -77,7 +77,10 @@ impl TcpServer {
                         let callback = this.on_session.borrow().clone();
                         if let Some(on_session) = callback {
                             let session = TcpChannel::new(this.config.clone());
-                            session.do_open(stream);
+                            if let Err(err) = session.do_open(stream) {
+                                error!("Failed to configure accepted connection: {err}");
+                                continue;
+                            }
                             on_session(Rc::downgrade(&session));
                         }
                     }
@@ -115,5 +118,58 @@ impl Drop for TcpServer {
         if let Some(task) = self.accept_task.get_mut().take() {
             task.abort();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::AsyncReadExt;
+    use tokio::net::TcpStream;
+    use tokio::time::{sleep, timeout, Duration};
+
+    #[test]
+    fn socket_configuration_failure_keeps_accepting() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+            timeout(Duration::from_secs(3), async {
+                let reserved = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = reserved.local_addr().unwrap();
+                let server = TcpServer::new(
+                    address.port(),
+                    TcpConfig {
+                        socket_recv_buffer_size: u32::MAX,
+                        ..TcpConfig::new()
+                    },
+                );
+                let (tx, mut sessions) = tokio::sync::mpsc::unbounded_channel();
+                server.on_session(move |session| {
+                    tx.send(session).unwrap();
+                });
+                drop(reserved);
+                server.start();
+                let mut rejected = loop {
+                    if let Ok(stream) = TcpStream::connect(address).await {
+                        break stream;
+                    }
+                    sleep(Duration::from_millis(1)).await;
+                };
+                assert_eq!(rejected.read(&mut [0]).await.unwrap(), 0);
+                assert!(sessions.try_recv().is_err());
+                server.config.borrow_mut().socket_recv_buffer_size = 32768;
+                let mut peer = TcpStream::connect(address).await.unwrap();
+                let session = sessions.recv().await.unwrap().upgrade().unwrap();
+                assert!(session.is_open());
+                session.close();
+                session.wait_close_finish().await;
+                assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+                server.stop();
+            })
+            .await
+            .unwrap();
+        }));
     }
 }

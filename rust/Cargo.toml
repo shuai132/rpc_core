@@ -20,11 +20,12 @@ serde_json = "1.0"
 
 tokio = { version = "1", features = ["rt", "net", "io-util", "macros", "time", "sync"], optional = true }
 tokio-stream = { version = "0.1", optional = true }
+socket2 = { version = "0.6", optional = true }
 
 [features]
 default = []
 full = ["net"]
-net = ["tokio", "tokio-stream"]
+net = ["tokio", "tokio-stream", "socket2"]
 
 [package.metadata.docs.rs]
 features = ["full"]

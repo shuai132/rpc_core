@@ -112,12 +112,31 @@ impl TcpChannel {
     }
 
     // Reopening requires close() followed by wait_close_finish().
-    pub fn do_open(self: &Rc<Self>, stream: TcpStream) {
+    pub fn do_open(self: &Rc<Self>, stream: TcpStream) -> std::io::Result<()> {
         debug_assert_eq!(
             self.active_loops.get(),
             0,
             "wait for old IO before reopening"
         );
+        {
+            let config = self.config.borrow();
+            // SO_SNDBUF/SO_RCVBUF use signed integers on Windows and Unix.
+            if config.socket_send_buffer_size > i32::MAX as u32
+                || config.socket_recv_buffer_size > i32::MAX as u32
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "socket buffer size exceeds the signed 32-bit range",
+                ));
+            }
+            let socket = socket2::SockRef::from(&stream);
+            if config.socket_send_buffer_size != 0 {
+                socket.set_send_buffer_size(config.socket_send_buffer_size as usize)?;
+            }
+            if config.socket_recv_buffer_size != 0 {
+                socket.set_recv_buffer_size(config.socket_recv_buffer_size as usize)?;
+            }
+        }
         self.active_loops.set(2);
         *self.is_open.borrow_mut() = true;
         // Own cleanup before spawning so it also runs on panic or an unpolled
@@ -220,6 +239,7 @@ impl TcpChannel {
                 }
             });
         });
+        Ok(())
     }
 
     fn finish_loop(&self) {
@@ -314,6 +334,71 @@ mod tests {
     use super::*;
 
     #[test]
+    fn opening_applies_socket_buffers_and_preserves_zero_options() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+            tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                for send_size in [0, 32768] {
+                    for recv_size in [0, 32768] {
+                        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                        let _peer = TcpStream::connect(listener.local_addr().unwrap())
+                            .await
+                            .unwrap();
+                        let (stream, _) = listener.accept().await.unwrap();
+                        let stream = stream.into_std().unwrap();
+                        let observer = stream.try_clone().unwrap();
+                        let socket = socket2::SockRef::from(&observer);
+                        // Compare against the OS's effective sizes, which may be
+                        // rounded, clamped or doubled rather than equal to the input.
+                        socket
+                            .set_send_buffer_size(if send_size == 0 {
+                                16384
+                            } else {
+                                send_size as usize
+                            })
+                            .unwrap();
+                        socket
+                            .set_recv_buffer_size(if recv_size == 0 {
+                                16384
+                            } else {
+                                recv_size as usize
+                            })
+                            .unwrap();
+                        let expected = (
+                            socket.send_buffer_size().unwrap(),
+                            socket.recv_buffer_size().unwrap(),
+                        );
+                        socket.set_send_buffer_size(16384).unwrap();
+                        socket.set_recv_buffer_size(16384).unwrap();
+                        let channel = TcpChannel::new(Rc::new(RefCell::new(TcpConfig {
+                            socket_send_buffer_size: send_size,
+                            socket_recv_buffer_size: recv_size,
+                            ..TcpConfig::new()
+                        })));
+                        channel
+                            .do_open(TcpStream::from_std(stream).unwrap())
+                            .unwrap();
+                        assert_eq!(
+                            (
+                                socket.send_buffer_size().unwrap(),
+                                socket.recv_buffer_size().unwrap()
+                            ),
+                            expected
+                        );
+                        channel.close();
+                        channel.wait_close_finish().await;
+                    }
+                }
+            })
+            .await
+            .unwrap();
+        }));
+    }
+
+    #[test]
     fn dropping_unpolled_io_tasks_releases_channel_state() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -327,7 +412,7 @@ mod tests {
                 .await
                 .unwrap();
             let (stream, _) = listener.accept().await.unwrap();
-            channel.do_open(stream);
+            channel.do_open(stream).unwrap();
             peer
         }));
         assert_eq!(channel.active_loops.get(), 2);
@@ -372,7 +457,7 @@ mod tests {
                                 panic!("close callback failed");
                             }
                         });
-                        channel.do_open(stream);
+                        channel.do_open(stream).unwrap();
                         if panic_on_close {
                             channel.close();
                         } else {
@@ -396,7 +481,7 @@ mod tests {
                             .await
                             .unwrap();
                         let (stream, _) = listener.accept().await.unwrap();
-                        channel.do_open(stream);
+                        channel.do_open(stream).unwrap();
                         if auto_pack {
                             peer.write_all(&1u32.to_le_bytes()).await.unwrap();
                         }
@@ -511,7 +596,7 @@ mod tests {
                     .unwrap();
                 let (stream, _) = listener.accept().await.unwrap();
                 let channel = TcpChannel::new(Rc::new(RefCell::new(TcpConfig::new())));
-                channel.do_open(stream);
+                channel.do_open(stream).unwrap();
                 channel.close();
                 tokio::join!(channel.wait_close_finish(), channel.wait_close_finish());
                 channel.wait_close_finish().await;
@@ -539,7 +624,7 @@ mod tests {
                         .await
                         .unwrap();
                     let (old_stream, _) = listener.accept().await.unwrap();
-                    channel.do_open(old_stream);
+                    channel.do_open(old_stream).unwrap();
                     channel.send_str("old");
                     if orphaned_body {
                         channel.send_queue.borrow_mut().pop_front();
@@ -551,7 +636,7 @@ mod tests {
                         .await
                         .unwrap();
                     let (stream, _) = listener.accept().await.unwrap();
-                    channel.do_open(stream);
+                    channel.do_open(stream).unwrap();
                     channel.send_str("new");
                     assert_eq!(peer.read_u32_le().await.unwrap(), 3);
                     let mut body = [0; 3];
@@ -580,7 +665,7 @@ mod tests {
                     .unwrap();
                 let (stream, _) = listener.accept().await.unwrap();
                 let channel = TcpChannel::new(Rc::new(RefCell::new(TcpConfig::new())));
-                channel.do_open(stream);
+                channel.do_open(stream).unwrap();
                 channel.close();
                 channel.wait_close_finish().await;
             })
@@ -608,7 +693,7 @@ mod tests {
                     ..TcpConfig::new()
                 })));
                 channel.on_data(|_| panic!("oversized packet delivered"));
-                channel.do_open(stream);
+                channel.do_open(stream).unwrap();
                 peer.write_all(&9u32.to_le_bytes()).await.unwrap();
                 channel.wait_close_finish().await;
                 assert!(!channel.is_open());
@@ -674,7 +759,7 @@ mod tests {
                     max_send_buffer_size: 8,
                     ..TcpConfig::new()
                 })));
-                channel.do_open(stream);
+                channel.do_open(stream).unwrap();
                 for _ in 0..2 {
                     assert!(channel.send(b"data".to_vec()));
                     assert!(!channel.send(b"extra".to_vec()));

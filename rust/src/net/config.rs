@@ -10,7 +10,9 @@ pub struct TcpConfig {
     pub max_body_size: u32,
     /// Maximum queued and in-flight bytes, including frame headers; zero is unlimited.
     pub max_send_buffer_size: u32,
+    /// Requested OS send buffer size; zero preserves the system default.
     pub socket_send_buffer_size: u32,
+    /// Requested OS receive buffer size; zero preserves the system default.
     pub socket_recv_buffer_size: u32,
 }
 
@@ -44,7 +46,9 @@ pub struct RpcConfig {
     pub max_body_size: u32,
     /// Maximum queued and in-flight bytes, including frame headers; zero is unlimited.
     pub max_send_buffer_size: u32,
+    /// Requested OS send buffer size; zero preserves the system default.
     pub socket_send_buffer_size: u32,
+    /// Requested OS receive buffer size; zero preserves the system default.
     pub socket_recv_buffer_size: u32,
 }
 

@@ -215,9 +215,9 @@ impl TcpClient {
                 return;
             }
             this.connecting.set(false);
+            let result = result.and_then(|stream| this.channel.do_open(stream).map_err(Into::into));
             match result {
-                Ok(stream) => {
-                    this.channel.do_open(stream);
+                Ok(()) => {
                     let callback = this.on_open.borrow().clone();
                     if let Some(on_open) = callback {
                         on_open();
@@ -294,6 +294,49 @@ mod tests {
     }
 
     struct FailingHost;
+
+    #[test]
+    fn invalid_socket_buffers_report_failure_and_allow_reopen() {
+        for invalid_send in [false, true] {
+            run(async {
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let mut config = TcpConfig::new();
+                if invalid_send {
+                    config.socket_send_buffer_size = u32::MAX;
+                } else {
+                    config.socket_recv_buffer_size = u32::MAX;
+                }
+                let client = TcpClient::new(config);
+                let (events, mut received) = tokio::sync::mpsc::unbounded_channel();
+                let failed = events.clone();
+                client.on_open_failed(move |error| {
+                    failed.send(Some(error.to_string())).unwrap();
+                });
+                client.on_open(move || {
+                    events.send(None).unwrap();
+                });
+                let port = listener.local_addr().unwrap().port();
+                client.open("127.0.0.1", port);
+                let (mut rejected, _) = listener.accept().await.unwrap();
+                assert!(received.recv().await.unwrap().is_some());
+                assert!(!client.is_open());
+                assert!(!client.connecting.get());
+                use tokio::io::AsyncReadExt;
+                assert_eq!(rejected.read(&mut [0]).await.unwrap(), 0);
+                {
+                    let mut config = client.config.borrow_mut();
+                    config.socket_send_buffer_size = 32768;
+                    config.socket_recv_buffer_size = 32768;
+                }
+                client.open("127.0.0.1", port);
+                let (mut peer, _) = listener.accept().await.unwrap();
+                assert!(received.recv().await.unwrap().is_none());
+                assert!(client.is_open());
+                client.close();
+                assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+            });
+        }
+    }
 
     impl std::fmt::Display for FailingHost {
         fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

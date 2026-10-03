@@ -193,6 +193,14 @@ TCP and RPC configurations default to a 16 MiB maximum frame body. Set
 headers close the transport before reading the body. Receive buffers grow with
 the bytes actually received, including when the limit is disabled.
 
+`socket_send_buffer_size` and `socket_recv_buffer_size` configure the OS socket
+buffers on every connection, including reconnects and accepted sessions. Zero
+preserves the system default. The OS may round or clamp the requested size;
+values above `i32::MAX` are rejected. A configuration error closes that socket:
+clients report `on_open_failed` and follow the reconnect policy, while servers
+log the error and continue accepting without invoking `on_session` for that socket.
+These options are separate from the `max_send_buffer_size` application queue limit.
+
 Dropping a TCP or RPC client stops its connection/reconnect tasks and closes its
 transport. Dropping a server stops accepting new connections; established server
 sessions retain their own lifetime until their transport closes.
