@@ -28,6 +28,9 @@ class dispose : detail::noncopyable {
   void add(const request_s& request) {
     RPC_CORE_LOGV("add: ptr:%p", request.get());
     if (adds_until_prune_ == 0) {
+      // Keep control blocks alive until compaction and bookkeeping finish.
+      // Their allocators may release user captures that reenter this group.
+      auto previous = requests_;
       // Scan periodically, with the interval growing with the retained set.
       // An alias can share either its pointer or its owner with another request.
       // Only identical pointers with identical ownership are duplicates.
@@ -44,12 +47,14 @@ class dispose : detail::noncopyable {
       requests_.erase(end, requests_.end());
       adds_until_prune_ = (std::max)(size_t{64}, requests_.size());
     }
-    --adds_until_prune_;
+    // A released capture may have dismissed the group and reset this counter.
+    if (adds_until_prune_ != 0) --adds_until_prune_;
     requests_.push_back(request_w{request});
   }
 
   void remove(const request_s& request) {
     RPC_CORE_LOGV("remove: ptr:%p", request.get());
+    auto previous = requests_;
     auto iter = std::remove_if(requests_.begin(), requests_.end(), [&](request_w& param) {
       auto r = param.lock();
       if (!r) return true;

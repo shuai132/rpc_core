@@ -183,6 +183,9 @@ that request's cancellation callback. Requests may be registered again afterward
 Registration periodically removes expired and duplicate registrations without
 canceling live requests. The scan interval grows with the retained set, so a
 long-lived group does not accumulate a record for every historical call.
+Removing or pruning weak references releases their control blocks only after the
+group's storage is stable. Custom allocator captures may reenter `add()`, `remove()`
+or `dismiss()` during that release.
 Explicit `dismiss()` cancels the entire detached batch even if completion callbacks
 throw, then rethrows the first exception. Callbacks used during `dispose`
 destruction must not throw.

@@ -9,8 +9,8 @@ using namespace rpc_core;
 template <typename T>
 struct tracked_allocator {
   using value_type = T;
-  std::shared_ptr<int> lifetime;
-  explicit tracked_allocator(std::shared_ptr<int> value) : lifetime(std::move(value)) {}
+  std::shared_ptr<void> lifetime;
+  explicit tracked_allocator(std::shared_ptr<void> value) : lifetime(std::move(value)) {}
   template <typename U>
   tracked_allocator(const tracked_allocator<U>& other) : lifetime(other.lifetime) {}
   template <typename U>
@@ -20,6 +20,54 @@ struct tracked_allocator {
   T* allocate(size_t count) { return std::allocator<T>{}.allocate(count); }
   void deallocate(T* data, size_t count) { std::allocator<T>{}.deallocate(data, count); }
 };
+
+static void test_dispose_control_block_release_can_reenter() {
+  struct on_drop {
+    std::function<void()> callback;
+    ~on_drop() { callback(); }
+  };
+  for (bool prune : {false, true}) {
+    for (int action = 0; action < 3; ++action) {
+      dispose group;
+      auto live = request::create();
+      auto next = request::create();
+      bool released = false;
+      auto capture = std::make_shared<on_drop>();
+      capture->callback = [&] {
+        released = true;
+        if (action == 0) group.add(next);
+        if (action == 1) group.remove(live);
+        if (action == 2) group.dismiss();
+      };
+      request_s alias(live.get(), [](request*) {}, tracked_allocator<request>{capture});
+      group.add(alias);
+      group.add(live);
+      alias.reset();
+      capture.reset();
+      ASSERT(!released);
+      if (prune) {
+        // Trigger a periodic scan; the expired alias releases its allocator captures.
+        for (int i = 0; i < 1000 && !released; ++i) group.add(live);
+      } else {
+        group.remove(live);
+      }
+      ASSERT(released);
+      // A reentrant dismiss resets the scan budget; later expiry must still
+      // trigger another scan rather than underflowing that budget.
+      bool released_again = false;
+      auto another = std::make_shared<on_drop>();
+      another->callback = [&] { released_again = true; };
+      request_s another_alias(live.get(), [](request*) {}, tracked_allocator<request>{another});
+      group.add(another_alias);
+      another_alias.reset();
+      another.reset();
+      for (int i = 0; i < 1000 && !released_again; ++i) group.add(live);
+      ASSERT(released_again);
+      group.dismiss();
+      ASSERT(next->is_canceled() == (action == 0));
+    }
+  }
+}
 
 static void test_long_lived_dispose_releases_expired_control_blocks() {
   dispose group;
@@ -334,6 +382,7 @@ static void test_duplicate_dispose_registration_does_not_cancel_a_restarted_call
 }
 
 int main() {
+  test_dispose_control_block_release_can_reenter();
   test_long_lived_dispose_releases_expired_control_blocks();
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
   test_dispose_completes_batch_after_callback_exception();
