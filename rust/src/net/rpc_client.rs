@@ -45,22 +45,27 @@ impl RpcClient {
             };
             let previous_heartbeat = this.inner.borrow_mut().heartbeat.take();
             drop(previous_heartbeat);
+            // Callback installation may release captures that reenter the client.
+            // This also applies when Rpc::new replaces a connection's receiver.
+            let (configured_rpc, previous_connection, tcp_client) = {
+                let inner = this.inner.borrow();
+                (
+                    inner.config.rpc.clone(),
+                    inner.connection.clone(),
+                    inner.tcp_client.clone(),
+                )
+            };
+            let rpc = configured_rpc.unwrap_or_else(|| Rpc::new(Some(previous_connection.clone())));
+            let connection = rpc.get_connection();
             let previous_rpc = {
-                let mut this = this.inner.borrow_mut();
-                let rpc = if let Some(rpc) = this.config.rpc.clone() {
-                    this.connection = rpc.get_connection();
-                    rpc
-                } else {
-                    Rpc::new(Some(this.connection.clone()))
-                };
-                this.rpc.replace(rpc)
+                let mut inner = this.inner.borrow_mut();
+                inner.connection = connection.clone();
+                inner.rpc.replace(rpc.clone())
             };
 
             {
                 let this_weak = this_weak.clone();
-                this.inner
-                    .borrow()
-                    .connection
+                connection
                     .borrow_mut()
                     .set_send_package_impl(Box::new(move |package: Vec<u8>| {
                         if let Some(this) = this_weak.upgrade() {
@@ -71,7 +76,7 @@ impl RpcClient {
             }
             {
                 let this_weak = this_weak.clone();
-                this.inner.borrow().tcp_client.on_data(move |package| {
+                tcp_client.on_data(move |package| {
                     if let Some(this) = this_weak.upgrade() {
                         let connection = this.inner.borrow().connection.clone();
                         connection.borrow().on_recv_package(package);
@@ -79,17 +84,15 @@ impl RpcClient {
                 });
             }
 
-            this.inner.borrow_mut().rpc.as_ref().unwrap().set_timer(
-                |ms: u32, handle: Box<dyn Fn()>| {
-                    tokio::task::spawn_local(async move {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
-                        handle();
-                    });
-                },
-            );
+            rpc.set_timer(|ms: u32, handle: Box<dyn Fn()>| {
+                tokio::task::spawn_local(async move {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(ms as u64)).await;
+                    handle();
+                });
+            });
             {
                 let this_weak = this_weak.clone();
-                this.inner.borrow().tcp_client.on_close(move || {
+                tcp_client.on_close(move || {
                     let Some(this) = this_weak.upgrade() else {
                         return;
                     };
@@ -102,12 +105,7 @@ impl RpcClient {
                     }
                 });
             }
-            this.inner
-                .borrow_mut()
-                .rpc
-                .as_ref()
-                .unwrap()
-                .set_ready(true);
+            rpc.set_ready(true);
 
             let (rpc, interval, timeout, tcp) = {
                 let inner = this.inner.borrow();
@@ -215,6 +213,84 @@ mod tests {
     };
     use crate::net::config_builder::RpcConfigBuilder;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn replaced_transport_captures_can_reconfigure_or_close_client() {
+        struct OnDrop(Box<dyn Fn()>);
+        impl Drop for OnDrop {
+            fn drop(&mut self) {
+                (self.0)();
+            }
+        }
+        for callback in ["sender", "timer", "receiver"] {
+            for close_during_setup in [false, true] {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+                    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                        let rpc = Rpc::new(None);
+                        let configured_rpc = (callback != "receiver").then(|| rpc.clone());
+                        let client =
+                            RpcClient::new(RpcConfigBuilder::new().rpc(configured_rpc).build());
+                        let (tx, mut events) = tokio::sync::mpsc::unbounded_channel();
+                        let opened = tx.clone();
+                        client.on_open(move |_| {
+                            opened.send("open").unwrap();
+                        });
+                        let weak = Rc::downgrade(&client);
+                        let capture = OnDrop(Box::new(move || {
+                            let client = weak.upgrade().unwrap();
+                            let closed = tx.clone();
+                            client.on_close(move || {
+                                closed.send("close").unwrap();
+                            });
+                            client.cancel_reconnect();
+                            if close_during_setup {
+                                client.close();
+                            }
+                            tx.send("released").unwrap();
+                        }));
+                        if callback == "timer" {
+                            rpc.set_timer(move |_, _| {
+                                let _keep = &capture;
+                            });
+                        } else if callback == "receiver" {
+                            let connection = client.inner.borrow().connection.clone();
+                            connection
+                                .borrow_mut()
+                                .set_recv_package_impl(Box::new(move |_| {
+                                    let _keep = &capture;
+                                }));
+                        } else {
+                            rpc.get_connection()
+                                .borrow_mut()
+                                .set_send_package_impl(Box::new(move |_| {
+                                    let _keep = &capture;
+                                    true
+                                }));
+                        }
+                        client.open("127.0.0.1", listener.local_addr().unwrap().port());
+                        let (mut peer, _) = listener.accept().await.unwrap();
+                        assert_eq!(events.recv().await, Some("released"));
+                        if !close_during_setup {
+                            assert_eq!(events.recv().await, Some("open"));
+                            assert!(client.inner.borrow().rpc.as_ref().unwrap().is_ready());
+                            client.close();
+                        }
+                        assert_eq!(events.recv().await, Some("close"));
+                        assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+                        assert!(!client.inner.borrow().rpc.as_ref().unwrap().is_ready());
+                        assert!(events.try_recv().is_err());
+                    })
+                    .await
+                    .expect("capture reentry interrupted connection setup");
+                }));
+            }
+        }
+    }
 
     #[test]
     fn reconnect_completion_can_close_or_replace_the_connection() {

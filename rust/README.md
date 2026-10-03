@@ -216,6 +216,9 @@ its own event.
 Network callback setters release replaced captures after releasing internal
 borrows. Capture destructors may register new callbacks on the same client,
 server, session or channel.
+During RPC client connection setup, replaced sender, receiver and timer captures
+may also reconfigure or close the client without a client-state borrow panic.
+Closing during setup suppresses that connection's `on_open` notification.
 With panic unwinding enabled, a panic in a receive or close callback still closes
 the channel and completes IO shutdown, allowing it to be reopened. Dropping IO
 tasks before their first poll also releases the channel's active-task state.
