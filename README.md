@@ -194,6 +194,8 @@ object. It completes old pending calls with `finally_t::session_reset`, invalida
 old deferred replies, and retains subscriptions, readiness and the sequence
 counter. Completion callbacks can immediately start new calls. Reset while
 disconnected if those callbacks must not send until the new transport is bound.
+If completion callbacks throw, reset still completes every old call, then rethrows
+the first exception. Calls started by those callbacks remain in the new session.
 
 The transport adapter determines whether a connection resumes the same logical
 session; the protocol does not perform a session handshake. Adapters must stop

@@ -47,6 +47,54 @@ static void test_deferred_reply_blocks_serialization_reentry() {
 }
 
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_reset_completes_all_calls_after_callback_exception() {
+  for (bool all_throw : {false, true}) {
+    auto conn = std::make_shared<connection>();
+    conn->send_package_impl = [](std::string) { return true; };
+    auto r = rpc::create(conn);
+    r->set_ready(true);
+    std::vector<rpc::timeout_cb> timers;
+    r->set_timer([&](uint32_t, rpc::timeout_cb cb) { timers.push_back(std::move(cb)); });
+    std::vector<request_w> old;
+    request_s next;
+    int resets = 0, new_completions = 0;
+    for (int i = 0; i < 3; ++i) {
+      auto req = r->cmd("old")->mark_need_rsp()->finally([&](finally_t status) {
+        ASSERT(status == finally_t::session_reset);
+        if (++resets == 1) {
+          next = r->cmd("new")->mark_need_rsp()->finally([&](finally_t type) {
+            ASSERT(type == finally_t::timeout);
+            ++new_completions;
+          });
+          ASSERT(next->call());
+          throw std::runtime_error("first reset failure");
+        }
+        if (all_throw) throw std::runtime_error("later reset failure");
+      });
+      old.push_back(req);
+      ASSERT(req->call());
+    }
+    bool caught = false;
+    try {
+      r->reset_session();
+    } catch (const std::runtime_error& error) {
+      caught = std::string(error.what()) == "first reset failure";
+    }
+    ASSERT(caught && resets == 3);
+    for (const auto& weak : old) ASSERT(weak.expired());
+    ASSERT(next->call().type == finally_t::busy && timers.size() == 4);
+    for (size_t i = 0; i < 3; ++i) {
+      auto fire = timers[i];
+      fire();
+    }
+    ASSERT(new_completions == 0);
+    timers[3]();
+    ASSERT(new_completions == 1);
+    r->reset_session();
+    ASSERT(resets == 3 && new_completions == 1);
+  }
+}
+
 static void test_deferred_reply_can_retry_after_exception() {
   for (bool in_transport : {false, true}) {
     reply_fixture f;
@@ -440,6 +488,7 @@ static void test_sequence_wrap_keeps_pending_calls() {
 int main() {
   test_deferred_reply_blocks_serialization_reentry();
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_reset_completes_all_calls_after_callback_exception();
   test_deferred_reply_can_retry_after_exception();
 #endif
   test_sequence_wrap_keeps_pending_calls();

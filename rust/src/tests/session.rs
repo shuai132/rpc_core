@@ -18,6 +18,73 @@ fn poll_once<F: Future>(future: Pin<&mut F>) -> Poll<F::Output> {
 }
 
 #[test]
+fn reset_completes_all_calls_after_callback_panic() {
+    for all_panic in [false, true] {
+        let rpc = Rpc::new(None);
+        rpc.get_connection()
+            .borrow_mut()
+            .set_send_package_impl(Box::new(|_| true));
+        rpc.set_ready(true);
+        let timers = Rc::new(RefCell::new(Vec::<Rc<dyn Fn()>>::new()));
+        let saved = timers.clone();
+        rpc.set_timer(move |_, cb| saved.borrow_mut().push(Rc::from(cb)));
+        let resets = Rc::new(Cell::new(0));
+        let new_completions = Rc::new(RefCell::new(Vec::new()));
+        let next = Rc::new(RefCell::new(None));
+        let mut old = Vec::new();
+        for _ in 0..3 {
+            let request = rpc.cmd("old");
+            let weak_rpc = Rc::downgrade(&rpc);
+            let resets = resets.clone();
+            let next = next.clone();
+            let new_completions = new_completions.clone();
+            request.rsp(|_: String| {}).finally(move |status| {
+                assert_eq!(status, FinallyType::SessionReset);
+                resets.set(resets.get() + 1);
+                if resets.get() == 1 {
+                    let request = weak_rpc.upgrade().unwrap().cmd("new");
+                    let completions = new_completions.clone();
+                    request.rsp(|_: String| {}).finally(move |status| {
+                        completions.borrow_mut().push(status);
+                    });
+                    request.call().unwrap();
+                    *next.borrow_mut() = Some(request);
+                    panic!("first reset failure");
+                }
+                if all_panic {
+                    panic!("later reset failure");
+                }
+            });
+            old.push(Rc::downgrade(&request));
+            request.call().unwrap();
+        }
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rpc.reset_session()));
+        assert_eq!(
+            result.unwrap_err().downcast_ref::<&str>(),
+            Some(&"first reset failure")
+        );
+        assert_eq!(resets.get(), 3);
+        assert!(old.iter().all(|weak| weak.upgrade().is_none()));
+        assert_eq!(
+            next.borrow().as_ref().unwrap().call(),
+            Err(FinallyType::Busy)
+        );
+        assert_eq!(timers.borrow().len(), 4);
+        for i in 0..3 {
+            let fire = timers.borrow()[i].clone();
+            fire();
+        }
+        assert!(new_completions.borrow().is_empty());
+        let fire = timers.borrow()[3].clone();
+        fire();
+        assert_eq!(*new_completions.borrow(), vec![FinallyType::Timeout]);
+        rpc.reset_session();
+        assert_eq!(resets.get(), 3);
+        assert_eq!(*new_completions.borrow(), vec![FinallyType::Timeout]);
+    }
+}
+
+#[test]
 fn reset_completes_future_preserves_readiness_and_releases_request() {
     for ready in [false, true] {
         let rpc = Rpc::new(None);

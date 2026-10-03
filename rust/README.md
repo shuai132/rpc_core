@@ -122,6 +122,9 @@ packets. Old pending calls complete with `FinallyType::SessionReset`; subscripti
 readiness and the sequence counter are retained. Completion callbacks may start
 new calls, and old timeout registrations cannot finish those new calls. Responses
 from a subscription handler that resets its own session are suppressed.
+With panic unwinding enabled, reset completes every old call even if completion
+callbacks panic, then resumes the first panic. Calls started by those callbacks
+remain in the new session.
 
 The adapter decides whether a connection resumes the old session. There is no
 session handshake or automatic reply replay; the adapter must stop delivering

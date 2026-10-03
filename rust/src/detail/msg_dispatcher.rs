@@ -107,10 +107,21 @@ impl MsgDispatcher {
             std::mem::take(&mut dispatcher.rsp_handle_map)
         };
         // User completions may immediately register requests for the new session.
+        let mut failure = None;
         for (_, pending) in previous {
             if let Some(reset) = pending.reset {
-                reset();
+                if let Err(error) =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reset()))
+                {
+                    // Every detached call must complete even if a user completion panics.
+                    if failure.is_none() {
+                        failure = Some(error);
+                    }
+                }
             }
+        }
+        if let Some(error) = failure {
+            std::panic::resume_unwind(error);
         }
     }
 

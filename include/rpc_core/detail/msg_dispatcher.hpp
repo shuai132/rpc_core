@@ -1,5 +1,6 @@
 #pragma once
 
+#include <exception>
 #include <map>
 #include <memory>
 #include <utility>
@@ -162,9 +163,22 @@ class msg_dispatcher : public std::enable_shared_from_this<msg_dispatcher>, nonc
     // Detach all old registrations before callbacks can register new requests.
     decltype(rsp_handle_map_) previous;
     previous.swap(rsp_handle_map_);
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    std::exception_ptr failure;
+    for (auto& pending : previous) {
+      try {
+        if (pending.second.reset) pending.second.reset();
+      } catch (...) {
+        // Every detached call must complete even if a user completion throws.
+        if (!failure) failure = std::current_exception();
+      }
+    }
+    if (failure) std::rethrow_exception(failure);
+#else
     for (auto& pending : previous) {
       if (pending.second.reset) pending.second.reset();
     }
+#endif
   }
 
   inline void subscribe_cmd(const cmd_type& cmd, cmd_handle handle) {
