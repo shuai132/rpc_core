@@ -11,6 +11,17 @@ on:
       - 'rust/**'
 
 jobs:
+  no-exceptions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure without exceptions
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-fno-exceptions
+      - name: Build
+        run: cmake --build build -j 2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 30
+
   sanitizers:
     runs-on: ubuntu-latest
     steps:

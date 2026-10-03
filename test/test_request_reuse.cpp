@@ -46,6 +46,7 @@ struct reentrant_response {
 std::function<void()> reentrant_response::on_decode;
 bool reentrant_response::fail = false;
 
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
 static void test_response_unwind_cleans_only_its_registration() {
   for (bool replace : {false, true}) {
     auto conn = std::make_shared<connection>();
@@ -72,6 +73,7 @@ static void test_response_unwind_cleans_only_its_registration() {
     ASSERT(resets == (replace ? 1 : 0));
   }
 }
+#endif
 
 static void test_response_deserialization_cannot_finish_reused_request(bool reset_session) {
   for (bool fail : {false, true}) {
@@ -342,7 +344,9 @@ static void test_clearing_finally_callback(bool no_arguments) {
 }
 
 int main() {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
   test_response_unwind_cleans_only_its_registration();
+#endif
   test_response_deserialization_cannot_finish_reused_request(false);
   test_response_deserialization_cannot_finish_reused_request(true);
   test_clearing_finally_callback(false);

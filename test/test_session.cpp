@@ -46,6 +46,7 @@ static void test_deferred_reply_blocks_serialization_reentry() {
   ASSERT(copy({"duplicate", {}}).type == finally_t::busy);
 }
 
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
 static void test_deferred_reply_can_retry_after_exception() {
   for (bool in_transport : {false, true}) {
     reply_fixture f;
@@ -68,6 +69,7 @@ static void test_deferred_reply_can_retry_after_exception() {
     ASSERT(detail::coder::deserialize(f.sent.front()).second.data == "retry");
   }
 }
+#endif
 
 static void test_reply_survives_reconnect_and_reports_offline() {
   auto pair = loopback_connection::create();
@@ -437,7 +439,9 @@ static void test_sequence_wrap_keeps_pending_calls() {
 
 int main() {
   test_deferred_reply_blocks_serialization_reentry();
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
   test_deferred_reply_can_retry_after_exception();
+#endif
   test_sequence_wrap_keeps_pending_calls();
   test_scheduled_subscription_keeps_state_and_lifetime();
   test_wide_string_replies();
