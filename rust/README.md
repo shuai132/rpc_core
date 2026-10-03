@@ -74,6 +74,11 @@ callbacks. A new call starts with the full configured retry budget, and retries
 invoke `finally` only once for the logical call. After `cancel()`, call
 `reset_cancel()` before reusing the request.
 
+Replacing a response, timeout or `finally` callback releases its old captures
+outside the request's internal borrow. Capture destructors may cancel or
+reconfigure the request; for example, dropping a captured `Dispose` group cancels
+its registered requests.
+
 Dropping a polled, pending `future()` cancels its logical call, including retries.
 Use `reset_cancel()` before reusing that request. Dropping an unpolled future or
 an old future after its call completed does not cancel a newer call.

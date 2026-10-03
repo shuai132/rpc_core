@@ -142,11 +142,11 @@ impl Request {
         P: for<'de> serde::Deserialize<'de>,
         F: Fn(P) + 'static,
     {
-        {
+        let previous = {
             let weak = Rc::downgrade(self);
             let mut request = self.inner.borrow_mut();
             request.need_rsp = true;
-            request.rsp_handle = Some(Rc::new(move |msg| -> bool {
+            request.rsp_handle.replace(Rc::new(move |msg| -> bool {
                 let this = weak.upgrade();
                 if this.is_none() {
                     return false;
@@ -170,8 +170,10 @@ impl Request {
                     this.on_finish(FinallyType::RspSerializeError);
                     false
                 }
-            }));
-        }
+            }))
+        };
+        // Captured values may cancel or reconfigure the request when dropped.
+        drop(previous);
         self
     }
 
@@ -179,7 +181,8 @@ impl Request {
     where
         F: Fn(FinallyType) + 'static,
     {
-        self.inner.borrow_mut().finally = Some(Rc::new(finally));
+        let previous = self.inner.borrow_mut().finally.replace(Rc::new(finally));
+        drop(previous);
         self
     }
 
@@ -272,7 +275,12 @@ impl Request {
     where
         F: Fn() + 'static,
     {
-        self.inner.borrow_mut().timeout_cb = Some(Rc::new(timeout_cb));
+        let previous = self
+            .inner
+            .borrow_mut()
+            .timeout_cb
+            .replace(Rc::new(timeout_cb));
+        drop(previous);
         self
     }
 

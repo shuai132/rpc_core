@@ -13,6 +13,48 @@ use rpc_core::rpc::Rpc;
 
 struct NoopWake;
 
+#[test]
+fn replacing_callbacks_can_drop_a_dispose_group_for_the_same_request() {
+    for callback in ["response", "timeout", "finally"] {
+        let request = rpc_core::request::Request::new();
+        let mut group = rpc_core::dispose::Dispose::new();
+        request.add_to(&mut group);
+        match callback {
+            "response" => {
+                request.rsp(move |_: ()| {
+                    let _keep_group = &group;
+                });
+            }
+            "timeout" => {
+                request.timeout(move || {
+                    let _keep_group = &group;
+                });
+            }
+            _ => {
+                request.finally(move |_| {
+                    let _keep_group = &group;
+                });
+            }
+        }
+        assert!(!request.is_canceled());
+        // Releasing the previous callback drops its group, which cancels this request.
+        match callback {
+            "response" => {
+                request.rsp(|_: ()| {});
+            }
+            "timeout" => {
+                request.timeout(|| {});
+            }
+            _ => {
+                request.finally(|_| {});
+            }
+        }
+        assert!(request.is_canceled());
+        request.reset_cancel();
+        assert!(!request.is_canceled());
+    }
+}
+
 impl Wake for NoopWake {
     fn wake(self: Arc<Self>) {}
 }
