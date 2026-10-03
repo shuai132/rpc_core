@@ -50,7 +50,18 @@ serialize_oarchive& operator>>(const T& t, serialize_oarchive& oa) {
 
 template <typename T, typename std::enable_if<detail::is_std_stack<T>::value, int>::type = 0>
 serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  try {
+    detail::adaptor_access<T>::container(t) << ia;
+  } catch (...) {
+    // A decoder or allocation can throw after appending an unordered prefix.
+    // Restore the adaptor invariant before exposing that partial result.
+    detail::adaptor_access<T>::restore_heap(t);
+    throw;
+  }
+#else
   detail::adaptor_access<T>::container(t) << ia;
+#endif
   detail::adaptor_access<T>::restore_heap(t);
   return ia;
 }

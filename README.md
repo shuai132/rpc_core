@@ -407,6 +407,11 @@ json: `{"id":1,"age":18,"name":"test"}`
   ```
   choose `RPC_CORE_DEFINE_TYPE` or `RPC_CORE_DEFINE_TYPE_INNER` for private member variable.
 
+When decoding `std::priority_queue`, the successfully decoded prefix is rebuilt
+using the destination's comparator, including when an element decoder throws.
+The original exception propagates after rebuilding. This recovery requires heap
+comparisons and element moves to complete without throwing.
+
 ## Serialization Plugins
 
 JSON decoding failures log only a generic failure message; parser and conversion

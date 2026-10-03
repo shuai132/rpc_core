@@ -1,5 +1,6 @@
 #include "rpc_core.hpp"
 #include "assert_def.h"
+#include <stdexcept>
 
 using namespace rpc_core;
 
@@ -202,6 +203,49 @@ static void test_container_adaptor_invariants() {
   ASSERT(stack.top() == 2);
 }
 
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+struct throwing_heap_element {
+  int value = 0;
+  void operator>>(serialize_oarchive& ar) const { value >> ar; }
+  void operator<<(serialize_iarchive& ar) {
+    value << ar;
+    if (!ar.error && value == 99) throw std::runtime_error("element decode failed");
+  }
+};
+
+struct heap_compare {
+  bool reverse;
+  bool operator()(const throwing_heap_element& a, const throwing_heap_element& b) const noexcept {
+    return reverse ? a.value > b.value : a.value < b.value;
+  }
+};
+
+template <typename Container>
+static void check_heap_after_decode_exception() {
+  for (bool reverse : {false, true}) {
+    std::priority_queue<throwing_heap_element, Container, heap_compare> target(heap_compare{reverse});
+    target.push({42});
+    const auto encoded = serialize(Container{{2}, {3}, {1}, {99}});
+    bool caught = false;
+    try {
+      deserialize(encoded, target);
+    } catch (const std::runtime_error& error) {
+      caught = std::string(error.what()) == "element decode failed";
+    }
+    ASSERT(caught && target.size() == 3);
+    ASSERT(target.top().value == (reverse ? 1 : 3));
+    target.push({4});
+    for (int i = 0; i < 4; ++i) {
+      ASSERT(target.top().value == (reverse ? i + 1 : 4 - i));
+      target.pop();
+    }
+    ASSERT(target.empty());
+    ASSERT(deserialize(serialize(Container{{5}, {6}}), target));
+    ASSERT(target.size() == 2 && target.top().value == (reverse ? 5 : 6));
+  }
+}
+#endif
+
 static void test_failed_binary_decode_preserves_storage_bounds() {
   std::string original = "old";
   binary_wrap value;
@@ -338,6 +382,10 @@ int main() {
   test_enum_decode_rejects_narrowing();
   test_failed_binary_decode_preserves_storage_bounds();
   test_container_adaptor_invariants();
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  check_heap_after_decode_exception<std::vector<throwing_heap_element>>();
+  check_heap_after_decode_exception<std::deque<throwing_heap_element>>();
+#endif
   test_fixed_array_lengths();
   test_floating_chrono();
   test_immutable_associative_state();
