@@ -1,9 +1,92 @@
 #include "rpc_core.hpp"
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 #include "assert_def.h"
 
 using namespace rpc_core;
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+template <typename T>
+static void test_initiation_exception_completes_coroutine_once() {
+  for (bool timer_failure : {false, true}) for (bool finish_first : {false, true}) {
+    asio::io_context io;
+    auto r = rpc::create();
+    r->set_ready(true);
+    std::vector<rpc::timeout_cb> timers;
+    r->set_timer([&](uint32_t, rpc::timeout_cb cb) {
+      timers.push_back(cb);
+      if (timer_failure) {
+        if (finish_first) cb();
+        throw std::runtime_error("initiation failed");
+      }
+    });
+    r->get_connection()->send_package_impl = [&](std::string packet) -> bool {
+      if (finish_first) {
+        auto command = detail::coder::deserialize(packet);
+        ASSERT(command.first);
+        std::string value = "response";
+        auto response = detail::msg_wrapper::make_rsp(command.second.seq, &value);
+        r->get_connection()->on_recv_package(detail::coder::serialize(response).second);
+      }
+      throw std::runtime_error("initiation failed");
+    };
+    auto req = r->cmd("pending");
+    asio::cancellation_signal signal;
+    int completed = 0;
+    asio::co_spawn(io, req->co_call<T>(), asio::bind_cancellation_slot(signal.slot(),
+        [&](std::exception_ptr error, result<T>) {
+          ++completed;
+          ASSERT(error);
+          try {
+            std::rethrow_exception(error);
+          } catch (const std::runtime_error& e) {
+            ASSERT(std::string(e.what()) == "initiation failed");
+          }
+        }));
+    io.run();
+    ASSERT(completed == 1);
+    for (auto& fire : timers) fire();
+    r->set_timer([](uint32_t, rpc::timeout_cb) {});
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
+    req->finally([] {});
+    ASSERT(req->call());
+    signal.emit(asio::cancellation_type::terminal);
+    io.restart();
+    io.poll();
+    ASSERT(completed == 1 && !req->is_canceled());
+    req->cancel();
+    request_w observer = req;
+    req.reset();
+    ASSERT(observer.expired());
+  }
+}
+#endif
+
+static void test_synchronous_completion_keeps_result_during_initiation() {
+  asio::io_context io;
+  auto r = rpc::create();
+  r->set_ready(true);
+  r->set_timer([](uint32_t, rpc::timeout_cb) {});
+  auto req = r->cmd("pending");
+  int sent = 0, completed = 0;
+  r->get_connection()->send_package_impl = [&](std::string packet) {
+    const bool first = ++sent == 1;
+    auto command = detail::coder::deserialize(packet);
+    ASSERT(command.first);
+    std::string value = first ? "original" : "later";
+    auto response = detail::msg_wrapper::make_rsp(command.second.seq, &value);
+    r->get_connection()->on_recv_package(detail::coder::serialize(response).second);
+    if (first) ASSERT(req->call());
+    return true;
+  };
+  asio::co_spawn(io, req->co_call<std::string>(), [&](std::exception_ptr error, result<std::string> response) {
+    ASSERT(!error && response && response.data == "original");
+    ++completed;
+  });
+  io.run();
+  ASSERT(sent == 2 && completed == 1);
+}
 
 static void test_queued_completion_keeps_its_response() {
   for (auto status : {finally_t::normal, finally_t::timeout, finally_t::canceled}) {
@@ -154,6 +237,11 @@ static void test_scheduled_coroutine_keeps_handler_and_borrowed_request() {
 }
 
 int main() {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_initiation_exception_completes_coroutine_once<void>();
+  test_initiation_exception_completes_coroutine_once<std::string>();
+#endif
+  test_synchronous_completion_keeps_result_during_initiation();
   test_queued_completion_keeps_its_response();
   for (bool synchronous_failure : {false, true}) {
     test_coroutine_starts_before_releasing_replaced_callbacks<void>(synchronous_failure);

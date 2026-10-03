@@ -1,5 +1,7 @@
 #pragma once
 
+#include <exception>
+
 #include "request.hpp"
 #include "rpc.hpp"
 
@@ -146,6 +148,46 @@ std::future<result<void>> request::future(const rpc_s& rpc) {
 #endif
 
 #ifdef RPC_CORE_FEATURE_CO_ASIO
+namespace detail {
+
+// Request startup must finish before a synchronous completion resumes the coroutine.
+// If it throws after completing the request, deliver only the exception.
+template <typename Complete>
+struct co_call_completion {
+  explicit co_call_completion(Complete complete) : complete(std::move(complete)) {}
+
+  void finish(finally_t status) {
+    if (completed) return;
+    completed = true;
+    type = status;
+    if (!initiating) complete(nullptr, status);
+  }
+
+  void start(request& pending) {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    try {
+      pending.call();
+    } catch (...) {
+      initiating = false;
+      completed = true;
+      complete(std::current_exception(), type);
+      return;
+    }
+#else
+    pending.call();
+#endif
+    initiating = false;
+    if (completed) complete(nullptr, type);
+  }
+
+  Complete complete;
+  bool initiating = true;
+  bool completed = false;
+  finally_t type = finally_t::rpc_not_ready;
+};
+
+}  // namespace detail
+
 template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int>::type>
 asio::awaitable<result<R>> request::co_call() {
   return co_call_impl<R>(shared_from_this());
@@ -160,7 +202,7 @@ template <typename R, typename std::enable_if<!std::is_same<R, void>::value, int
 asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
   if (owner->active_) co_return result<R>{finally_t::busy, R{}};
   auto executor = co_await asio::this_coro::executor;
-  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
+  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(std::exception_ptr, result<R>)>(
       [pending = owner.get(), &executor](auto& self) mutable {
         auto keeper = pending->shared_from_this();
         auto previous_callbacks = std::make_pair(pending->rsp_handle_, pending->finally_);
@@ -178,18 +220,20 @@ asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
           });
         }
         auto response = std::make_shared<std::unique_ptr<R>>();
-        pending->rsp([response](R data, finally_t) {
-          response->reset(new R(std::move(data)));
-        });
-        pending->finally([executor, response, slot, self = std::move(self_sp)](finally_t type) mutable {
+        auto complete = [executor, response, slot, self = std::move(self_sp)](std::exception_ptr error, finally_t type) mutable {
           if (!self) return;
           slot.clear();
           // The executor may resume later, after this request has been reused.
-          asio::dispatch(executor, [self = std::move(self), response = std::move(*response), type]() mutable {
-            self->complete({type, response ? std::move(*response) : R{}});
+          asio::dispatch(executor, [self = std::move(self), response = std::move(*response), error, type]() mutable {
+            self->complete(error, {type, response ? std::move(*response) : R{}});
           });
+        };
+        auto completion = std::make_shared<detail::co_call_completion<decltype(complete)>>(std::move(complete));
+        pending->rsp([response, completion](R data, finally_t) {
+          if (!completion->completed) response->reset(new R(std::move(data)));
         });
-        pending->call();
+        pending->finally([completion](finally_t type) { completion->finish(type); });
+        completion->start(*pending);
       },
       asio::use_awaitable);
 }
@@ -198,7 +242,7 @@ template <typename R, typename std::enable_if<std::is_same<R, void>::value, int>
 asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
   if (owner->active_) co_return result<R>{finally_t::busy};
   auto executor = co_await asio::this_coro::executor;
-  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(result<R>)>(
+  co_return co_await asio::async_compose<decltype(asio::use_awaitable), void(std::exception_ptr, result<R>)>(
       [pending = owner.get(), &executor](auto& self) mutable {
         auto keeper = pending->shared_from_this();
         auto previous_callbacks = std::make_pair(pending->rsp_handle_, pending->finally_);
@@ -216,14 +260,16 @@ asio::awaitable<result<R>> request::co_call_impl(request_s owner) {
           });
         }
         pending->mark_need_rsp();
-        pending->finally([executor, slot, self = std::move(self_sp)](finally_t type) mutable {
+        auto complete = [executor, slot, self = std::move(self_sp)](std::exception_ptr error, finally_t type) mutable {
           if (!self) return;
           slot.clear();
-          asio::dispatch(executor, [self = std::move(self), type] {
-            self->complete({type});
+          asio::dispatch(executor, [self = std::move(self), error, type] {
+            self->complete(error, {type});
           });
-        });
-        pending->call();
+        };
+        auto completion = std::make_shared<detail::co_call_completion<decltype(complete)>>(std::move(complete));
+        pending->finally([completion](finally_t type) { completion->finish(type); });
+        completion->start(*pending);
       },
       asio::use_awaitable);
 }
