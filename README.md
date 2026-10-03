@@ -233,6 +233,10 @@ String decoding supports input views into the destination's own storage, includi
 subranges and wide-character data. Overlapping input is copied before the destination
 changes; non-overlapping input continues to reuse the destination's capacity.
 
+Container elements with length prefixes are validated before invoking their
+decoders. Truncated element headers or bodies stop decoding without calling that
+element's custom decoder. Earlier elements may already have been written.
+
 Decoding `binary_wrap` validates the length and copies the payload before replacing
 its storage. Invalid or truncated input leaves the destination unchanged. The input
 may also refer to the destination's existing storage.

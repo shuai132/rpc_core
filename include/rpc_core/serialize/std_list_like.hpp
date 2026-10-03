@@ -51,6 +51,7 @@ serialize_iarchive& operator<<(T& t, serialize_iarchive& ia) {
     } else {
       serialize_iarchive tmp;
       tmp << ia;
+      if (ia.error) break;
       item << tmp;
       if (tmp.error) {
         ia.error = true;

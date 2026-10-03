@@ -3,6 +3,56 @@
 
 using namespace rpc_core;
 
+struct counted_element {
+  int value = 0;
+  static int decodes;
+
+  void operator>>(serialize_oarchive& ar) const { value >> ar; }
+  void operator<<(serialize_iarchive& ar) {
+    ++decodes;
+    value << ar;
+  }
+  bool operator<(const counted_element& other) const { return value < other.value; }
+  bool operator==(const counted_element& other) const { return value == other.value; }
+};
+
+int counted_element::decodes = 0;
+
+struct counted_element_hash {
+  size_t operator()(const counted_element& item) const { return std::hash<int>{}(item.value); }
+};
+
+template <typename Container>
+static void check_container_element_boundaries(const Container& expected) {
+  const auto encoded = serialize(expected);
+  const auto element = serialize(counted_element{1});
+  const auto first_end = detail::auto_size(2).serialize().size() +
+      detail::auto_size(element.size()).serialize().size() + element.size();
+  for (size_t length = 0; length < encoded.size(); ++length) {
+    Container actual{};
+    counted_element::decodes = 0;
+    ASSERT(!deserialize(encoded.substr(0, length), actual));
+    // Only complete element frames may reach a user-defined decoder.
+    ASSERT(counted_element::decodes == (length >= first_end ? 1 : 0));
+  }
+  Container actual{};
+  counted_element::decodes = 0;
+  ASSERT(deserialize(encoded, actual));
+  ASSERT(counted_element::decodes == 2 && actual == expected);
+}
+
+static void test_container_element_boundaries() {
+  check_container_element_boundaries(std::array<counted_element, 2>{{{1}, {2}}});
+  check_container_element_boundaries(std::vector<counted_element>{{1}, {2}});
+  check_container_element_boundaries(std::list<counted_element>{{1}, {2}});
+  check_container_element_boundaries(std::deque<counted_element>{{1}, {2}});
+  check_container_element_boundaries(std::forward_list<counted_element>{{1}, {2}});
+  check_container_element_boundaries(std::set<counted_element>{{1}, {2}});
+  check_container_element_boundaries(std::multiset<counted_element>{{1}, {2}});
+  check_container_element_boundaries(std::unordered_set<counted_element, counted_element_hash>{{1}, {2}});
+  check_container_element_boundaries(std::unordered_multiset<counted_element, counted_element_hash>{{1}, {2}});
+}
+
 template <typename T>
 void check_replacement(const T& expected, T actual) {
   auto encoded = serialize(expected);
@@ -279,6 +329,7 @@ static void test_string_decode_from_own_storage() {
 }
 
 int main() {
+  test_container_element_boundaries();
   test_string_decode_from_own_storage<char>();
   test_string_decode_from_own_storage<wchar_t>();
   test_string_decode_from_own_storage<char16_t>();
