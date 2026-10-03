@@ -58,6 +58,7 @@ inline serialize_iarchive& operator<<(serialize_iarchive& t, serialize_iarchive&
   ia.data += cost;
   t.data = ia.data;
   t.size = size.value;
+  t.error = false;
   ia.data += size.value;
   ia.size -= cost + size.value;
   return ia;

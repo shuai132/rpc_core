@@ -284,6 +284,10 @@ Container elements with length prefixes are validated before invoking their
 decoders. Truncated element headers or bodies stop decoding without calling that
 element's custom decoder. Earlier elements may already have been written.
 
+Reading a complete length-prefixed child into a reused `serialize_iarchive`
+replaces its view and clears its previous error. An already-failed parent remains
+failed and cannot supply a new child view.
+
 Decoding `binary_wrap` validates the length and copies the payload before replacing
 its storage. Invalid or truncated input leaves the destination unchanged. The input
 may also refer to the destination's existing storage.

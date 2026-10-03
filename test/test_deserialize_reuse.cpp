@@ -54,6 +54,43 @@ static void test_container_element_boundaries() {
   check_container_element_boundaries(std::unordered_multiset<counted_element, counted_element_hash>{{1}, {2}});
 }
 
+static void test_nested_archive_reuse_clears_previous_error() {
+  serialize_oarchive expected;
+  42 >> expected;
+  const auto encoded = serialize(expected);
+  serialize_iarchive child;
+
+  // A truncated frame must not poison the destination view for another input.
+  ASSERT(!deserialize(encoded.substr(0, encoded.size() - 1), child));
+  ASSERT(child.error);
+  ASSERT(deserialize(encoded, child));
+  ASSERT(!child.error);
+  int value = 0;
+  value << child;
+  ASSERT(!child.error && value == 42);
+
+  // A failed child decode must not poison the next frame in the same parent.
+  serialize_oarchive invalid;
+  invalid.data = std::string(1, '\x7f');
+  serialize_oarchive frames;
+  invalid >> frames;
+  expected >> frames;
+  serialize_iarchive parent(frames.data.data(), frames.data.size());
+  child << parent;
+  ASSERT(!parent.error && !child.error);
+  value << child;
+  ASSERT(child.error && !parent.error);
+  child << parent;
+  ASSERT(!child.error && !parent.error && parent.size == 0);
+  value << child;
+  ASSERT(!child.error && value == 42);
+
+  // A failed parent is still sticky and cannot provide a usable child view.
+  parent.error = true;
+  child << parent;
+  ASSERT(parent.error && child.error);
+}
+
 template <typename T>
 void check_replacement(const T& expected, T actual) {
   auto encoded = serialize(expected);
@@ -450,6 +487,7 @@ static void test_string_decode_from_own_storage() {
 
 int main() {
   test_container_element_boundaries();
+  test_nested_archive_reuse_clears_previous_error();
   test_string_decode_from_own_storage<char>();
   test_string_decode_from_own_storage<wchar_t>();
   test_string_decode_from_own_storage<char16_t>();
