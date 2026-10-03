@@ -232,9 +232,11 @@ impl Request {
             return Err(FinallyType::RpcNotReady);
         }
 
-        self.inner.borrow_mut().seq = r.make_seq();
+        let seq = r.make_seq();
+        self.inner.borrow_mut().seq = seq;
         let sent = r.send_request(self.as_ref());
-        if self.inner.borrow().call_id != call_id || self.inner.borrow().active.is_none() {
+        // Sending may reenter a timeout and start another attempt of this call.
+        if !self.matches_attempt(call_id, seq) {
             return sent;
         }
         if let Err(error) = sent {

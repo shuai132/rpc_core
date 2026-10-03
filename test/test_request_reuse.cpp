@@ -189,7 +189,33 @@ static void test_reused_callbacks_keep_mutable_state() {
   ASSERT((counts == std::vector<int>{1, 2, 3, 4}));
 }
 
+static void test_reentrant_retry_survives_old_send_failure() {
+  fixture f;
+  std::vector<finally_t> finished;
+  f.conn->send_package_impl = [&](std::string packet) {
+    f.sent.push_back(std::move(packet));
+    if (f.sent.size() == 1) {
+      f.expire(0);  // A nested event loop can expire this attempt while sending.
+      return false;
+    }
+    return true;
+  };
+  auto req = f.r->cmd("retry")->retry(1)->rsp([](std::string value) { ASSERT(value == "ok"); })
+      ->finally([&](finally_t status) { finished.push_back(status); });
+  ASSERT(req->call().type == finally_t::rpc_not_ready);
+  ASSERT(f.sent.size() == 2 && finished.empty());
+  ASSERT(req->call().type == finally_t::busy);
+  f.reply(0, "stale");
+  f.expire(0);
+  ASSERT(finished.empty());
+  f.reply(1, "ok");
+  ASSERT(finished == std::vector<finally_t>{finally_t::normal});
+  f.expire(1);
+  ASSERT(finished.size() == 1);
+}
+
 int main() {
+  test_reentrant_retry_survives_old_send_failure();
   test_reused_callbacks_keep_mutable_state();
   test_busy_keeps_original_call();
   test_cancel_and_stale_callbacks();

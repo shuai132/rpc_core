@@ -709,6 +709,43 @@ fn retries_preserve_active_options_and_reset_budget_on_reuse() {
 }
 
 #[test]
+fn reentrant_retry_survives_old_send_failure() {
+    let f = PendingFixture::new();
+    let packets = f.sent.clone();
+    let timers = f.timers.clone();
+    f.conn
+        .borrow_mut()
+        .set_send_package_impl(Box::new(move |packet| {
+            packets.borrow_mut().push(packet);
+            let first = packets.borrow().len() == 1;
+            if first {
+                let expire = timers.borrow()[0].clone();
+                expire();
+                return false;
+            }
+            true
+        }));
+    let results = Rc::new(RefCell::new(Vec::new()));
+    let finished = results.clone();
+    let request = f.rpc.cmd("retry");
+    request
+        .retry(1)
+        .rsp(|value: String| assert_eq!(value, "ok"))
+        .finally(move |status| finished.borrow_mut().push(status));
+    assert_eq!(request.call(), Err(FinallyType::RpcNotReady));
+    assert_eq!(f.sent.borrow().len(), 2);
+    assert!(results.borrow().is_empty());
+    assert_eq!(request.call(), Err(FinallyType::Busy));
+    f.reply(0, "stale");
+    f.expire(0);
+    assert!(results.borrow().is_empty());
+    f.reply(1, "ok");
+    assert_eq!(*results.borrow(), vec![FinallyType::Normal]);
+    f.expire(1);
+    assert_eq!(results.borrow().len(), 1);
+}
+
+#[test]
 fn timeout_can_cancel_and_start_a_new_logical_call() {
     let f = PendingFixture::new();
     let request = f.rpc.cmd("x");

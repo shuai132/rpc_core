@@ -36,8 +36,10 @@ result<void> request::send_attempt() {
     return {finally_t::rpc_not_ready};
   }
   seq_ = r->make_seq();
+  const auto seq = seq_;
   auto sent = r->send_request(this);
-  if (call_id_ != call_id || !active_) return sent;
+  // Sending may reenter a timeout and start another attempt of this same call.
+  if (!matches_attempt(call_id, seq)) return sent;
   if (!sent) {
     on_finish(sent.type);
     return sent;
