@@ -35,6 +35,72 @@ struct reply_fixture {
   }
 };
 
+struct releasing_handler_base {
+  rpc_s& owner;
+  rpc_w observer;
+  bool& alive_during_move;
+  releasing_handler_base(rpc_s& owner, bool& alive) : owner(owner), observer(owner), alive_during_move(alive) {}
+  releasing_handler_base(const releasing_handler_base&) = default;
+  releasing_handler_base(releasing_handler_base&& other)
+      : owner(other.owner), observer(other.observer), alive_during_move(other.alive_during_move) {
+    owner.reset();
+    alive_during_move = alive_during_move && !observer.expired();
+  }
+};
+
+struct releasing_plain_handler : releasing_handler_base {
+  using releasing_handler_base::releasing_handler_base;
+  void operator()(int) const {}
+};
+
+struct releasing_deferred_handler : releasing_handler_base {
+  using releasing_handler_base::releasing_handler_base;
+  void operator()(request_response<int, int>) const {}
+};
+
+static void test_subscription_keeps_rpc_during_handler_moves() {
+  for (int mode = 0; mode < 3; ++mode) {
+    auto server = rpc::create();
+    rpc_w observer = server;
+    bool alive_during_move = true;
+    if (mode == 0) {
+      releasing_plain_handler handler(server, alive_during_move);
+      server->subscribe("release", handler);
+    } else {
+      releasing_deferred_handler handler(server, alive_during_move);
+      if (mode == 1) server->subscribe("release", handler);
+      else server->subscribe("release", handler, [](std::function<void()> task) { task(); });
+    }
+    ASSERT(!server && observer.expired() && alive_during_move);
+  }
+}
+
+static void test_rpc_keeps_owner_during_capture_release() {
+  for (int operation = 0; operation < 4; ++operation) {
+    auto server = rpc::create();
+    rpc_w observer = server;
+    bool released = false, alive_during_release = false;
+    auto capture = std::shared_ptr<int>(new int, [&](int* value) {
+      delete value;
+      server.reset();
+      released = true;
+      if (auto pending = observer.lock()) {
+        alive_during_release = true;
+        // Cleanup can still reconfigure the live dispatcher.
+        pending->subscribe("another", [] {});
+      }
+    });
+    if (operation < 2) server->subscribe("release", [capture] {});
+    else server->set_timer([capture](uint32_t, rpc::timeout_cb) {});
+    capture.reset();
+    if (operation == 0) server->subscribe("release", [] {});
+    if (operation == 1) server->unsubscribe("release");
+    if (operation == 2) server->set_timer([](uint32_t, rpc::timeout_cb) {});
+    if (operation == 3) server->set_timer(nullptr);
+    ASSERT(released && alive_during_release && !server && observer.expired());
+  }
+}
+
 static void test_deferred_reply_blocks_serialization_reentry() {
   reply_fixture f;
   auto copy = f.pending->rsp;
@@ -486,6 +552,8 @@ static void test_sequence_wrap_keeps_pending_calls() {
 }
 
 int main() {
+  test_subscription_keeps_rpc_during_handler_moves();
+  test_rpc_keeps_owner_during_capture_release();
   test_deferred_reply_blocks_serialization_reentry();
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
   test_reset_completes_all_calls_after_callback_exception();

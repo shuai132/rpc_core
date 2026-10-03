@@ -54,6 +54,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
   }
 
   inline void set_timer(detail::msg_dispatcher::timer_impl timer_impl) {
+    auto keeper = shared_from_this();
     dispatcher_->set_timer_impl(std::move(timer_impl));
   }
 
@@ -72,6 +73,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
  public:
   template <typename F, typename std::enable_if<!detail::fp_is_request_response<F>::value, int>::type = 0>
   void subscribe(const cmd_type& cmd, F handle) {
+    auto keeper = shared_from_this();
     constexpr bool F_ReturnIsEmpty = std::is_void<typename detail::callable_traits<F>::return_type>::value;
     constexpr bool F_ParamIsEmpty = detail::callable_traits<F>::argc == 0;
     subscribe_helper<F, F_ReturnIsEmpty, F_ParamIsEmpty>()(cmd, std::move(handle), dispatcher_.get());
@@ -83,12 +85,14 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
   template <typename F, typename std::enable_if<detail::fp_is_request_response<F>::value, int>::type = 0>
   void subscribe(const cmd_type& cmd, F handle) {
     static_assert(std::is_void<typename detail::callable_traits<F>::return_type>::value, "should return void");
+    auto keeper = shared_from_this();
     subscribe(cmd, std::move(handle), nullptr);
   }
 
   template <typename F, typename std::enable_if<detail::fp_is_request_response<F>::value, int>::type = 0>
   void subscribe(const cmd_type& cmd, F handle, Scheduler<F> scheduler) {
     static_assert(detail::callable_traits<F>::argc == 1, "should be request_response<>");
+    auto keeper = shared_from_this();
     dispatcher_->subscribe_cmd(cmd, [handle = std::make_shared<F>(std::move(handle)), scheduler = std::move(scheduler)](const detail::msg_wrapper& msg, detail::msg_dispatcher::reply_handle reply) mutable {
       using request_response = detail::remove_cvref_t<typename detail::callable_traits<F>::template argument_type<0>>;
       using request_response_impl = typename request_response::element_type;
@@ -131,6 +135,7 @@ class rpc : detail::noncopyable, public std::enable_shared_from_this<rpc> {
   }
 
   inline void unsubscribe(const cmd_type& cmd) {
+    auto keeper = shared_from_this();
     dispatcher_->unsubscribe_cmd(cmd);
   }
 

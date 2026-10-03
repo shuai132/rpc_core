@@ -103,6 +103,11 @@ scheduled calls; their tasks retain the original handler. A coroutine scheduler
 must retain the task callable until the returned coroutine completes (see the
 scheduler example in [test/test_rpc.cpp](test/test_rpc.cpp)).
 
+Subscription and timer updates keep the RPC alive while moving stored handlers
+or releasing replaced captures. Unsubscribing follows the same rule. That code
+may release the caller's last RPC reference and still reconfigure it during the
+operation; destruction occurs after the operation finishes.
+
 * async call and response using c++20 coroutine:  
   here is an example using asio, custom async/coroutine implementation is supported
 
