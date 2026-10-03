@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <exception>
 #include <memory>
 #include <unordered_set>
 #include <vector>
@@ -43,12 +44,27 @@ class dispose : detail::noncopyable {
     std::vector<request_w> pending;
     pending.swap(requests_);
     std::unordered_set<const request*> canceled;
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    std::exception_ptr failure;
+#endif
     for (const auto& item : pending) {
       auto r = item.lock();
       if (r && canceled.insert(r.get()).second) {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+        try {
+          r->cancel();
+        } catch (...) {
+          // Finish the detached batch before propagating a user callback failure.
+          if (!failure) failure = std::current_exception();
+        }
+#else
         r->cancel();
+#endif
       }
     }
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    if (failure) std::rethrow_exception(failure);
+#endif
   }
 
   ~dispose() {

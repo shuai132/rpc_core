@@ -356,6 +356,66 @@ fn ping_without_a_message_round_trips_unit() {
 }
 
 #[test]
+fn dispose_completes_batch_after_callback_panic() {
+    for all_panic in [false, true] {
+        let f = PendingFixture::new();
+        let mut group = rpc_core::dispose::Dispose::new();
+        let finished = Rc::new(RefCell::new(Vec::new()));
+        let next_finished = Rc::new(RefCell::new(Vec::new()));
+        let mut old = Vec::new();
+        for i in 0..3 {
+            let request = f.rpc.cmd("pending");
+            let weak = Rc::downgrade(&request);
+            old.push(weak.clone());
+            let finished = finished.clone();
+            let next_finished = next_finished.clone();
+            request.rsp(|_: String| {}).finally(move |status| {
+                finished.borrow_mut().push((i, status.clone()));
+                if status != FinallyType::Canceled {
+                    return;
+                }
+                if i == 0 {
+                    let request = weak.upgrade().unwrap();
+                    let next_finished = next_finished.clone();
+                    request.finally(move |status| next_finished.borrow_mut().push(status));
+                    request.reset_cancel().call().unwrap();
+                    panic!("first cancellation failure");
+                }
+                if all_panic {
+                    panic!("later cancellation failure");
+                }
+            });
+            request
+                .add_to(&mut group)
+                .add_to(&mut group)
+                .call()
+                .unwrap();
+        }
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| group.dismiss()));
+        assert_eq!(
+            result.unwrap_err().downcast_ref::<&str>(),
+            Some(&"first cancellation failure")
+        );
+        assert_eq!(
+            *finished.borrow(),
+            vec![
+                (0, FinallyType::Canceled),
+                (1, FinallyType::Canceled),
+                (2, FinallyType::Canceled)
+            ]
+        );
+        assert!(old[1].upgrade().is_none() && old[2].upgrade().is_none());
+        assert_eq!(old[0].upgrade().unwrap().call(), Err(FinallyType::Busy));
+        group.dismiss();
+        assert!(next_finished.borrow().is_empty());
+        old[0].upgrade().unwrap().add_to(&mut group);
+        group.dismiss();
+        assert_eq!(*next_finished.borrow(), vec![FinallyType::Canceled]);
+        assert!(old[0].upgrade().is_none());
+    }
+}
+
+#[test]
 fn duplicate_dispose_registration_does_not_cancel_a_restarted_call() {
     let f = PendingFixture::new();
     let request = f.rpc.cmd("pending");

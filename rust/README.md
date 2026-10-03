@@ -109,6 +109,8 @@ an old future after its call completed does not cancel a newer call.
 A `Dispose` group cancels each distinct request at most once per `dismiss()`, in
 registration order. Duplicate registrations do not cancel a new call started by
 that request's cancellation callback. Requests may be registered again afterward.
+With panic unwinding enabled, `dismiss()` cancels the entire detached batch even
+if completion callbacks panic, then resumes the first panic.
 
 # Logical sessions
 

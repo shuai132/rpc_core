@@ -1,4 +1,5 @@
 #include <limits>
+#include <stdexcept>
 
 #include "rpc_core.hpp"
 #include "assert_def.h"
@@ -201,6 +202,53 @@ static void test_timer_retains_mutable_state_between_calls() {
   ASSERT((counts == std::vector<int>{1, 2}));
 }
 
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+static void test_dispose_completes_batch_after_callback_exception() {
+  for (bool all_throw : {false, true}) {
+    auto r = rpc::create();
+    r->get_connection()->send_package_impl = [](std::string) { return true; };
+    r->set_ready(true);
+    r->set_timer([](uint32_t, rpc::timeout_cb) {});
+    dispose group;
+    std::vector<request_w> old;
+    std::vector<int> canceled;
+    int next_canceled = 0;
+    for (int i = 0; i < 3; ++i) {
+      auto req = r->cmd("pending")->mark_need_rsp();
+      request_w weak = req;
+      req->finally([&, weak, i](finally_t status) {
+        ASSERT(status == finally_t::canceled);
+        canceled.push_back(i);
+        if (i == 0) {
+          auto req = weak.lock();
+          req->finally([&](finally_t type) { ASSERT(type == finally_t::canceled); ++next_canceled; });
+          ASSERT(req->reset_cancel()->call());
+          throw std::runtime_error("first cancellation failure");
+        }
+        if (all_throw) throw std::runtime_error("later cancellation failure");
+      });
+      req->add_to(group)->add_to(group);
+      old.push_back(req);
+      ASSERT(req->call());
+    }
+    bool caught = false;
+    try {
+      group.dismiss();
+    } catch (const std::runtime_error& error) {
+      caught = std::string(error.what()) == "first cancellation failure";
+    }
+    ASSERT((caught && canceled == std::vector<int>{0, 1, 2}));
+    ASSERT(old[1].expired() && old[2].expired());
+    ASSERT(old[0].lock()->call().type == finally_t::busy && next_canceled == 0);
+    group.dismiss();
+    ASSERT(next_canceled == 0);
+    old[0].lock()->add_to(group);
+    group.dismiss();
+    ASSERT(next_canceled == 1 && old[0].expired());
+  }
+}
+#endif
+
 static void test_duplicate_dispose_registration_does_not_cancel_a_restarted_call() {
   auto r = rpc::create();
   r->get_connection()->send_package_impl = [](std::string) { return true; };
@@ -226,6 +274,9 @@ static void test_duplicate_dispose_registration_does_not_cancel_a_restarted_call
 }
 
 int main() {
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+  test_dispose_completes_batch_after_callback_exception();
+#endif
   test_duplicate_dispose_registration_does_not_cancel_a_restarted_call();
   test_timer_replacement_keeps_running_callable_alive();
   test_timer_retains_mutable_state_between_calls();

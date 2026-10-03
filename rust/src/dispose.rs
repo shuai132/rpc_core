@@ -16,12 +16,25 @@ impl Dispose {
     pub fn dismiss(&mut self) {
         let pending = std::mem::take(&mut self.requests);
         let mut canceled = HashSet::new();
+        let mut failure = None;
         for item in pending {
             if let Some(request) = item.upgrade() {
                 if canceled.insert(Rc::as_ptr(&request)) {
-                    request.cancel();
+                    if let Err(error) =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            request.cancel();
+                        }))
+                    {
+                        // Finish the detached batch before propagating a user callback failure.
+                        if failure.is_none() {
+                            failure = Some(error);
+                        }
+                    }
                 }
             }
+        }
+        if let Some(error) = failure {
+            std::panic::resume_unwind(error);
         }
     }
 }
