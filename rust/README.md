@@ -166,6 +166,10 @@ sessions retain their own lifetime until their transport closes.
 `RpcClient::stop()` is equivalent to `close()` and can be called through the shared
 `Rc` returned by `new()`, including from callbacks. It cancels automatic reconnect;
 an explicit `open()` can start the client again.
+If replacing the previous RPC instance during reconnect finishes pending requests,
+those completions run before `on_open`. If a completion closes or reopens the
+client, that connection does not emit `on_open`; a subsequent connection can emit
+its own event.
 Network callback setters release replaced captures after releasing internal
 borrows. Capture destructors may register new callbacks on the same client,
 server, session or channel.

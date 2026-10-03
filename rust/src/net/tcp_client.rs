@@ -110,6 +110,10 @@ impl TcpClient {
         self.channel.close();
     }
 
+    pub(crate) fn is_open(&self) -> bool {
+        self.channel.is_open()
+    }
+
     pub fn stop(&self) {
         self.close();
     }

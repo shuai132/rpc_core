@@ -130,6 +130,11 @@ impl RpcClient {
             drop(previous_rpc);
             let (callback, rpc) = {
                 let inner = this.inner.borrow();
+                // A completion may close or reopen the client. Reopening closes
+                // the old channel synchronously and connects asynchronously.
+                if !inner.tcp_client.is_open() {
+                    return;
+                }
                 (inner.on_open.clone(), inner.rpc.clone().unwrap())
             };
             if let Some(on_open) = callback {
@@ -209,6 +214,71 @@ mod tests {
     };
     use crate::net::config_builder::RpcConfigBuilder;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn reconnect_completion_can_close_or_replace_the_connection() {
+        for reopen in [false, true] {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(tokio::task::LocalSet::new().run_until(async {
+                tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                    let port = listener.local_addr().unwrap().port();
+                    let client = RpcClient::new(RpcConfigBuilder::new().build());
+                    let (tx, mut events) = tokio::sync::mpsc::unbounded_channel();
+                    let closed = tx.clone();
+                    client.on_close(move || {
+                        let _ = closed.send("close");
+                    });
+                    let opens = std::cell::Cell::new(0);
+                    let weak = Rc::downgrade(&client);
+                    client.on_open(move |rpc| {
+                        opens.set(opens.get() + 1);
+                        if opens.get() == 1 {
+                            let weak = weak.clone();
+                            let tx = tx.clone();
+                            rpc.cmd("pending")
+                                .msg(1)
+                                .rsp(|_: i32| {})
+                                .finally(move |status| {
+                                    assert_eq!(status, crate::request::FinallyType::RpcExpired);
+                                    let client = weak.upgrade().unwrap();
+                                    client.close();
+                                    if reopen {
+                                        client.open("127.0.0.1", port);
+                                    }
+                                    tx.send("expired").unwrap();
+                                })
+                                .call()
+                                .unwrap();
+                        }
+                        tx.send("open").unwrap();
+                    });
+                    client.set_reconnect(1);
+                    client.open("127.0.0.1", port);
+                    let (peer, _) = listener.accept().await.unwrap();
+                    assert_eq!(events.recv().await, Some("open"));
+                    drop(peer);
+                    assert_eq!(events.recv().await, Some("close"));
+                    let (_replaced_peer, _) = listener.accept().await.unwrap();
+                    assert_eq!(events.recv().await, Some("expired"));
+                    // The completion closed this connection before on_open could run.
+                    assert_eq!(events.recv().await, Some("close"));
+                    if reopen {
+                        let (_new_peer, _) = listener.accept().await.unwrap();
+                        assert_eq!(events.recv().await, Some("open"));
+                        client.close();
+                        assert_eq!(events.recv().await, Some("close"));
+                    }
+                    assert!(events.try_recv().is_err());
+                })
+                .await
+                .expect("reentrant close interrupted connection lifecycle");
+            }));
+        }
+    }
 
     #[test]
     fn reconnect_completions_can_reconfigure_client() {
